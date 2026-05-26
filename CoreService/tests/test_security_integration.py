@@ -20,7 +20,7 @@ from datetime import datetime
 from database import session_local, engine
 from models.sqlalchemy_models import (
     SysSecUser, SysSecRole, SysSecUserRole,
-    SysSecTypePermission, SysSecObjectPermission,
+    SysSecTypePermission, SysSecObjectPermission, SysSecMemberPermission,
     Msession, Image
 )
 from services.casbin_service import CasbinService
@@ -38,6 +38,80 @@ logger = logging.getLogger(__name__)
 
 # ==================== Fixtures ====================
 
+TEST_USER_PATTERN = 'test_user_%'
+TEST_ROLE_PATTERN = 'test_role_%'
+TEST_SESSION_PATTERN = 'test_session_%'
+TEST_IMAGE_PATTERN = 'test_image_%'
+
+
+def _cleanup_test_data(db: Session):
+    """Remove test-created rows in dependency order."""
+    test_role_ids = [
+        row[0]
+        for row in db.query(SysSecRole.Oid)
+        .filter(SysSecRole.Name.like(TEST_ROLE_PATTERN))
+        .all()
+    ]
+    test_user_ids = [
+        row[0]
+        for row in db.query(SysSecUser.oid)
+        .filter(SysSecUser.USERNAME.like(TEST_USER_PATTERN))
+        .all()
+    ]
+
+    if test_role_ids:
+        test_type_permission_ids = [
+            row[0]
+            for row in db.query(SysSecTypePermission.Oid)
+            .filter(SysSecTypePermission.Role.in_(test_role_ids))
+            .all()
+        ]
+
+        if test_type_permission_ids:
+            db.query(SysSecObjectPermission).filter(
+                SysSecObjectPermission.TypePermissionObject.in_(test_type_permission_ids)
+            ).delete(synchronize_session=False)
+            db.query(SysSecMemberPermission).filter(
+                SysSecMemberPermission.TypePermissionObject.in_(test_type_permission_ids)
+            ).delete(synchronize_session=False)
+
+        db.query(SysSecTypePermission).filter(
+            SysSecTypePermission.Role.in_(test_role_ids)
+        ).delete(synchronize_session=False)
+
+        db.query(SysSecUserRole).filter(
+            SysSecUserRole.Roles.in_(test_role_ids)
+        ).delete(synchronize_session=False)
+
+    if test_user_ids:
+        db.query(SysSecUserRole).filter(
+            SysSecUserRole.People.in_(test_user_ids)
+        ).delete(synchronize_session=False)
+
+    db.query(Image).filter(Image.frame_name.like(TEST_IMAGE_PATTERN)).delete(synchronize_session=False)
+    db.query(Msession).filter(Msession.name.like(TEST_SESSION_PATTERN)).delete(synchronize_session=False)
+    db.query(SysSecUser).filter(SysSecUser.USERNAME.like(TEST_USER_PATTERN)).delete(synchronize_session=False)
+    db.query(SysSecRole).filter(SysSecRole.Name.like(TEST_ROLE_PATTERN)).delete(synchronize_session=False)
+
+
+def _grant_user_session_read(user: SysSecUser, session: Msession):
+    CasbinService.add_permission_for_user(
+        str(user.oid),
+        f"msession:{session.oid}",
+        "read",
+        "allow",
+    )
+
+
+def _revoke_user_session_read(user: SysSecUser, session: Msession):
+    CasbinService.delete_permission_for_user(
+        str(user.oid),
+        f"msession:{session.oid}",
+        "read",
+        "allow",
+    )
+
+
 @pytest.fixture(scope="function")
 def db():
     """Provide a clean database session for each test"""
@@ -52,47 +126,30 @@ def db():
         session.close()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="function", autouse=True)
 def cleanup_test_data(db: Session):
-    """Clean up test data after each test"""
+    """Keep each test isolated from persisted security rows and Casbin policies."""
+    try:
+        CasbinService.initialize()
+        CasbinService.clear_policy()
+        _cleanup_test_data(db)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Error preparing test data: {e}")
+        db.rollback()
+        raise
+
     yield
 
-    # Clean up in reverse order of dependencies
     try:
-        # Delete test images
-        db.query(Image).filter(Image.frame_name.like('test_image_%')).delete(synchronize_session=False)
-
-        # Delete test sessions
-        db.query(Msession).filter(Msession.name.like('test_session_%')).delete(synchronize_session=False)
-
-        # Delete test object permissions
-        db.query(SysSecObjectPermission).filter(
-            SysSecObjectPermission.Criteria.like('%test_session_%')
-        ).delete(synchronize_session=False)
-
-        # Delete test type permissions
-        db.query(SysSecTypePermission).filter(
-            SysSecTypePermission.TargetType == 'TestEntity'
-        ).delete(synchronize_session=False)
-
-        # Delete test user-role assignments
-        db.query(SysSecUserRole).filter(
-            SysSecUserRole.People.in_(
-                db.query(SysSecUser.oid).filter(SysSecUser.USERNAME.like('test_user_%'))
-            )
-        ).delete(synchronize_session=False)
-
-        # Delete test users
-        db.query(SysSecUser).filter(SysSecUser.USERNAME.like('test_user_%')).delete(synchronize_session=False)
-
-        # Delete test roles
-        db.query(SysSecRole).filter(SysSecRole.Name.like('test_role_%')).delete(synchronize_session=False)
-
+        CasbinService.clear_policy()
+        _cleanup_test_data(db)
         db.commit()
         logger.info("Test data cleaned up successfully")
     except Exception as e:
         logger.error(f"Error cleaning up test data: {e}")
         db.rollback()
+        raise
 
 
 @pytest.fixture
@@ -462,12 +519,7 @@ class TestRowLevelSecurityFiltering:
         session_a = test_sessions['session_a']
 
         # Grant Alice access to Session A
-        CasbinService.add_permission_for_role(
-            'test_role_researcher',
-            f"msession:{session_a.oid}",
-            'read',
-            'allow'
-        )
+        _grant_user_session_read(alice, session_a)
 
         # Apply RLS to database session
         apply_row_level_security(db, alice.oid)
@@ -493,18 +545,8 @@ class TestRowLevelSecurityFiltering:
         session_shared = test_sessions['session_shared']
 
         # Grant Bob access to Session B and Shared
-        CasbinService.add_permission_for_role(
-            'test_role_researcher',
-            f"msession:{session_b.oid}",
-            'read',
-            'allow'
-        )
-        CasbinService.add_permission_for_role(
-            'test_role_researcher',
-            f"msession:{session_shared.oid}",
-            'read',
-            'allow'
-        )
+        _grant_user_session_read(bob, session_b)
+        _grant_user_session_read(bob, session_shared)
 
         # Apply RLS
         apply_row_level_security(db, bob.oid)
@@ -577,12 +619,7 @@ class TestManualSQLFiltering:
         session_a = test_sessions['session_a']
 
         # Grant Alice access to Session A
-        CasbinService.add_permission_for_role(
-            'test_role_researcher',
-            f"msession:{session_a.oid}",
-            'read',
-            'allow'
-        )
+        _grant_user_session_read(alice, session_a)
 
         # Get filter clause
         filter_clause, filter_params = get_session_filter_clause(alice.oid, column_name='session_id')
@@ -594,7 +631,11 @@ class TestManualSQLFiltering:
 
         # Verify Alice's accessible sessions
         accessible = filter_params['accessible_sessions']
-        assert str(session_a.oid) in accessible
+        accessible_ids = {
+            str(UUID(bytes=value)) if isinstance(value, bytes) else str(value)
+            for value in accessible
+        }
+        assert str(session_a.oid) in accessible_ids
 
         logger.info(f"✓ Alice filter clause: {filter_clause}")
         logger.info(f"✓ Alice accessible sessions: {accessible}")
@@ -628,12 +669,7 @@ class TestAccessCheckUtilities:
         session_b = test_sessions['session_b']
 
         # Grant Alice access to Session A
-        CasbinService.add_permission_for_role(
-            'test_role_researcher',
-            f"msession:{session_a.oid}",
-            'read',
-            'allow'
-        )
+        _grant_user_session_read(alice, session_a)
 
         # Check access
         alice_can_access_a = check_session_access(alice.oid, session_a.oid, 'read')
@@ -709,50 +745,11 @@ class TestComplexScenarios:
         session_b = test_sessions['session_b']
         session_shared = test_sessions['session_shared']
 
-        # Grant permissions
-        # Alice: Session A + Shared
-        CasbinService.add_permission_for_role(
-            'test_role_researcher',
-            f"msession:{session_a.oid}",
-            'read',
-            'allow'
-        )
-        CasbinService.add_permission_for_role(
-            'test_role_researcher',
-            f"msession:{session_shared.oid}",
-            'read',
-            'allow'
-        )
-
-        # Bob: Session B + Shared (using different role instance)
-        # Create Bob's specific permissions
-        bob_role = SysSecRole(
-            Oid=uuid4(),
-            Name='test_role_bob_specific',
-            IsAdministrative=0,
-            CanEditModel=0,
-            PermissionPolicy=0
-        )
-        db.add(bob_role)
-        db.commit()
-
-        # Assign Bob to his specific role
-        db.add(SysSecUserRole(oid=uuid4(), People=bob.oid, Roles=bob_role.Oid))
-        db.commit()
-
-        CasbinService.add_role_for_user(str(bob.oid), 'test_role_bob_specific')
-        CasbinService.add_permission_for_role(
-            'test_role_bob_specific',
-            f"msession:{session_b.oid}",
-            'read',
-            'allow'
-        )
-        CasbinService.add_permission_for_role(
-            'test_role_bob_specific',
-            f"msession:{session_shared.oid}",
-            'read',
-            'allow'
-        )
+        # Grant direct per-user permissions.
+        _grant_user_session_read(alice, session_a)
+        _grant_user_session_read(alice, session_shared)
+        _grant_user_session_read(bob, session_b)
+        _grant_user_session_read(bob, session_shared)
 
         # Test Alice's view
         db_alice = session_local()
@@ -796,12 +793,7 @@ class TestComplexScenarios:
         session_a = test_sessions['session_a']
 
         # Grant permission
-        CasbinService.add_permission_for_role(
-            'test_role_researcher',
-            f"msession:{session_a.oid}",
-            'read',
-            'allow'
-        )
+        _grant_user_session_read(alice, session_a)
 
         # Verify Alice can access
         db_before = session_local()
@@ -812,12 +804,7 @@ class TestComplexScenarios:
         assert len(images_before) == 3  # Session A images
 
         # Revoke permission
-        CasbinService.remove_policy(
-            'test_role_researcher',
-            f"msession:{session_a.oid}",
-            'read',
-            'allow'
-        )
+        _revoke_user_session_read(alice, session_a)
 
         # Verify Alice can no longer access
         db_after = session_local()
@@ -857,39 +844,11 @@ def test_comprehensive_security_summary(
     # === SETUP PERMISSIONS ===
 
     # Alice: Session A
-    CasbinService.add_permission_for_role(
-        'test_role_researcher',
-        f"msession:{session_a.oid}",
-        'read',
-        'allow'
-    )
+    _grant_user_session_read(alice, session_a)
 
-    # Create Bob-specific role for his permissions
-    bob_role = SysSecRole(
-        Oid=uuid4(),
-        Name='test_role_bob_specific',
-        IsAdministrative=0,
-        CanEditModel=0,
-        PermissionPolicy=0
-    )
-    db.add(bob_role)
-    db.commit()
-    db.add(SysSecUserRole(oid=uuid4(), People=bob.oid, Roles=bob_role.Oid))
-    db.commit()
-
-    CasbinService.add_role_for_user(str(bob.oid), 'test_role_bob_specific')
-    CasbinService.add_permission_for_role(
-        'test_role_bob_specific',
-        f"msession:{session_b.oid}",
-        'read',
-        'allow'
-    )
-    CasbinService.add_permission_for_role(
-        'test_role_bob_specific',
-        f"msession:{session_shared.oid}",
-        'read',
-        'allow'
-    )
+    # Bob: Session B + Shared
+    _grant_user_session_read(bob, session_b)
+    _grant_user_session_read(bob, session_shared)
 
     # Charlie: No permissions
 

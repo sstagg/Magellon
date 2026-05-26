@@ -16,6 +16,17 @@ from models.sqlalchemy_models import Msession, Image, SysSecUser, SysSecRole
 from database import get_db
 
 
+WEBAPP_RLS_USERS = ("admin_test", "jack_test")
+WEBAPP_RLS_SESSION_PATTERN = "TEST_SESSION_%"
+WEB_PREFIX = "/web"
+
+
+def _cleanup_webapp_rls_data(db: Session):
+    db.query(Image).filter(Image.name.like(WEBAPP_RLS_SESSION_PATTERN)).delete(synchronize_session=False)
+    db.query(Msession).filter(Msession.name.like(WEBAPP_RLS_SESSION_PATTERN)).delete(synchronize_session=False)
+    db.query(SysSecUser).filter(SysSecUser.USERNAME.in_(WEBAPP_RLS_USERS)).delete(synchronize_session=False)
+
+
 @pytest.fixture
 def client():
     """FastAPI test client"""
@@ -32,13 +43,29 @@ def db():
         db.close()
 
 
+@pytest.fixture(autouse=True)
+def cleanup_webapp_rls_data(db: Session):
+    """Isolate endpoint RLS tests from persisted rows and Casbin policies."""
+    CasbinService.initialize()
+    CasbinService.clear_policy()
+    _cleanup_webapp_rls_data(db)
+    db.commit()
+
+    yield
+
+    CasbinService.clear_policy()
+    _cleanup_webapp_rls_data(db)
+    db.commit()
+
+
 @pytest.fixture
 def admin_user(db: Session):
     """Create admin user with wildcard session access"""
     user = SysSecUser(
         oid=uuid4(),
         USERNAME="admin_test",
-        PASSWORD="hashed_password"
+        PASSWORD="hashed_password",
+        ACTIVE=True
     )
     db.add(user)
     db.commit()
@@ -61,7 +88,8 @@ def regular_user(db: Session):
     user = SysSecUser(
         oid=uuid4(),
         USERNAME="jack_test",
-        PASSWORD="hashed_password"
+        PASSWORD="hashed_password",
+        ACTIVE=True
     )
     db.add(user)
     db.commit()
@@ -154,7 +182,7 @@ def test_images(db: Session, test_sessions):
 
 def create_auth_token(user_id: UUID) -> str:
     """Helper to create JWT token for user"""
-    from controllers.security.authentication import create_access_token
+    from dependencies.auth import create_access_token
     return create_access_token(data={"sub": str(user_id)})
 
 
@@ -167,7 +195,7 @@ class TestGetImagesRLS:
         session_a = test_sessions["session_a"]
 
         response = client.get(
-            f"/images?session_name={session_a.name}",
+            f"{WEB_PREFIX}/images?session_name={session_a.name}",
             headers={"Authorization": f"Bearer {token}"}
         )
 
@@ -190,7 +218,7 @@ class TestGetImagesRLS:
         )
 
         response = client.get(
-            f"/images?session_name={session_a.name}",
+            f"{WEB_PREFIX}/images?session_name={session_a.name}",
             headers={"Authorization": f"Bearer {token}"}
         )
 
@@ -215,7 +243,7 @@ class TestGetImagesRLS:
 
         # Try to access session B (should fail)
         response = client.get(
-            f"/images?session_name={session_b.name}",
+            f"{WEB_PREFIX}/images?session_name={session_b.name}",
             headers={"Authorization": f"Bearer {token}"}
         )
 
@@ -228,7 +256,7 @@ class TestGetImagesRLS:
         session_a = test_sessions["session_a"]
 
         response = client.get(
-            f"/images?session_name={session_a.name}",
+            f"{WEB_PREFIX}/images?session_name={session_a.name}",
             headers={"Authorization": f"Bearer {token}"}
         )
 
@@ -245,7 +273,7 @@ class TestGetImageByNameRLS:
         image_a1 = test_images["session_a"][0]
 
         response = client.get(
-            f"/images/{image_a1.name}",
+            f"{WEB_PREFIX}/images/{image_a1.name}",
             headers={"Authorization": f"Bearer {token}"}
         )
 
@@ -269,7 +297,7 @@ class TestGetImageByNameRLS:
         )
 
         response = client.get(
-            f"/images/{image_a1.name}",
+            f"{WEB_PREFIX}/images/{image_a1.name}",
             headers={"Authorization": f"Bearer {token}"}
         )
 
@@ -293,7 +321,7 @@ class TestGetImageByNameRLS:
 
         # Try to access image from session B (should fail)
         response = client.get(
-            f"/images/{image_b1.name}",
+            f"{WEB_PREFIX}/images/{image_b1.name}",
             headers={"Authorization": f"Bearer {token}"}
         )
 
@@ -310,7 +338,7 @@ class TestGetSessionMagsRLS:
         session_a = test_sessions["session_a"]
 
         response = client.get(
-            f"/session_mags?session_name={session_a.name}",
+            f"{WEB_PREFIX}/session_mags?session_name={session_a.name}",
             headers={"Authorization": f"Bearer {token}"}
         )
 
@@ -333,7 +361,7 @@ class TestGetSessionMagsRLS:
         )
 
         response = client.get(
-            f"/session_mags?session_name={session_a.name}",
+            f"{WEB_PREFIX}/session_mags?session_name={session_a.name}",
             headers={"Authorization": f"Bearer {token}"}
         )
 
@@ -357,7 +385,7 @@ class TestGetSessionMagsRLS:
 
         # Try to access session B magnifications (should fail)
         response = client.get(
-            f"/session_mags?session_name={session_b.name}",
+            f"{WEB_PREFIX}/session_mags?session_name={session_b.name}",
             headers={"Authorization": f"Bearer {token}"}
         )
 
@@ -386,7 +414,7 @@ class TestRLSFilteringIntegration:
 
         # Query session A (should succeed)
         response = client.get(
-            f"/images?session_name={session_a.name}",
+            f"{WEB_PREFIX}/images?session_name={session_a.name}",
             headers={"Authorization": f"Bearer {token}"}
         )
 
@@ -414,7 +442,7 @@ class TestRLSFilteringIntegration:
 
         # Query with pagination
         response = client.get(
-            f"/images?session_name={session_a.name}&page=1&pageSize=1",
+            f"{WEB_PREFIX}/images?session_name={session_a.name}&page=1&pageSize=1",
             headers={"Authorization": f"Bearer {token}"}
         )
 

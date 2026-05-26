@@ -1,4 +1,10 @@
 import logging.config
+import os
+from pathlib import Path
+
+
+LOG_DIR = Path(os.environ.get("MAGELLON_LOG_DIR", "logs"))
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 LOGGING_CONFIG = {
     'version': 1,
@@ -10,7 +16,7 @@ LOGGING_CONFIG = {
         },
         'file': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'app.log',
+            'filename': str(LOG_DIR / 'app.log'),
             'maxBytes': 1024 * 1024 * 5,  # 5 MB
             'backupCount': 5,
             'formatter': 'detailed',

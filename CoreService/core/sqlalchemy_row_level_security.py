@@ -99,11 +99,14 @@ class RowLevelSecurityFilter:
 
         accessible = set()
 
-        for policy in policies:
-            role, resource, action, effect = policy
+        subjects = set(roles)
+        subjects.add(user_id_str)
 
-            # Check if this policy applies to user's roles
-            if role in roles and effect == "allow" and action in ("read", "*"):
+        for policy in policies:
+            subject, resource, action, effect = policy
+
+            # Check if this policy applies directly to the user or to one of the user's roles.
+            if subject in subjects and effect == "allow" and action in ("read", "*"):
                 # Parse resource identifier
                 if resource.startswith("msession:"):
                     if resource == "msession:*":
@@ -324,11 +327,18 @@ def get_session_filter_clause(user_id: UUID, column_name: str = "session_id") ->
             {"accessible_sessions": tuple()}  # Empty tuple = no matches
         )
 
-    # Normal case - filter by accessible sessions
-    # Convert UUIDs to tuple for SQL IN clause
+    # Normal case - filter by accessible sessions. Raw SQL bypasses the UUID
+    # TypeDecorator, so bind values must match the database representation.
+    from database import engine
+
+    if engine.dialect.name == "postgresql":
+        session_ids = tuple(str(session_id) for session_id in accessible_sessions)
+    else:
+        session_ids = tuple(UUID(str(session_id)).bytes for session_id in accessible_sessions)
+
     return (
         f"AND {column_name} IN :accessible_sessions",
-        {"accessible_sessions": tuple(accessible_sessions)}
+        {"accessible_sessions": session_ids}
     )
 
 

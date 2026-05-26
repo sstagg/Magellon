@@ -79,8 +79,7 @@ def get_session_mags(
         params = {"session_id": session_id_binary, **filter_params}
         result = db_session.execute(query, params)
         rows = result.fetchall()
-        # Convert rows to a list of dictionaries with named keys
-        return [row[0] for row in rows[1:]]
+        return [row[0] for row in rows]
     except Exception as e:
         raise Exception(f"Database query execution error: {str(e)}")
 
@@ -210,23 +209,19 @@ def get_image_route(
         user_id: UUID = Depends(get_current_user_id)  # RLS: Get current user
 ):
     try:
-        # Assuming the session name is the part of the image name preceding underscore
-        session_name = image_name.split('_')[0]
-
-        # Get the Msession based on the session name
-        msession = db_session.query(Msession).filter(Msession.name == session_name).first()
-        if msession is None:
-            raise HTTPException(status_code=404, detail="Session not found")
+        db_image = db_session.query(Image).filter(Image.name == image_name).first()
+        if db_image is None:
+            raise HTTPException(status_code=404, detail="Image not found")
 
         # RLS: Check if user has access to this session
-        if not check_session_access(user_id, msession.oid, action="read"):
+        if db_image.session_id is None or not check_session_access(user_id, db_image.session_id, action="read"):
             raise HTTPException(
                 status_code=403,
-                detail=f"Access denied to session '{session_name}'"
+                detail="Access denied to this image"
             )
 
         try:
-            session_id_binary = msession.oid.bytes
+            session_id_binary = db_image.session_id.bytes
         except AttributeError:
             raise HTTPException(status_code=500, detail="Invalid session ID")
 
@@ -265,10 +260,11 @@ def get_image_route(
             image = ImageDto(
                 oid=row.oid,
                 name=row.name,
-                defocus=round(float(row.defocus) * 1.e6, 2),
+                defocus=round(float(row.defocus) * 1.e6, 2) if row.defocus is not None else row.defocus,
                 dose=row.dose,
                 mag=row.mag,
-                pixelSize=round(float(row.pixelSize) * row.binning_x * 1.e10, 3),
+                pixelSize=round(float(row.pixelSize) * row.binning_x * 1.e10, 3)
+                    if row.pixelSize is not None and row.binning_x is not None else None,
                 parent_id=row.parent_id,
                 session_id=row.session_id,
                 children_count=row.children_count
@@ -277,6 +273,8 @@ def get_image_route(
 
         raise HTTPException(status_code=404, detail="Image not found")
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database query execution error: {str(e)}")
 
