@@ -676,58 +676,6 @@ def get_correct_image_parent_child(
     db_session.commit()
     logger.info(f"User {user_id} successfully updated parent-child relationships for session: {name}")
     return {'result': "Done!"}
-
-
-
-
-@webapp_router.get("/debug/casbin-check")
-async def debug_casbin_check(
-    session_name: str,
-    user_id: UUID = Depends(get_current_user_id)
-):
-    """
-    Debug endpoint to check Casbin configuration and access.
-
-    **Requires:** Authentication
-    """
-    from services.casbin_service import CasbinService
-
-    # Force reload policies
-    enforcer = CasbinService.get_enforcer()
-    enforcer.load_policy()
-
-    # Get session
-    db_session = next(get_db())
-    try:
-        msession = db_session.query(Msession).filter(Msession.name == session_name.lower()).first()
-        if not msession:
-            return {"error": "Session not found"}
-
-        # Check access
-        resource = f"msession:{msession.oid}"
-        access_result = CasbinService.enforce(str(user_id), resource, "read")
-
-        # Get user roles
-        roles = enforcer.get_roles_for_user(str(user_id))
-
-        # Get relevant policies
-        admin_policies = enforcer.get_filtered_policy(0, "Administrator")
-        msession_policies = [p for p in admin_policies if "msession" in p[1]]
-
-        return {
-            "user_id": str(user_id),
-            "session_name": session_name,
-            "session_oid": str(msession.oid),
-            "resource": resource,
-            "access_granted": access_result,
-            "user_roles": roles,
-            "administrator_msession_policies": msession_policies,
-            "model_path": "configs/casbin_model.conf"
-        }
-    finally:
-        db_session.close()
-
-
 @webapp_router.get("/image_thumbnail")
 async def get_image_thumbnail(
     name: str,
