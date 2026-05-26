@@ -127,6 +127,9 @@ do not yet share one orchestration skeleton. Current duplication includes:
   instead of recursing into itself;
 - `ImporterFactory.import_data()` now passes the DB session into
   `setup(input_data, db_session)`.
+- Magellon MotionCor no longer falls back to a hard-coded `/gpfs/24dec03a`
+  gain file. It uses the copied target gain reference when available and
+  skips MotionCor when no gain reference exists.
 
 ## Refactor Direction
 

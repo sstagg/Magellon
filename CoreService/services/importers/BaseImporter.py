@@ -759,7 +759,7 @@ class BaseImporter(ABC):
         if os.path.exists(gains_dir):
             files = [f for f in os.listdir(gains_dir) if os.path.isfile(os.path.join(gains_dir, f))]
             if files:
-                return os.path.join(gains_dir, files[0])
+                return os.path.normpath(os.path.join(gains_dir, files[0]))
 
         return None
     
@@ -776,7 +776,7 @@ class BaseImporter(ABC):
         if os.path.exists(defects_dir):
             files = [f for f in os.listdir(defects_dir) if os.path.isfile(os.path.join(defects_dir, f))]
             if files:
-                return os.path.join(defects_dir, files[0])
+                return os.path.normpath(os.path.join(defects_dir, files[0]))
 
         return None
 
@@ -792,6 +792,9 @@ class BaseImporter(ABC):
         """
         if hasattr(self.params, 'target_directory') and self.params.target_directory:
             return self.params.target_directory
+
+        if self.file_service and self.file_service.target_directory:
+            return self.file_service.target_directory
 
         # Try to use session directory in MAGELLON_HOME_DIR
         session_name = self.get_session_name()

@@ -12,6 +12,7 @@ from services.importers.BaseImporter import BaseImporter
 from services.importers.EPUImporter import EPUMetadata, EPUImporter
 from services.importers.ImporterFactory import import_data
 from services.importers.import_database_service import ImportDatabaseService
+from services.importers.MagellonImporter import MagellonImporter
 from services.importers.SerialEmImporter import SerialEMMetadata, SerialEmImporter
 from services.importers.source_strategies import MagellonSessionJsonStrategy
 
@@ -217,6 +218,73 @@ def test_serialem_process_task_skips_ctf_and_motioncor_for_montage(tmp_path):
     importer.compute_fft.assert_called_once_with(str(image_path))
     importer.compute_ctf.assert_not_called()
     importer.compute_motioncor.assert_not_called()
+
+
+def test_magellon_motioncor_skips_when_gain_reference_missing(tmp_path, monkeypatch):
+    source_root = tmp_path / "source"
+    target_root = tmp_path / "target"
+    frame_path = source_root / "home" / "frames" / "movie.eer"
+    frame_path.parent.mkdir(parents=True)
+    frame_path.write_bytes(b"frame")
+    target_root.mkdir()
+
+    importer = MagellonImporter.__new__(MagellonImporter)
+    importer.params = SimpleNamespace(source_dir=str(source_root))
+    importer.file_service = SimpleNamespace(target_directory=str(target_root))
+    dispatch_motioncor = Mock(return_value=True)
+    monkeypatch.setattr(
+        "services.importers.MagellonImporter.find_matching_file",
+        lambda _base_path, _frame_name: str(frame_path),
+    )
+    monkeypatch.setattr(
+        "services.importers.MagellonImporter.dispatch_motioncor_task",
+        dispatch_motioncor,
+    )
+
+    result = importer.compute_motioncor_task(
+        str(source_root / "home" / "original" / "image.mrc"),
+        SimpleNamespace(task_id=uuid.uuid4(), frame_name="movie", frame_path=str(frame_path)),
+    )
+
+    assert result is False
+    dispatch_motioncor.assert_not_called()
+
+
+def test_magellon_motioncor_uses_target_gain_reference(tmp_path, monkeypatch):
+    source_root = tmp_path / "source"
+    target_root = tmp_path / "target"
+    frame_path = source_root / "home" / "frames" / "movie.eer"
+    gain_path = target_root / "gains" / "gain.tif"
+    frame_path.parent.mkdir(parents=True)
+    frame_path.write_bytes(b"frame")
+    gain_path.parent.mkdir(parents=True)
+    gain_path.write_bytes(b"gain")
+
+    importer = MagellonImporter.__new__(MagellonImporter)
+    importer.params = SimpleNamespace(source_dir=str(source_root))
+    importer.file_service = SimpleNamespace(target_directory=str(target_root))
+    captured = {}
+
+    def fake_dispatch(**kwargs):
+        captured.update(kwargs)
+        return True
+
+    monkeypatch.setattr(
+        "services.importers.MagellonImporter.find_matching_file",
+        lambda _base_path, _frame_name: str(frame_path),
+    )
+    monkeypatch.setattr(
+        "services.importers.MagellonImporter.dispatch_motioncor_task",
+        fake_dispatch,
+    )
+
+    result = importer.compute_motioncor_task(
+        str(source_root / "home" / "original" / "image.mrc"),
+        SimpleNamespace(task_id=uuid.uuid4(), frame_name="movie", frame_path=str(frame_path)),
+    )
+
+    assert result is True
+    assert captured["gain_path"] == str(gain_path)
 
 
 class _ImageQuery:

@@ -296,15 +296,22 @@ class MagellonImporter(BaseImporter):
                         gain_files.append(os.path.join(source_gains_dir, file))
 
             if not gain_files:
-                source_gains_file = "/gpfs/24dec03a/home/gains/20241202_53597_gain_multi_ref.tif"
+                source_gains_file = self._find_gain_reference()
             else:
                 # Use the most recent gain file (assuming date format in filename)
                 source_gains_file = sorted(gain_files)[-1]
+
+            if not source_gains_file:
+                logger.warning("MotionCor skipped for %s: no gain reference found", abs_file_path)
+                return False
+
             defects_path = None
             if os.path.exists(source_defects_dir):
                 defect_files = [os.path.join(source_defects_dir, f) for f in os.listdir(source_defects_dir)]
                 if defect_files:
                     defects_path = defect_files[0]
+            if not defects_path:
+                defects_path = self._find_defects_reference()
 
             return bool(dispatch_motioncor_task(
                 task_id=task_dto.task_id,
