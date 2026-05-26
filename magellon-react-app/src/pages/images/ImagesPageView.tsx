@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Box, useTheme, useMediaQuery } from '@mui/material';
-import { Panel, Group, Separator } from 'react-resizable-panels';
+import { Panel, Group, Separator, usePanelRef } from 'react-resizable-panels';
 import { ImageWorkspace } from '../../features/image-viewer/ui/ImageWorkspace.tsx';
 import { useSessionNames } from '../../features/image-viewer/api/FetchUseSessionNames.ts';
 import { useImageViewerStore } from '../../features/image-viewer/model/imageViewerStore.ts';
@@ -14,33 +14,24 @@ import { ImageNavigationProvider } from '../../features/image-viewer/lib/ImageNa
 import { useSidePanelStore } from '../../shared/lib/stores/useBottomPanelStore.ts';
 import '../../shared/ui/resizablePanels.module.css';
 
-const CustomResizeHandle = () => {
-    const theme = useTheme();
-    return (
-        <Separator className="resize-handle-horizontal">
-            <Box sx={{
-                width: '100%', height: '100%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                position: 'relative',
-                '&::before': {
-                    content: '""', position: 'absolute', top: '50%', left: '50%',
-                    transform: 'translate(-50%, -50%)', width: '3px', height: '40px',
-                    background: `repeating-linear-gradient(to bottom, ${theme.palette.text.secondary} 0px, ${theme.palette.text.secondary} 3px, transparent 3px, transparent 7px)`,
-                    borderRadius: '1.5px', opacity: 0.4, transition: 'opacity 0.2s ease',
-                },
-                '&:hover::before': { opacity: 0.8 },
-            }} />
-        </Separator>
-    );
-};
+// ColumnBrowser default column width (see ColumnBrowser.tsx — clamps to >= 175).
+const DEFAULT_COLUMN_PX = 175;
+// Gap between columns + container padding + scrollbar gutter.
+const COLUMN_GUTTER_PX = 16;
+// Header chrome: session-select + view-mode toggle + Column View Settings strip.
+const HEADER_CHROME_PX = 80;
+
+const widthForColumns = (count: number, columnPx: number = DEFAULT_COLUMN_PX): number =>
+    HEADER_CHROME_PX + count * (columnPx + COLUMN_GUTTER_PX);
 
 export const ImagesPageView = () => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-    const { leftPanelSize, handleResize, leftMargin } = usePanelLayout({
-        defaultSize: 35, minSize: 25, maxSize: 50,
-        storageKey: 'images-page-left-panel-size',
+    const { userWidthPx, onUserResize, leftMargin, minPx, maxPx } = usePanelLayout({
+        storageKey: 'images-page-left-panel-px',
+        minPx: 280,
+        maxPx: 1200,
     });
 
     const { handleImageClick, handleSessionSelect } = useImageNavigation();
@@ -55,6 +46,39 @@ export const ImagesPageView = () => {
 
     const { activePanel, panelWidth } = useSidePanelStore();
     const rightOffset = activePanel ? panelWidth : 0;
+
+    // Default the left panel to fit the standard 4-column layout (GR / SQ /
+    // HL / EX). The operator can drag narrower for small monitors or wider
+    // for higher-res displays; their choice is persisted in localStorage.
+    const autoFitPx = Math.max(minPx, Math.min(maxPx, widthForColumns(4)));
+
+    // Operator's manual override wins; otherwise we auto-fit to columns.
+    const effectivePx = userWidthPx ?? autoFitPx;
+
+    // Resize the panel imperatively when the column count grows. We use a
+    // programmatic-resize flag so the resulting onResize callback doesn't
+    // get mistaken for a user drag (which would then pin the auto-fit value
+    // as the operator override and freeze further auto-fitting).
+    const leftPanelRef = usePanelRef();
+    const lastAppliedPx = useRef<number | null>(null);
+    const programmaticResize = useRef(false);
+    useEffect(() => {
+        if (!leftPanelRef.current) return;
+        if (lastAppliedPx.current === effectivePx) return;
+        programmaticResize.current = true;
+        leftPanelRef.current.resize(`${effectivePx}px`);
+        lastAppliedPx.current = effectivePx;
+        // Clear flag on next tick; the library calls onResize synchronously
+        // after `resize()`, so a microtask is enough.
+        queueMicrotask(() => { programmaticResize.current = false; });
+    }, [effectivePx, leftPanelRef]);
+
+    const handlePanelResize = (sizePx: number) => {
+        if (programmaticResize.current) return;
+        // Ignore noise (sub-pixel rounding while dragging).
+        if (Math.abs(sizePx - (userWidthPx ?? autoFitPx)) < 4) return;
+        onUserResize(sizePx);
+    };
 
     const workspaceProps = {
         onImageClick: handleImageClick,
@@ -113,13 +137,15 @@ export const ImagesPageView = () => {
                         }}>
                             <Group
                                 orientation="horizontal"
-                                onLayoutChange={handleResize}
                                 style={{ width: '100%', height: '100%', minWidth: 0 }}
                             >
                                 <Panel
                                     id="session-navigator"
-                                    defaultSize={`${leftPanelSize}%`}
-                                    minSize="25%" maxSize="50%"
+                                    panelRef={leftPanelRef}
+                                    defaultSize={`${effectivePx}px`}
+                                    minSize={`${minPx}px`}
+                                    maxSize={`${maxPx}px`}
+                                    onResize={(panelSize) => handlePanelResize(panelSize.inPixels)}
                                     style={{ minWidth: 0, overflow: 'hidden' }}
                                 >
                                     <Box sx={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', backgroundColor: 'background.paper' }}>
@@ -127,9 +153,9 @@ export const ImagesPageView = () => {
                                     </Box>
                                 </Panel>
 
-                                <CustomResizeHandle />
+                                <Separator />
 
-                                <Panel id="image-viewer" minSize="50%" style={{ minWidth: 500, overflow: 'hidden' }}>
+                                <Panel id="image-viewer" minSize="320px" style={{ minWidth: 0, overflow: 'hidden' }}>
                                     <Box sx={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', backgroundColor: 'background.paper' }}>
                                         <ImageInspector selectedImage={currentImage} />
                                     </Box>

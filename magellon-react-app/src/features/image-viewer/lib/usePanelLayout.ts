@@ -1,103 +1,104 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useMediaQuery, useTheme } from '@mui/material';
 
 interface UsePanelLayoutOptions {
-    defaultSize?: number;
-    minSize?: number;
-    maxSize?: number;
+    /** Minimum pixel width of the left (column-browser) panel. */
+    minPx?: number;
+    /** Maximum pixel width of the left (column-browser) panel. */
+    maxPx?: number;
+    /** localStorage key for a user-overridden width. */
     storageKey: string;
 }
 
-// Layout type for react-resizable-panels v4
-type Layout = { [panelId: string]: number };
-
 interface UsePanelLayoutReturn {
-    leftPanelSize: number;
-    handleResize: (layout: Layout) => void;
+    /** Current user-overridden width in px, or null when auto-fit applies. */
+    userWidthPx: number | null;
+    /** Called from Panel's onResize. Persists the user's pick. */
+    onUserResize: (sizePx: number) => void;
+    /** Forget the user override (e.g. operator double-clicked the separator). */
     resetLayout: () => void;
     isDrawerOpen: boolean;
     leftMargin: number;
+    minPx: number;
+    maxPx: number;
 }
 
 const DRAWER_WIDTH = 240;
 
+/**
+ * Layout state for the images-page left panel.
+ *
+ * Defaults to auto-fitting to the visible column count (computed at the call
+ * site). The user can drag the splitter to override; the override is
+ * persisted to localStorage and takes priority over auto-fit until reset.
+ */
 export const usePanelLayout = (options: UsePanelLayoutOptions): UsePanelLayoutReturn => {
     const {
-        defaultSize = 35,
-        minSize = 25,
-        maxSize = 50,
-        storageKey
+        minPx = 260,
+        maxPx = 1200,
+        storageKey,
     } = options;
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-    // Track drawer state
     const [isDrawerOpen, setIsDrawerOpen] = useState(() => {
         if (typeof window === 'undefined') return false;
-        const savedState = localStorage.getItem('drawerOpen');
-        return savedState ? JSON.parse(savedState) : false;
+        const saved = window.localStorage.getItem('drawerOpen');
+        return saved ? (JSON.parse(saved) as boolean) : false;
     });
 
-    // Panel size with constraints
-    const [leftPanelSize, setLeftPanelSize] = useState(() => {
-        if (typeof window === 'undefined') return defaultSize;
-        const saved = localStorage.getItem(storageKey);
-        const mobileDefault = isMobile ? 100 : defaultSize;
-        const parsedSize = saved ? parseInt(saved, 10) : mobileDefault;
-        return Math.max(minSize, Math.min(maxSize, parsedSize));
+    const [userWidthPx, setUserWidthPx] = useState<number | null>(() => {
+        if (typeof window === 'undefined') return null;
+        const saved = window.localStorage.getItem(storageKey);
+        if (!saved) return null;
+        const parsed = Number.parseInt(saved, 10);
+        if (Number.isNaN(parsed)) return null;
+        return Math.max(minPx, Math.min(maxPx, parsed));
     });
 
-    // Listen for drawer state changes using custom event
     useEffect(() => {
-        const handleDrawerChange = (e: CustomEvent) => {
-            setIsDrawerOpen(e.detail.isOpen);
+        const handleDrawerChange = (e: Event) => {
+            const custom = e as CustomEvent<{ isOpen: boolean }>;
+            if (custom.detail) setIsDrawerOpen(custom.detail.isOpen);
         };
-
         const handleStorageChange = () => {
             if (typeof window === 'undefined') return;
-            const savedState = localStorage.getItem('drawerOpen');
-            setIsDrawerOpen(savedState ? JSON.parse(savedState) : false);
+            const saved = window.localStorage.getItem('drawerOpen');
+            setIsDrawerOpen(saved ? (JSON.parse(saved) as boolean) : false);
         };
-
-        window.addEventListener('drawer-state-changed' as any, handleDrawerChange);
+        window.addEventListener('drawer-state-changed', handleDrawerChange);
         window.addEventListener('storage', handleStorageChange);
-
         return () => {
-            window.removeEventListener('drawer-state-changed' as any, handleDrawerChange);
+            window.removeEventListener('drawer-state-changed', handleDrawerChange);
             window.removeEventListener('storage', handleStorageChange);
         };
     }, []);
 
-    // Handle panel resize with constraints (react-resizable-panels v4 API)
-    const handleResize = useCallback((layout: Layout) => {
-        // Get the first panel's size (session-navigator panel)
-        const sessionNavigatorSize = layout['session-navigator'];
-        if (sessionNavigatorSize !== undefined) {
-            const constrainedSize = Math.max(minSize, Math.min(maxSize, sessionNavigatorSize));
-            setLeftPanelSize(constrainedSize);
-            if (typeof window !== 'undefined') {
-                localStorage.setItem(storageKey, constrainedSize.toString());
-            }
-        }
-    }, [minSize, maxSize, storageKey]);
-
-    // Reset layout to defaults
-    const resetLayout = useCallback(() => {
-        setLeftPanelSize(defaultSize);
+    const onUserResize = useCallback((sizePx: number) => {
+        const clamped = Math.max(minPx, Math.min(maxPx, Math.round(sizePx)));
+        setUserWidthPx(clamped);
         if (typeof window !== 'undefined') {
-            localStorage.removeItem(storageKey);
+            window.localStorage.setItem(storageKey, String(clamped));
         }
-    }, [defaultSize, storageKey]);
+    }, [minPx, maxPx, storageKey]);
 
-    // Calculate left margin based on drawer state
-    const leftMargin = isDrawerOpen ? DRAWER_WIDTH : 0;
+    const resetLayout = useCallback(() => {
+        setUserWidthPx(null);
+        if (typeof window !== 'undefined') {
+            window.localStorage.removeItem(storageKey);
+        }
+    }, [storageKey]);
+
+    const leftMargin = isDrawerOpen && !isMobile ? DRAWER_WIDTH : 0;
 
     return {
-        leftPanelSize,
-        handleResize,
+        userWidthPx,
+        onUserResize,
         resetLayout,
         isDrawerOpen,
-        leftMargin
+        leftMargin,
+        minPx,
+        maxPx,
     };
 };
