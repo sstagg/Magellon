@@ -93,6 +93,20 @@ def test_input_rejects_extra_fields():
         BoxnetPickerInput(image_path="/tmp/x.mrc", thresholdz=0.5)
 
 
+def test_input_accepts_coreservice_transport_fields():
+    """CoreService adds these fields to RMQ particle-picking tasks."""
+    from plugin.models import BoxnetPickerInput
+
+    parsed = BoxnetPickerInput(
+        image_path="/tmp/x.mrc",
+        input_file="/tmp/x.mrc",
+        ipp_name="Auto-pick",
+    )
+
+    assert parsed.input_file == "/tmp/x.mrc"
+    assert parsed.ipp_name == "Auto-pick"
+
+
 def test_input_clamps_threshold_to_unit_interval():
     from pydantic import ValidationError
     from plugin.models import BoxnetPickerInput
@@ -109,6 +123,49 @@ def test_input_min_distance_must_be_positive():
 
     with pytest.raises(ValidationError):
         BoxnetPickerInput(image_path="/tmp/x.mrc", min_distance=0)
+
+
+# ---------------------------------------------------------------------------
+# Data-plane path mapping
+# ---------------------------------------------------------------------------
+
+
+def test_compute_rewrites_canonical_gpfs_path_for_windows(monkeypatch):
+    from core.settings import AppSettingsSingleton
+    from plugin import compute
+
+    class Settings:
+        MAGELLON_GPFS_PATH = "C:/magellon/gpfs"
+
+    monkeypatch.setattr(
+        AppSettingsSingleton,
+        "get_instance",
+        staticmethod(lambda: Settings()),
+    )
+
+    assert (
+        compute._resolve_local_path("/gpfs/home/s/mic.mrc")
+        == "C:/magellon/gpfs/home/s/mic.mrc"
+    )
+
+
+def test_compute_returns_wire_path_from_local_gpfs_path(monkeypatch):
+    from core.settings import AppSettingsSingleton
+    from plugin import compute
+
+    class Settings:
+        MAGELLON_GPFS_PATH = "C:/magellon/gpfs"
+
+    monkeypatch.setattr(
+        AppSettingsSingleton,
+        "get_instance",
+        staticmethod(lambda: Settings()),
+    )
+
+    assert (
+        compute._to_wire_path("C:/magellon/gpfs/home/s/particles.json")
+        == "/gpfs/home/s/particles.json"
+    )
 
 
 # ---------------------------------------------------------------------------

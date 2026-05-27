@@ -15,8 +15,31 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import numpy as np
+from magellon_sdk.paths import from_canonical_gpfs_path, to_canonical_gpfs_path
 
 logger = logging.getLogger(__name__)
+
+
+def _gpfs_path() -> Optional[str]:
+    try:
+        from core.settings import AppSettingsSingleton
+        return AppSettingsSingleton.get_instance().MAGELLON_GPFS_PATH
+    except Exception:  # noqa: BLE001 - keep compute callable in unit tests
+        return None
+
+
+def _resolve_local_path(path: Optional[str]) -> Optional[str]:
+    """Translate canonical /gpfs wire paths to this plugin's filesystem."""
+    if not path:
+        return path
+    return from_canonical_gpfs_path(path, gpfs_path=_gpfs_path()) or path
+
+
+def _to_wire_path(path: Optional[str]) -> Optional[str]:
+    """Translate this plugin's local path back to canonical /gpfs form."""
+    if not path:
+        return path
+    return to_canonical_gpfs_path(path, gpfs_path=_gpfs_path()) or path
 
 
 def _load_mrc(path: str) -> np.ndarray:
@@ -63,7 +86,10 @@ def run_boxnet_pick(
     """
     from plugin.algorithm import pick_with_boxnet  # lazy: pulls torch
 
-    image = _load_mrc(image_path)
+    local_image_path = _resolve_local_path(image_path) or image_path
+    local_output_dir = _resolve_local_path(output_dir)
+
+    image = _load_mrc(local_image_path)
 
     picks = pick_with_boxnet(
         image,
@@ -75,13 +101,14 @@ def run_boxnet_pick(
         invert=bool(invert),
     )
 
-    out_path = _resolve_output_path(image_path, output_dir)
+    out_path = _resolve_output_path(local_image_path, local_output_dir)
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w") as f:
         json.dump(picks, f, indent=2)
+    wire_out_path = _to_wire_path(out_path) or out_path
 
     return {
-        "particles_json_path": out_path,
+        "particles_json_path": wire_out_path,
         "num_particles": len(picks),
         "particles": picks,
         "image_shape": list(image.shape),

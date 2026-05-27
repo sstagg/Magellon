@@ -42,6 +42,20 @@ class BoxnetPickerInput(CryoEmImageInput):
         },
     )
 
+    # CoreService includes these transport/result-save fields on
+    # particle-picking RMQ tasks. BoxNet does not read them directly,
+    # but the result factory echoes ``ipp_name`` from the original task.
+    input_file: Optional[str] = Field(
+        default=None,
+        description="Legacy input path alias injected by CoreService",
+        json_schema_extra={"ui_hidden": True},
+    )
+    ipp_name: Optional[str] = Field(
+        default=None,
+        description="Image particle-picking name injected by CoreService",
+        json_schema_extra={"ui_hidden": True},
+    )
+
     # --- Core picking parameters (group: Auto-picking Settings) ---
 
     threshold: float = Field(

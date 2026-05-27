@@ -30,5 +30,5 @@ rabbitmq_settings:
   SSL_ENABLED: false
   CONNECTION_TIMEOUT: 30
   PREFETCH_COUNT: 4
-  QUEUE_NAME: particle_picking_tasks_queue
+  QUEUE_NAME: boxnet_picker_tasks_queue
   OUT_QUEUE_NAME: particle_picking_out_tasks_queue

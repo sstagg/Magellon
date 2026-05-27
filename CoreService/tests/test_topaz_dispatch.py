@@ -155,3 +155,40 @@ def test_particle_pick_dispatch_keeps_template_picker_opts_flat(fake_bus, live_b
     assert task.data["threshold"] == 0.42
     assert task.data["max_peaks"] == 300
     assert "engine_opts" not in task.data
+
+
+def test_particle_pick_dispatch_engine_opts_cannot_clear_transport_fields(
+    fake_bus, live_backend_resolver
+):
+    """Plugin schema defaults may include nullable base fields, but
+    flattening them must not wipe the task metadata the result processor
+    needs to save the produced IPP record."""
+    from core.helper import dispatch_particle_pick_task
+
+    image_id = uuid.uuid4()
+    ok = dispatch_particle_pick_task(
+        "/magellon/session/expo.mrc",
+        image_id=image_id,
+        target_backend="boxnet-picker",
+        ipp_name="BoxNet smoke",
+        engine_opts={
+            "image_id": None,
+            "image_name": None,
+            "image_path": None,
+            "input_file": None,
+            "ipp_name": None,
+            "threshold": 0.3,
+            "invert": True,
+        },
+    )
+    assert ok is True
+
+    _route, envelope = _last_send(fake_bus)
+    task = envelope.data
+    assert task.data["image_id"] == str(image_id)
+    assert task.data["image_name"] == "expo"
+    assert task.data["image_path"] == "/magellon/session/expo.mrc"
+    assert task.data["input_file"] == "/magellon/session/expo.mrc"
+    assert task.data["ipp_name"] == "BoxNet smoke"
+    assert task.data["threshold"] == 0.3
+    assert task.data["invert"] is True

@@ -547,7 +547,12 @@ def dispatch_particle_pick_task(
     if is_topaz:
         data["engine_opts"] = engine_opts or {}
     else:
-        data.update(engine_opts or {})
+        protected = {"image_id", "image_name", "image_path", "input_file", "ipp_name"}
+        data.update({
+            key: value
+            for key, value in (engine_opts or {}).items()
+            if key not in protected
+        })
     data = canonicalize_paths_in_payload(data)
 
     ptype = TOPAZ_PARTICLE_PICKING if is_topaz else PARTICLE_PICKING
