@@ -91,7 +91,7 @@ class TemplatePickerPlugin(PluginBase[TemplatePickerInput, ParticlePickingOutput
     def get_info(self) -> PluginInfo:
         return PluginInfo(
             name="Template Picker",
-            version="0.1.0",
+            version="0.1.1",
             developer="Behdad Khoshbin b.khoshbin@gmail.com",
             description=(
                 "FFT-correlation template-matching particle picker. "

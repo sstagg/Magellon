@@ -24,6 +24,7 @@ from services.plugin_installer.uv_installer import UvInstaller
 
 REPO_ROOT = Path(__file__).resolve().parents[3].parent
 EXTERNAL_PICKER_SRC = REPO_ROOT / "plugins" / "magellon_template_picker_plugin"
+EXTERNAL_PICKER_VERSION = "0.1.1"
 
 
 def _pack_external_picker(out_dir: Path) -> Path:
@@ -34,7 +35,7 @@ def _pack_external_picker(out_dir: Path) -> Path:
             f"external picker source not present at {EXTERNAL_PICKER_SRC} — "
             f"skipping PI-1 install test",
         )
-    out_path = out_dir / "template-picker-0.1.0.mpn"
+    out_path = out_dir / f"template-picker-{EXTERNAL_PICKER_VERSION}.mpn"
     from magellon_sdk.cli.main import main as cli_main
     import sys
     saved_argv = sys.argv[:]

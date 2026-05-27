@@ -59,7 +59,7 @@ def test_get_info_provenance():
 
     info = TemplatePickerPlugin().get_info()
     assert info.name == "Template Picker"
-    assert info.version == "0.1.0"
+    assert info.version == "0.1.1"
 
 
 def test_manifest_advertises_progress_and_rmq_default():
@@ -214,6 +214,10 @@ def test_execute_round_trip_with_mocked_algorithm(monkeypatch, tmp_path):
     saved = json.loads(Path(out.particles_json_path).read_text())
     assert len(saved) == 2
     assert saved[0]["score"] == 0.9
+    assert saved[0]["center"] == [32, 32]
+    assert saved[0]["radius"] == 89
+    assert saved[0]["x"] == 32
+    assert saved[0]["y"] == 32
 
 
 # ---------------------------------------------------------------------------

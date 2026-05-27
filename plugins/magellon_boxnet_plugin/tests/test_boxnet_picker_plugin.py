@@ -196,3 +196,48 @@ def test_default_weights_path_finds_env_dir_weight(monkeypatch, tmp_path):
 
     found = algorithm.default_weights_path()
     assert Path(found) == pt_path.resolve()
+
+
+# ---------------------------------------------------------------------------
+# execute() artifact shape
+# ---------------------------------------------------------------------------
+
+
+def test_execute_round_trip_writes_canonical_particle_json(monkeypatch, tmp_path):
+    import json
+
+    import mrcfile
+    import numpy as np
+
+    from magellon_sdk.categories.outputs import ParticlePickingOutput
+    from plugin.models import BoxnetPickerInput
+    from plugin.plugin import BoxnetPickerPlugin
+    from plugin import algorithm as algorithm_mod
+
+    mic_path = tmp_path / "m.mrc"
+    with mrcfile.new(str(mic_path), overwrite=True) as f:
+        f.set_data(np.random.rand(64, 64).astype(np.float32))
+
+    monkeypatch.setattr(
+        algorithm_mod,
+        "pick_with_boxnet",
+        lambda image, **kwargs: [
+            {"center": [32, 32], "radius": 56, "score": 0.91},
+            {"center": [16, 16], "radius": 56, "score": 0.82},
+        ],
+    )
+
+    out = BoxnetPickerPlugin().execute(
+        BoxnetPickerInput(
+            image_path=str(mic_path),
+            output_dir=str(tmp_path / "out"),
+        )
+    )
+
+    assert isinstance(out, ParticlePickingOutput)
+    assert out.num_particles == 2
+    assert out.picks is None
+    saved = json.loads(Path(out.particles_json_path).read_text())
+    assert saved[0]["center"] == [32, 32]
+    assert saved[0]["radius"] == 56
+    assert saved[0]["score"] == 0.91

@@ -53,7 +53,9 @@ The plugin uses `CryoEmImageInput`. Picker-specific knobs ride on
 
 ## Outputs
 
-- `particles.json` — list of `{x, y, score, angle, ...}` dicts.
+- `particles.json` — list of canonical `{center, radius, score}`
+  dicts. Template-picker also preserves legacy `{x, y}` and
+  template-specific metadata such as `angle` and `template_index`.
 - `ParticlePickingOutput.particles_json_path` — the path on the data
   plane. Per ratified rule 1 (refs only on bus), the inline `picks`
   list is left empty even for small results.

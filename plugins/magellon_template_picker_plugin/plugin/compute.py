@@ -116,6 +116,45 @@ def _resolve_output_path(image_path: str, output_dir: Optional[str]) -> str:
     return os.path.join(image_dir, "particles.json")
 
 
+def _canonical_radius_pixels(
+    *,
+    diameter_angstrom: float,
+    pixel_size_angstrom: float,
+    bin_factor: float,
+) -> int:
+    radius = float(diameter_angstrom) / float(pixel_size_angstrom) / 2.0
+    radius = radius / max(1.0, float(bin_factor))
+    return max(1, int(round(radius)))
+
+
+def _canonicalize_particle_pick(
+    particle: Dict[str, Any],
+    *,
+    default_radius: int,
+) -> Dict[str, Any]:
+    """Return the shared picker artifact shape while preserving extras."""
+    out = dict(particle)
+    center = out.get("center")
+    if not isinstance(center, (list, tuple)) or len(center) < 2:
+        if "x" in out and "y" in out:
+            center = [out["x"], out["y"]]
+        elif "x_coordinate" in out and "y_coordinate" in out:
+            center = [out["x_coordinate"], out["y_coordinate"]]
+        else:
+            raise ValueError("template pick must include center or x/y coordinates")
+    x = int(round(float(center[0])))
+    y = int(round(float(center[1])))
+    out["center"] = [x, y]
+    out.setdefault("x", x)
+    out.setdefault("y", y)
+    raw_radius = out.get("radius", default_radius)
+    if raw_radius is None:
+        raw_radius = default_radius
+    out["radius"] = max(1, int(round(float(raw_radius))))
+    out["score"] = float(out.get("score", 0.0))
+    return out
+
+
 def run_template_pick(
     *,
     image_path: str,
@@ -150,6 +189,8 @@ def run_template_pick(
     ):
         if k in opts:
             params[k] = opts[k]
+    if "bin" not in params and opts.get("bin_factor") is not None:
+        params["bin"] = opts["bin_factor"]
 
     # Template apix can override per call (Sandbox CLI accepts mismatch).
     if template_pixel_size_angstrom is not None:
@@ -159,7 +200,16 @@ def run_template_pick(
         params.setdefault("template_pixel_size_angstrom", float(template_pixel_size_angstrom))
 
     result = pick_particles(image=image, templates=templates, params=params)
-    particles = result.get("particles", [])
+    bin_factor = float(params.get("bin", 1.0))
+    default_radius = _canonical_radius_pixels(
+        diameter_angstrom=diameter_angstrom,
+        pixel_size_angstrom=pixel_size_angstrom,
+        bin_factor=bin_factor,
+    )
+    particles = [
+        _canonicalize_particle_pick(p, default_radius=default_radius)
+        for p in result.get("particles", [])
+    ]
 
     out_path = _resolve_output_path(image_path, output_dir)
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)

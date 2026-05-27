@@ -13,6 +13,7 @@ helpers and that the wire-shape contract matches the category models.
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from uuid import uuid4
@@ -200,6 +201,10 @@ def test_pick_execute_emits_started_progress_completed(monkeypatch, tmp_path):
     # run_pick reports the source micrograph shape; execute() threads it
     # onto the output so consumers can size a canvas without re-reading.
     assert out.image_shape == [4096, 4096]
+    saved = json.loads(Path(out.particles_json_path).read_text())
+    assert saved[0]["center"] == [10, 10]
+    assert saved[0]["radius"] == 14
+    assert saved[0]["score"] == 5.5
     types = [c[0] for c in captured]
     # Started, ≥1 progress, completed. Ordering matches FFT's pattern.
     assert types[0] == "magellon.step.started"
