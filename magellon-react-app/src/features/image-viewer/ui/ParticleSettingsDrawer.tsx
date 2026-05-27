@@ -27,6 +27,7 @@ import {
     Tune as TuneIcon,
     Layers as BatchIcon,
     Send as DispatchIcon,
+    School as TrainIcon,
 } from '@mui/icons-material';
 import { SchemaForm, type BrowseFileRequest } from '../../../shared/ui/SchemaForm.tsx';
 import { ImagePickerDialog } from '../../plugin-runner/ui/ImagePickerDialog.tsx';
@@ -75,6 +76,8 @@ export interface ParticleSettingsDrawerProps {
     /** Current count of particles loaded on the canvas. Used to populate
      *  the dispatch-flow results card. */
     currentParticleCount?: number;
+    /** Current canvas particles, used as session-local Topaz annotations. */
+    currentParticles?: Point[];
 }
 
 // ---------------------------------------------------------------------------
@@ -173,6 +176,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     resultCount,
     ippName,
     currentParticleCount,
+    currentParticles = [],
 }) => {
     const theme = useTheme();
     const [schema, setSchema] = useState<any>(null);
@@ -186,6 +190,8 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     const [scoreMapPng, setScoreMapPng] = useState<string | null>(null);
     const [retuning, setRetuning] = useState(false);
     const [dispatchJobId, setDispatchJobId] = useState<string | null>(null);
+    const [training, setTraining] = useState(false);
+    const [trainedModel, setTrainedModel] = useState<any | null>(null);
     // Remember the ippName we dispatched with so we can detect when the
     // RMQ poll lands a matching IPP in the store and flip drawerState to
     // 'results' (mirrors what the sync onRun path does).
@@ -210,6 +216,10 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
         'Task queued';
     const dispatchCompleted = dispatchEvents.some((e) => e.type === 'magellon.step.completed');
     const dispatchFailed = dispatchEvents.some((e) => e.type === 'magellon.step.failed');
+    const manualTrainingParticles = useMemo(
+        () => currentParticles.filter((p) => p.type === 'manual'),
+        [currentParticles],
+    );
 
     // GPFS picker state — driven by the SchemaForm's onBrowseFile
     // callback. Same pattern the plugin test panel uses; templates
@@ -287,6 +297,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
         if (!open) return;
         setSchema(null);
         setSchemaLoading(true);
+        setTrainedModel(null);
         const url = `${API_URL}${TEMPLATE_PICKER_PATH}/schema/input?backend=${encodeURIComponent(selectedBackend)}`;
         fetch(url)
             .then((res) => { if (!res.ok) throw new Error(`${res.status}`); return res.json(); })
@@ -356,6 +367,73 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
             setRuntimeError(`Preview failed: ${err.message}`);
         }
     }, [isValid, pickerParams, imageName, selectedBackend, sessionName, onPreviewParticles]);
+
+    const handleTrainSession = useCallback(async () => {
+        if (!isTopazBackend || !imageName || !sessionName) return;
+        if (!isValid) { setShowErrors(true); return; }
+        if (manualTrainingParticles.length === 0) {
+            setRuntimeError('Topaz training needs at least one manual annotation.');
+            return;
+        }
+        setShowErrors(false);
+        setRuntimeError(null);
+        setTraining(true);
+        setDrawerState('previewing');
+        try {
+            const token = localStorage.getItem('access_token');
+            const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+            const payload = {
+                backend: selectedBackend,
+                image_path: imageName,
+                session_name: sessionName,
+                annotations: manualTrainingParticles.map((p) => ({
+                    x: p.x,
+                    y: p.y,
+                    radius: p.radius,
+                    class: p.class ?? '1',
+                    type: p.type,
+                })),
+                picker_params: pickerParams,
+            };
+            const res = await fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/topaz/session-models`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...authHeader },
+                body: JSON.stringify(payload),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ detail: res.statusText }));
+                throw new Error(err.detail || `${res.status}`);
+            }
+            const data = await res.json();
+            const nextParams = { ...pickerParams, ...(data.engine_opts || {}) };
+            onPickerParamsChange(nextParams);
+            setTrainedModel(data);
+            setPreviewId(data.preview_id || null);
+            setPreviewCount(data.num_particles || 0);
+            setScoreMapPng(null);
+            const threshold = data.engine_opts?.threshold ?? -3.0;
+            const pts: Point[] = (data.particles || []).map((p: any, i: number) =>
+                pointFromBackendPick(p, 'trained', i, threshold, true)
+            );
+            onPreviewParticles(pts);
+            setDrawerState('preview');
+        } catch (err: any) {
+            setDrawerState('configure');
+            setRuntimeError(`Training failed: ${err.message}`);
+        } finally {
+            setTraining(false);
+        }
+    }, [
+        imageName,
+        isTopazBackend,
+        isValid,
+        manualTrainingParticles,
+        onPickerParamsChange,
+        onPreviewParticles,
+        pickerParams,
+        selectedBackend,
+        sessionName,
+    ]);
 
     // --- Retune (debounced) ---
     const handleRetune = useCallback((newParams: Record<string, any>) => {
@@ -524,6 +602,25 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                             >
                                 Preview &amp; tune (no save)
                             </Button>
+                        )}
+                        {isTopazBackend && canPreview && (
+                            <Button
+                                variant="outlined" size="small" fullWidth
+                                startIcon={training ? <CircularProgress size={14} /> : <TrainIcon sx={{ fontSize: 14 }} />}
+                                onClick={handleTrainSession}
+                                disabled={training || manualTrainingParticles.length === 0}
+                                sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.5, mb: 0.75 }}
+                            >
+                                Train session ({manualTrainingParticles.length})
+                            </Button>
+                        )}
+                        {trainedModel && drawerState === 'configure' && (
+                            <Chip
+                                label={`session model ${Math.round(Number(trainedModel.engine_opts?.threshold ?? -3) * 100) / 100}`}
+                                size="small"
+                                variant="outlined"
+                                sx={{ mb: 0.75, height: 20, fontSize: '0.62rem' }}
+                            />
                         )}
                         <Box sx={{ display: 'flex', gap: 0.75 }}>
                             <Button

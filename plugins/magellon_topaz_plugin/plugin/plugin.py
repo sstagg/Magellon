@@ -146,7 +146,7 @@ _TOPAZ_PICK_UI_SCHEMA: Dict[str, Any] = {
             "description": "Topaz log-likelihood cutoff. Lower finds more particles.",
             "default": -3.0,
             "minimum": -8.0,
-            "maximum": 2.0,
+            "maximum": 8.0,
             "ui_widget": "slider",
             "ui_group": "Topaz",
             "ui_order": 2,

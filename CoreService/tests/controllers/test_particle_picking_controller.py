@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from config import app_settings
 from controllers.particle_picking_controller import (
     PreviewRequest,
+    _calibrate_topaz_from_annotations,
     list_pp_backends,
     _preview_payload,
     _resolve_pp_category,
@@ -45,6 +46,7 @@ def test_router_exposes_clean_paths():
         "/run-and-save",
         "/batch",
         "/records/{ipp_oid}/coco",
+        "/topaz/session-models",
     }
     paths = _route_paths(particle_picking_router)
     missing = expected - paths
@@ -179,3 +181,26 @@ async def test_backends_prefers_announced_metadata_over_heartbeat_stub(monkeypat
         "http_endpoint": "http://127.0.0.1:18001/",
         "status": "ready",
     }]
+
+
+def test_topaz_session_calibration_uses_annotation_scores():
+    engine_opts, diagnostics = _calibrate_topaz_from_annotations(
+        annotations=[
+            {"x": 100, "y": 100, "radius": 80, "class": "1", "type": "manual"},
+            {"x": 300, "y": 300, "radius": 80, "class": "3", "type": "manual"},
+        ],
+        candidates=[
+            {"x": 104, "y": 98, "score": -1.0, "radius": 80},
+            {"x": 302, "y": 296, "score": -4.0, "radius": 80},
+            {"x": 800, "y": 800, "score": 2.0, "radius": 80},
+        ],
+        picker_params={"model": "resnet16", "scale": 8, "threshold": -3.0},
+        positive_classes=["1"],
+        negative_classes=["2", "3"],
+    )
+
+    assert engine_opts["radius"] == 10
+    assert engine_opts["threshold"] == pytest.approx(-1.25)
+    assert engine_opts["session_training_method"] == "topaz_score_calibration"
+    assert diagnostics["matched_positive"] == 1
+    assert diagnostics["matched_negative"] == 1

@@ -73,7 +73,12 @@ def run_preview(input_data: TopazPickInput) -> PickingPreviewResult:
     return PickingPreviewResult(
         preview_id=preview_id,
         particles=[
-            {"x": p["center"][0], "y": p["center"][1], "score": p["score"]}
+            {
+                "x": p["center"][0],
+                "y": p["center"][1],
+                "score": p["score"],
+                "radius": p["radius"],
+            }
             for p in picks
         ],
         num_particles=len(picks),
@@ -102,7 +107,12 @@ def run_retune(
     )
     return PickingRetuneResult(
         particles=[
-            {"x": p["center"][0], "y": p["center"][1], "score": p["score"]}
+            {
+                "x": p["center"][0],
+                "y": p["center"][1],
+                "score": p["score"],
+                "radius": p["radius"],
+            }
             for p in picks
         ],
         num_particles=len(picks),

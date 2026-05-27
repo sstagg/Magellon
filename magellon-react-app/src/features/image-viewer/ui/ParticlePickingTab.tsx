@@ -299,6 +299,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 resultCount={lastResultCount}
                 ippName={selectedParticlePicking?.name}
                 currentParticleCount={particles.length}
+                currentParticles={particles}
             />
         );
     }, [settingsOpen, pickerParams, isAutoPickingRunning, autoPickingProgress, lastResultCount,

@@ -92,7 +92,7 @@ def test_announced_input_schema_carries_ui_rich_topaz_knobs():
 
     assert props["threshold"]["ui_widget"] == "slider"
     assert props["threshold"]["minimum"] == -8.0
-    assert props["threshold"]["maximum"] == 2.0
+    assert props["threshold"]["maximum"] == 8.0
     assert [m["label"] for m in props["threshold"]["ui_marks"]] == [
         "Sensitive", "Default", "Strict",
     ]

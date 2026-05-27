@@ -31,6 +31,7 @@ import math
 import os
 import uuid
 from datetime import datetime
+from statistics import median
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -39,7 +40,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.orm import Session
 
 from config import ORIGINAL_IMAGES_SUB_URL, app_settings
-from core.helper import dispatch_particle_pick_task
+from core.helper import dispatch_particle_pick_task, to_canonical_gpfs_path
 from core.plugin_liveness_registry import get_registry as get_liveness_registry
 from core.sqlalchemy_row_level_security import check_session_access
 from database import get_db
@@ -509,6 +510,214 @@ class DispatchResponse(BaseModel):
     task_id: str
 
 
+class TopazSessionTrainRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    backend: str = "topaz-particle-picking"
+    image_path: str
+    session_name: str
+    annotations: List[Dict[str, Any]]
+    picker_params: Dict[str, Any] = Field(default_factory=dict)
+    positive_classes: List[str] = Field(default_factory=lambda: ["1"])
+    negative_classes: List[str] = Field(default_factory=lambda: ["2", "3"])
+
+
+class TopazSessionModelResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", protected_namespaces=())
+
+    model_id: str
+    session_name: str
+    image_name: str
+    method: str
+    model_path: str
+    engine_opts: Dict[str, Any]
+    annotations_used: int
+    positive_count: int
+    matched_positive: int
+    matched_negative: int
+    candidate_count: int
+    preview_id: Optional[str] = None
+    particles: List[Dict[str, Any]] = Field(default_factory=list)
+    num_particles: int = 0
+    message: str
+    diagnostics: Dict[str, Any] = Field(default_factory=dict)
+
+
+def _annotation_class(annotation: Dict[str, Any]) -> str:
+    return str(annotation.get("class") or annotation.get("label") or "1")
+
+
+def _valid_annotation(annotation: Dict[str, Any]) -> bool:
+    try:
+        float(annotation.get("x"))
+        float(annotation.get("y"))
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+def _topaz_session_model_dir(session_name: str) -> str:
+    return os.path.join(
+        app_settings.directory_settings.MAGELLON_HOME_DIR,
+        session_name.lower(),
+        "topaz_models",
+    )
+
+
+def _infer_topaz_grid_radius(
+    annotations: List[Dict[str, Any]],
+    *,
+    picker_params: Dict[str, Any],
+    scale: int,
+) -> int:
+    radii = [
+        float(p["radius"])
+        for p in annotations
+        if isinstance(p.get("radius"), (int, float)) and float(p["radius"]) > 0
+    ]
+    if radii:
+        return max(4, min(64, int(round(median(radii) / max(scale, 1)))))
+    try:
+        return max(4, min(64, int(picker_params.get("radius", 14))))
+    except (TypeError, ValueError):
+        return 14
+
+
+def _nearest_pick_score(
+    annotation: Dict[str, Any],
+    candidates: List[Dict[str, Any]],
+    *,
+    tolerance_px: float,
+    used: set[int] | None = None,
+) -> tuple[float | None, int | None]:
+    ax = float(annotation["x"])
+    ay = float(annotation["y"])
+    best_idx: int | None = None
+    best_dist = float("inf")
+    best_score: float | None = None
+    for idx, pick in enumerate(candidates):
+        if used is not None and idx in used:
+            continue
+        try:
+            px = float(pick.get("x"))
+            py = float(pick.get("y"))
+            score = float(pick.get("score", 0.0))
+        except (TypeError, ValueError):
+            continue
+        dist = math.hypot(px - ax, py - ay)
+        if dist <= tolerance_px and dist < best_dist:
+            best_idx = idx
+            best_dist = dist
+            best_score = score
+    return best_score, best_idx
+
+
+def _choose_topaz_threshold(
+    positive_scores: List[float],
+    negative_scores: List[float],
+    *,
+    fallback: float = -3.0,
+) -> tuple[float, Dict[str, Any]]:
+    diagnostics: Dict[str, Any] = {
+        "positive_scores": positive_scores,
+        "negative_scores": negative_scores,
+    }
+    if not positive_scores:
+        diagnostics["threshold_reason"] = "fallback_no_matched_positive"
+        return float(fallback), diagnostics
+
+    min_positive = min(positive_scores)
+    threshold = min_positive - 0.25
+    diagnostics["min_positive_score"] = min_positive
+    if negative_scores:
+        max_negative = max(negative_scores)
+        diagnostics["max_negative_score"] = max_negative
+        if max_negative < min_positive:
+            threshold = max(threshold, (max_negative + min_positive) / 2.0)
+            diagnostics["threshold_reason"] = "between_positive_and_negative"
+        else:
+            diagnostics["threshold_reason"] = "positive_negative_overlap"
+    else:
+        diagnostics["threshold_reason"] = "positive_floor_margin"
+    threshold = max(-8.0, min(8.0, threshold))
+    return threshold, diagnostics
+
+
+def _calibrate_topaz_from_annotations(
+    *,
+    annotations: List[Dict[str, Any]],
+    candidates: List[Dict[str, Any]],
+    picker_params: Dict[str, Any],
+    positive_classes: List[str],
+    negative_classes: List[str],
+) -> tuple[Dict[str, Any], Dict[str, Any]]:
+    scale = int(picker_params.get("scale") or 8)
+    radius = _infer_topaz_grid_radius(annotations, picker_params=picker_params, scale=scale)
+    radius_px = radius * scale
+    positives = [
+        p for p in annotations
+        if _valid_annotation(p) and _annotation_class(p) in set(positive_classes)
+    ]
+    negatives = [
+        p for p in annotations
+        if _valid_annotation(p) and _annotation_class(p) in set(negative_classes)
+    ]
+    used: set[int] = set()
+    positive_scores: List[float] = []
+    for annotation in positives:
+        tolerance = max(float(annotation.get("radius") or radius_px), radius_px)
+        score, idx = _nearest_pick_score(
+            annotation,
+            candidates,
+            tolerance_px=tolerance,
+            used=used,
+        )
+        if score is not None:
+            positive_scores.append(score)
+            if idx is not None:
+                used.add(idx)
+
+    negative_scores: List[float] = []
+    for annotation in negatives:
+        tolerance = max(float(annotation.get("radius") or radius_px), radius_px)
+        score, _idx = _nearest_pick_score(
+            annotation,
+            candidates,
+            tolerance_px=tolerance,
+        )
+        if score is not None:
+            negative_scores.append(score)
+
+    raw_fallback = picker_params.get("threshold", -3.0)
+    try:
+        fallback_threshold = float(raw_fallback if raw_fallback is not None else -3.0)
+    except (TypeError, ValueError):
+        fallback_threshold = -3.0
+    threshold, threshold_diag = _choose_topaz_threshold(
+        positive_scores,
+        negative_scores,
+        fallback=fallback_threshold,
+    )
+    engine_opts = {
+        **picker_params,
+        "model": picker_params.get("model") or "resnet16",
+        "scale": scale,
+        "radius": radius,
+        "threshold": threshold,
+        "session_training_method": "topaz_score_calibration",
+    }
+    diagnostics = {
+        **threshold_diag,
+        "positive_count": len(positives),
+        "negative_count": len(negatives),
+        "matched_positive": len(positive_scores),
+        "matched_negative": len(negative_scores),
+        "radius_px": radius_px,
+        "candidate_count": len(candidates),
+    }
+    return engine_opts, diagnostics
+
+
 @particle_picking_router.post(
     "/dispatch",
     response_model=DispatchResponse,
@@ -584,6 +793,176 @@ async def dispatch_particle_pick(
         message=f"Task queued for {req.target_backend}",
         job_id=str(job_id),
         task_id=str(task_id),
+    )
+
+
+@particle_picking_router.post(
+    "/topaz/session-models",
+    response_model=TopazSessionModelResponse,
+    summary="Train a session-scoped Topaz model from current annotations",
+)
+async def train_topaz_session_model(
+    req: TopazSessionTrainRequest,
+    user_id: UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> TopazSessionModelResponse:
+    """Build a session-only Topaz calibration model from GUI annotations.
+
+    The current Topaz plugin runtime is ONNX-only, so this endpoint does
+    the layer that is available today: run the pretrained Topaz detector
+    once at a sensitive threshold, match candidate scores to the user's
+    accepted/rejected annotations, and persist calibrated engine options
+    for this session. The response includes retuned particles so the UI
+    can immediately preview the result and then apply it through the
+    existing RMQ dispatch path.
+    """
+    if "topaz" not in req.backend.lower():
+        raise HTTPException(status_code=400, detail="Session training is only available for Topaz")
+
+    msession = db.query(Msession).filter(
+        Msession.name == req.session_name,
+        Msession.GCRecord.is_(None),
+    ).first()
+    if not msession:
+        raise HTTPException(status_code=404, detail=f"Session '{req.session_name}' not found")
+    if not check_session_access(user_id, msession.oid, action="write"):
+        raise HTTPException(status_code=403, detail="Access denied to this session")
+
+    annotations = [p for p in req.annotations if _valid_annotation(p)]
+    positive_set = set(req.positive_classes)
+    positive_count = sum(1 for p in annotations if _annotation_class(p) in positive_set)
+    if positive_count == 0:
+        raise HTTPException(status_code=422, detail="At least one positive annotation is required")
+
+    resolved_path = _resolve_preview_image_path(req.session_name, req.image_path)
+    params = dict(req.picker_params or {})
+    try:
+        scale = int(params.get("scale") or 8)
+    except (TypeError, ValueError):
+        scale = 8
+    radius = _infer_topaz_grid_radius(annotations, picker_params=params, scale=scale)
+
+    training_opts = {
+        **params,
+        "model": params.get("model") or "resnet16",
+        "scale": scale,
+        "radius": radius,
+        "threshold": -8.0,
+    }
+    preview_payload = {
+        "input_file": resolved_path,
+        "image_path": resolved_path,
+        "engine_opts": training_opts,
+    }
+
+    try:
+        loop = asyncio.get_running_loop()
+        preview_body = await loop.run_in_executor(
+            None,
+            lambda: dispatch_capability(
+                "topaz_particle_picking",
+                Capability.PREVIEW,
+                "POST",
+                "/preview",
+                body=preview_payload,
+            ),
+        )
+    except (BackendNotLive, CapabilityMissing, PluginCallFailed) as exc:
+        raise _http_from_dispatch_error(exc)
+
+    candidates = preview_body.get("particles") or []
+    engine_opts, diagnostics = _calibrate_topaz_from_annotations(
+        annotations=annotations,
+        candidates=candidates,
+        picker_params=params,
+        positive_classes=req.positive_classes,
+        negative_classes=req.negative_classes,
+    )
+    matched_positive = int(diagnostics.get("matched_positive", 0))
+    min_required_matches = 1 if positive_count == 1 else 2
+    if matched_positive < min_required_matches:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Topaz did not produce enough candidates near the positive "
+                f"annotations ({matched_positive}/{positive_count} matched)"
+            ),
+        )
+
+    preview_id = preview_body.get("preview_id")
+    particles: List[Dict[str, Any]] = []
+    if preview_id:
+        try:
+            retune_body = await loop.run_in_executor(
+                None,
+                lambda: dispatch_capability(
+                    "topaz_particle_picking",
+                    Capability.PREVIEW,
+                    "POST",
+                    f"/preview/{preview_id}/retune",
+                    body={
+                        "threshold": engine_opts["threshold"],
+                        "radius": engine_opts["radius"],
+                    },
+                ),
+            )
+            particles = list(retune_body.get("particles") or [])
+        except (BackendNotLive, CapabilityMissing, PluginCallFailed) as exc:
+            raise _http_from_dispatch_error(exc)
+
+    radius_px = int(engine_opts["radius"]) * int(engine_opts["scale"])
+    for p in particles:
+        if not isinstance(p.get("radius"), (int, float)) or float(p.get("radius", 0)) <= 0:
+            p["radius"] = radius_px
+
+    model_id = f"topaz-session-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}"
+    model_dir = _topaz_session_model_dir(req.session_name)
+    os.makedirs(model_dir, exist_ok=True)
+    model_path = os.path.join(model_dir, f"{model_id}.json")
+    model_doc = {
+        "model_id": model_id,
+        "session_name": req.session_name,
+        "image_name": os.path.splitext(os.path.basename(req.image_path))[0],
+        "method": "topaz_score_calibration",
+        "created_at": datetime.now().isoformat(),
+        "backend": req.backend,
+        "engine_opts": engine_opts,
+        "annotations_used": len(annotations),
+        "diagnostics": diagnostics,
+    }
+    with open(model_path, "w", encoding="utf-8") as f:
+        json.dump(model_doc, f, indent=2)
+
+    canonical_model_path = to_canonical_gpfs_path(model_path)
+    engine_opts = {
+        **engine_opts,
+        "session_model_id": model_id,
+        "session_model_path": canonical_model_path,
+    }
+    model_doc["engine_opts"] = engine_opts
+    with open(model_path, "w", encoding="utf-8") as f:
+        json.dump(model_doc, f, indent=2)
+
+    return TopazSessionModelResponse(
+        model_id=model_id,
+        session_name=req.session_name,
+        image_name=model_doc["image_name"],
+        method="topaz_score_calibration",
+        model_path=canonical_model_path,
+        engine_opts=engine_opts,
+        annotations_used=len(annotations),
+        positive_count=int(diagnostics.get("positive_count", positive_count)),
+        matched_positive=matched_positive,
+        matched_negative=int(diagnostics.get("matched_negative", 0)),
+        candidate_count=int(diagnostics.get("candidate_count", len(candidates))),
+        preview_id=preview_id,
+        particles=particles,
+        num_particles=len(particles),
+        message=(
+            f"Session Topaz model calibrated from {matched_positive}/"
+            f"{positive_count} positive annotation(s)"
+        ),
+        diagnostics=diagnostics,
     )
 
 
