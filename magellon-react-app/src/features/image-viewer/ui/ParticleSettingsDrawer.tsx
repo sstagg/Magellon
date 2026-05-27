@@ -228,11 +228,16 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
         }
     }, [isRunning, resultCount, ippName, dispatchedIppName]);
 
-    // Load live backends
+    // Load live backends. ``cache: 'no-store'`` because the answer
+    // changes whenever a plugin process restarts (capabilities,
+    // http_endpoint, etc.); a browser-level GET cache would freeze
+    // ``canPreview`` to whatever the panel saw on first open and the
+    // side panel would keep showing the "no-save preview" alert long
+    // after the backend recovered.
     useEffect(() => {
         if (!open) return;
         setBackendsLoading(true);
-        fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/backends`)
+        fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/backends`, { cache: 'no-store' })
             .then((res) => res.ok ? res.json() : Promise.resolve([]))
             .then((data: BackendInfo[]) => {
                 // Topaz always sorts to the top; otherwise preserve server order.
