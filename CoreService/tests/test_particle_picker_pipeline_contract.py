@@ -35,7 +35,12 @@ def _plugin_import_context(plugin_root: Path):
         for name, module in sys.modules.items()
         if name == "plugin" or name.startswith("plugin.")
     }
-    for name in list(saved_plugin_modules):
+    saved_core_modules = {
+        name: module
+        for name, module in sys.modules.items()
+        if name == "core" or name.startswith("core.")
+    }
+    for name in [*saved_plugin_modules, *saved_core_modules]:
         sys.modules.pop(name, None)
     sys.path.insert(0, str(plugin_root))
     try:
@@ -44,10 +49,16 @@ def _plugin_import_context(plugin_root: Path):
         for name in [
             name
             for name in sys.modules
-            if name == "plugin" or name.startswith("plugin.")
+            if (
+                name == "plugin"
+                or name.startswith("plugin.")
+                or name == "core"
+                or name.startswith("core.")
+            )
         ]:
             sys.modules.pop(name, None)
         sys.modules.update(saved_plugin_modules)
+        sys.modules.update(saved_core_modules)
         sys.path[:] = saved_path
 
 

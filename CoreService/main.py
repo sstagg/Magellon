@@ -35,6 +35,7 @@ from controllers.image_processing_controller import image_processing_router
 from controllers.dispatch_controller import dispatch_router
 from controllers.import_export_controller import export_router
 from controllers.import_controller import import_router
+from controllers.particle_export_pipeline_controller import particle_export_pipeline_router
 from controllers.particle_picking_controller import particle_picking_router
 from controllers.relion_controller import relion_router
 from controllers.slack_controller import slack_router
@@ -254,6 +255,7 @@ app.include_router(db_router, tags=["Database"], prefix="/db")
 app.include_router(export_router, tags=["Export"], prefix="/export")
 app.include_router(import_router, tags=["Import"], prefix="/export")
 app.include_router(relion_router, tags=["RELION"], prefix="/export")
+app.include_router(particle_export_pipeline_router, tags=["Particle Export Pipeline"], prefix="/export")
 if dev_routes_enabled():
     register_dev_routes(app)
 app.include_router(camera_router, tags=["Cameras"], prefix="/db/cameras")
