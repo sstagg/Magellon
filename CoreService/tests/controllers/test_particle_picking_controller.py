@@ -5,15 +5,20 @@ behaviour is covered by ``tests/test_template_picker.py``.
 """
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 from pydantic import ValidationError
 
+from config import app_settings
 from controllers.particle_picking_controller import (
     PreviewRequest,
+    list_pp_backends,
     _preview_payload,
     _resolve_pp_category,
     particle_picking_router,
 )
+from magellon_sdk.models.manifest import Capability
 
 
 def _route_paths(router) -> set[str]:
@@ -101,6 +106,28 @@ def test_preview_payload_template_picker_validates_strict_input():
     assert "backend" not in payload and "session_name" not in payload
 
 
+def test_preview_payload_template_picker_resolves_ui_image_name(monkeypatch):
+    """The React panel sends image name + session, not a server path.
+    Preview must resolve that to the raw MRC path for Docker plugins."""
+    monkeypatch.setattr(
+        app_settings.directory_settings,
+        "MAGELLON_HOME_DIR",
+        "/gpfs",
+    )
+    req = PreviewRequest(
+        backend="template-picker",
+        image_path="24dec03a_00031gr_00001sq_v01_00002hl_00001fc",
+        session_name="24DEC03A",
+        template_paths=["/gpfs/t1.mrc"],
+        threshold=0.4,
+    )
+    payload = _preview_payload(req, is_topaz=False)
+    assert payload["image_path"] == (
+        "/gpfs/24dec03a/original/"
+        "24dec03a_00031gr_00001sq_v01_00002hl_00001fc.mrc"
+    )
+
+
 def test_preview_payload_template_picker_rejects_bad_input():
     """A template-picker body that violates the strict model raises —
     the endpoint maps that to a 422."""
@@ -109,3 +136,46 @@ def test_preview_payload_template_picker_rejects_bad_input():
     )
     with pytest.raises(ValidationError):
         _preview_payload(req, is_topaz=False)
+
+
+@pytest.mark.asyncio
+async def test_backends_prefers_announced_metadata_over_heartbeat_stub(monkeypatch):
+    """Heartbeat stubs can arrive before announce metadata. The UI must
+    see the richer entry so Preview & Tune stays enabled."""
+    stub = SimpleNamespace(
+        backend_id="template-picker",
+        plugin_id="Template Picker",
+        category="particle picking",
+        manifest=None,
+        http_endpoint=None,
+        status="ready",
+    )
+    rich = SimpleNamespace(
+        backend_id="template-picker",
+        plugin_id="Template Picker",
+        category="particle picking",
+        manifest=SimpleNamespace(
+            capabilities=[Capability.SYNC, Capability.PREVIEW],
+            info=SimpleNamespace(name="Template Picker"),
+        ),
+        http_endpoint="http://127.0.0.1:18001/",
+        status="ready",
+    )
+    registry = SimpleNamespace(list_live=lambda: [stub, rich])
+    monkeypatch.setattr(
+        "controllers.particle_picking_controller.get_liveness_registry",
+        lambda: registry,
+    )
+
+    body = await list_pp_backends()
+
+    assert body == [{
+        "backend_id": "template-picker",
+        "plugin_id": "Template Picker",
+        "label": "Template Picker",
+        "capabilities": ["sync", "preview"],
+        "has_preview": True,
+        "has_sync": True,
+        "http_endpoint": "http://127.0.0.1:18001/",
+        "status": "ready",
+    }]

@@ -192,22 +192,30 @@ class PreviewRequest(BaseModel):
     session_name: Optional[str] = None
 
 
+def _resolve_preview_image_path(session_name: Optional[str], image_path: str) -> str:
+    """Resolve UI image names to raw MRC paths, preserving explicit paths."""
+    if not session_name:
+        return image_path
+    normalized = image_path.replace("\\", "/")
+    if os.path.isabs(image_path) or normalized.startswith("/gpfs/"):
+        return image_path
+    return _resolve_mrc_path(session_name, image_path)
+
+
 def _preview_payload(req: PreviewRequest, is_topaz: bool) -> Dict[str, Any]:
     """Reshape a PreviewRequest into the body the target plugin expects."""
     raw = req.model_dump()
     extras = {k: v for k, v in raw.items()
               if k not in ("backend", "image_path", "session_name")}
+    image_path = _resolve_preview_image_path(req.session_name, req.image_path)
     if is_topaz:
         # TopazPickInput shape: input_file + nested engine_opts. Resolve
         # the MRC path server-side from the image name + session so the
         # frontend doesn't need the filesystem layout.
-        path = req.image_path
-        if req.session_name:
-            path = _resolve_mrc_path(req.session_name, req.image_path)
-        return {"input_file": path, "image_path": path, "engine_opts": extras}
+        return {"input_file": image_path, "image_path": image_path, "engine_opts": extras}
     # template-picker: re-validate against the strict input model so a
     # bad body still 422s even though this endpoint's signature is loose.
-    tp = TemplatePickerInput.model_validate({"image_path": req.image_path, **extras})
+    tp = TemplatePickerInput.model_validate({"image_path": image_path, **extras})
     return _plugin_payload(tp)
 
 
@@ -425,15 +433,24 @@ async def list_pp_backends():
             "http_endpoint": e.http_endpoint,
             "status": e.status,
         })
-    # De-duplicate by backend_id — two runner threads for the same plugin
-    # may register separate liveness entries.
-    seen: set[str] = set()
-    deduped = []
+    # De-duplicate by backend_id. Heartbeats can create a lightweight
+    # stub before the richer announce entry arrives, so keep the entry
+    # with the most usable HTTP/capability metadata rather than the
+    # first one returned by the registry.
+    def _score_backend(item: dict) -> tuple[int, int, int, int]:
+        return (
+            1 if item.get("http_endpoint") else 0,
+            len(item.get("capabilities") or []),
+            1 if item.get("has_preview") else 0,
+            1 if item.get("has_sync") else 0,
+        )
+
+    by_backend: dict[str, dict] = {}
     for item in result:
-        if item["backend_id"] not in seen:
-            seen.add(item["backend_id"])
-            deduped.append(item)
-    return deduped
+        backend_id = item["backend_id"]
+        if backend_id not in by_backend or _score_backend(item) > _score_backend(by_backend[backend_id]):
+            by_backend[backend_id] = item
+    return list(by_backend.values())
 
 
 class DispatchRequest(BaseModel):
@@ -542,11 +559,20 @@ async def template_pick_input_schema(backend: Optional[str] = None):
     or the backend has no announced schema."""
     if backend:
         registry = get_liveness_registry()
+        requested = _normalize_pp_category(backend)
         for entry in registry.list_live():
-            if _normalize_pp_category(entry.category or "") not in {"particle_picking", "topaz_particle_picking"}:
+            if _normalize_pp_category(entry.category or "") not in {
+                "particle_picking",
+                "topaz_particle_picking",
+                "topazparticlepicking",
+            }:
                 continue
-            bid = (entry.backend_id or entry.plugin_id or "").lower()
-            if bid == backend.lower() and entry.input_schema:
+            candidates = {
+                entry.backend_id or "",
+                entry.plugin_id or "",
+                (entry.plugin_id or "").split("/")[-1],
+            }
+            if any(_normalize_pp_category(c) == requested for c in candidates) and entry.input_schema:
                 return entry.input_schema
     return TemplatePickerInput.model_json_schema()
 
@@ -758,17 +784,24 @@ def _resolve_mrc_path(session_name: str, image_name: str) -> str:
     returned directly — it is valid inside every Docker plugin container
     that bind-mounts the GPFS root at ``/gpfs``.
     """
-    base = f"{app_settings.directory_settings.MAGELLON_HOME_DIR}/{session_name}/{ORIGINAL_IMAGES_SUB_URL}"
+    session_variants = [session_name]
+    lower_session = session_name.lower()
+    if lower_session != session_name:
+        session_variants.append(lower_session)
     stripped = image_name
     for ext in ('.mrc', '.mrcs', '.tif', '.tiff'):
         if stripped.lower().endswith(ext):
             stripped = stripped[: -len(ext)]
             break
-    for candidate in (f"{base}{image_name}", f"{base}{stripped}.mrc", f"{base}{stripped}.mrcs"):
-        if os.path.exists(candidate):
-            return os.path.abspath(candidate)
+    for session in session_variants:
+        base = f"{app_settings.directory_settings.MAGELLON_HOME_DIR}/{session}/{ORIGINAL_IMAGES_SUB_URL}"
+        for candidate in (f"{base}{image_name}", f"{base}{stripped}.mrc", f"{base}{stripped}.mrcs"):
+            if os.path.exists(candidate):
+                return os.path.abspath(candidate)
     # Local file not found (Windows host without GPFS mount).
-    # Build the canonical path that Docker containers can access.
+    # Build the canonical path that Docker containers can access. The
+    # imported session directories are normalized to lowercase.
+    base = f"{app_settings.directory_settings.MAGELLON_HOME_DIR}/{lower_session}/{ORIGINAL_IMAGES_SUB_URL}"
     return f"{base}{stripped}.mrc"
 
 

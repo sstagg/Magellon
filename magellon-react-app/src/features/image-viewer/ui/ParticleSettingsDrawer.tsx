@@ -115,6 +115,15 @@ function validateParams(schema: any, params: Record<string, any>, imageName: str
     return errors;
 }
 
+function schemaDefaults(schema: any): Record<string, any> {
+    if (!schema?.properties) return {};
+    const defaults: Record<string, any> = {};
+    for (const [key, field] of Object.entries<any>(schema.properties)) {
+        if (field?.default !== undefined) defaults[key] = field.default;
+    }
+    return defaults;
+}
+
 // ---------------------------------------------------------------------------
 // Component — renders as a plain Box (no Drawer), meant to be placed
 // inside the SidePanelArea alongside JobsPanel / LogsPanel.
@@ -228,13 +237,17 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
             .then((data) => {
                 setSchema(data);
                 setSchemaError(null);
+                const defaults = schemaDefaults(data);
                 if (selectedBackend.replace('_', '-').toLowerCase().includes('topaz')) {
                     onPickerParamsChange({
-                        model: 'resnet16',
-                        threshold: -3.0,
-                        radius: 14,
-                        scale: 8,
+                        ...defaults,
+                        model: defaults.model ?? 'resnet16',
+                        threshold: defaults.threshold ?? -3.0,
+                        radius: defaults.radius ?? 14,
+                        scale: defaults.scale ?? 8,
                     });
+                } else {
+                    onPickerParamsChange(defaults);
                 }
             })
             .catch((err) => setSchemaError(`Could not load: ${err.message}`))
