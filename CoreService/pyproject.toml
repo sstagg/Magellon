@@ -28,6 +28,9 @@
 #   - ``tests/**``                  — integration tests hit a real broker.
 #   - ``scripts/**``                — operator + dev scripts are allowed
 #     to publish directly (motioncor_smoke_publish.py etc.).
+#   - ``sandbox/**``                — exploration + one-off ops scripts
+#     (AWS pipeline launchers, replay harnesses); same category as
+#     scripts/, just lives outside the production tree.
 #   - ``core/motioncor_test_*.py``  — test-bridge harness used by the
 #     frontend's motioncor-test page (pre-MB4 scaffolding; remove when
 #     that page is migrated off the legacy bridge).
@@ -56,6 +59,7 @@ select = ["TID"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["TID251", "TID252", "TID253"]
 "scripts/**" = ["TID251", "TID252", "TID253"]
+"sandbox/**" = ["TID251", "TID252", "TID253"]
 "support/events/**" = ["TID251", "TID252", "TID253"]
 "core/motioncor_test_result_processor.py" = ["TID251", "TID252", "TID253"]
 "services/motioncor_test_service.py" = ["TID251", "TID252", "TID253"]
