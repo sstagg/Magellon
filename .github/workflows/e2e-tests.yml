@@ -44,12 +44,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install CoreService deps
+      - name: Install collect-only deps
         working-directory: CoreService
+        # Only what `pytest --collect-only` actually needs to resolve
+        # imports + fixtures across tests/integration/. We deliberately
+        # skip requirements.txt — none of these tests import the heavy
+        # chain (sqlalchemy/casbin/lxml/psycopg2/airflow), and a
+        # silent || true masked real install failures. The nightly
+        # live-stack job below still does the full install.
         run: |
           pip install -e ../magellon-sdk[rabbitmq,nats,logging,config]
-          pip install -r requirements.txt
-          pip install pytest httpx pillow numpy "python-socketio[asyncio_client]" aiohttp pytest-asyncio sqlalchemy pymysql
+          # cloudevents<2 pin: support/events/publisher.py imports
+          # cloudevents.http (removed in cloudevents 2.x).
+          pip install pytest pytest-asyncio httpx fastapi uvicorn "cloudevents<2"
       - name: pytest --collect-only (imports + fixtures resolve)
         working-directory: CoreService
         run: |

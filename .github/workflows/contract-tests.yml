@@ -41,11 +41,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install CoreService deps
+      - name: Install collect-only deps
         working-directory: CoreService
+        # Only what `pytest --collect-only` actually needs. Contract
+        # tests are stdlib + pytest; httpx is used via importorskip at
+        # run time. We skip requirements.txt for the same reason as
+        # e2e-tests.yml (collect doesn't need the heavy chain).
         run: |
           pip install -e ../magellon-sdk[rabbitmq,nats,logging,config]
-          pip install -r requirements.txt
           pip install pytest httpx
       - name: pytest --collect-only (imports + fixtures resolve)
         working-directory: CoreService
