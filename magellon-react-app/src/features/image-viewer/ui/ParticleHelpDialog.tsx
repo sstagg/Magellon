@@ -38,7 +38,10 @@ export const ParticleHelpDialog: React.FC<ParticleHelpDialogProps> = ({
                 </Typography>
                 <List dense>
                     <ListItem>
-                        <ListItemText primary="1-6" secondary="Select tools (Add, Remove, Select, Move, Box, Brush)" />
+                        <ListItemText primary="1–6" secondary="Select tools (Add, Remove, Select, Move, Box, Brush)" />
+                    </ListItem>
+                    <ListItem>
+                        <ListItemText primary="L" secondary="Lasso select — drag to draw a freehand selection polygon" />
                     </ListItem>
                     <ListItem>
                         <ListItemText primary="Ctrl+Z / Cmd+Z" secondary="Undo last action" />

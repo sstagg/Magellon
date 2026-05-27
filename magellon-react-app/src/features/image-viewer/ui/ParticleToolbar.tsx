@@ -41,8 +41,20 @@ import {
     TouchApp as TouchAppIcon,
     MoreVert,
 } from '@mui/icons-material';
-import { Move } from 'lucide-react';
+import { Move, Lasso } from 'lucide-react';
 import type { Tool } from '../lib/useParticleOperations.ts';
+
+const TOOL_LABELS: Record<Tool, string> = {
+    add:    'Add  [1]',
+    remove: 'Remove  [2]',
+    select: 'Select  [3]',
+    move:   'Move  [4]',
+    box:    'Box  [5]',
+    brush:  'Brush  [6]',
+    lasso:  'Lasso  [L]',
+    auto:   'Auto',
+    pan:    'Pan',
+};
 import type { ParticlePickingDto } from '../../../entities/particle-picking/types.ts';
 
 export interface ParticleToolbarProps {
@@ -186,10 +198,20 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
                     <ToggleButton value="remove"><Tooltip title="Remove (2)"><RemoveIcon sx={{ fontSize: 16 }} /></Tooltip></ToggleButton>
                     <ToggleButton value="select"><Tooltip title="Select (3)"><TouchAppIcon sx={{ fontSize: 16 }} /></Tooltip></ToggleButton>
                     <ToggleButton value="move"><Tooltip title="Move (4)"><Move size={14} /></Tooltip></ToggleButton>
-                    <ToggleButton value="box"><Tooltip title="Box (5)"><CropFreeIcon sx={{ fontSize: 16 }} /></Tooltip></ToggleButton>
+                    <ToggleButton value="box"><Tooltip title="Box Select (5)"><CropFreeIcon sx={{ fontSize: 16 }} /></Tooltip></ToggleButton>
+                    <ToggleButton value="lasso"><Tooltip title="Lasso Select (L)"><Lasso size={14} /></Tooltip></ToggleButton>
                     <ToggleButton value="brush"><Tooltip title="Brush (6)"><BrushIcon sx={{ fontSize: 16 }} /></Tooltip></ToggleButton>
                     <ToggleButton value="pan"><Tooltip title="Pan"><PanToolIcon sx={{ fontSize: 16 }} /></Tooltip></ToggleButton>
                 </ToggleButtonGroup>
+
+                {/* Active tool indicator */}
+                <Chip
+                    label={TOOL_LABELS[tool] ?? tool}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                    sx={{ height: 20, fontSize: '0.62rem', ml: 0.5, px: 0.25 }}
+                />
 
                 <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
 
