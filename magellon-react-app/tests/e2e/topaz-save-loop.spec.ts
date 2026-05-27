@@ -121,9 +121,11 @@ test('Save current image must not loop', async ({ page, context }) => {
   await page.waitForTimeout(1500);
   await page.screenshot({ path: path.join(SHOTS, '03-settings-open.png'), fullPage: true });
 
-  const saveBtn = page.getByRole('button', { name: /save current image/i }).first();
+  // Button text depends on the backend's PREVIEW capability:
+  // "Save current image" when canPreview, "Run and save image" otherwise.
+  const saveBtn = page.getByRole('button', { name: /save current image|run and save image/i }).first();
   await expect(saveBtn).toBeVisible({ timeout: 15_000 });
-  console.log('[ui] clicking Save current image');
+  console.log('[ui] clicking Save / Run');
   await saveBtn.click();
 
   // Wait for the progress bar / "task queued" chip to actually render —

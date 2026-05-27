@@ -72,6 +72,9 @@ export interface ParticleSettingsDrawerProps {
     resultCount: number | null;
     /** Optional IPP name for the run — used as the RMQ task label. */
     ippName?: string;
+    /** Current count of particles loaded on the canvas. Used to populate
+     *  the dispatch-flow results card. */
+    currentParticleCount?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -147,6 +150,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     autoPickingProgress: _autoPickingProgress,
     resultCount,
     ippName,
+    currentParticleCount,
 }) => {
     const theme = useTheme();
     const [schema, setSchema] = useState<any>(null);
@@ -160,6 +164,10 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     const [scoreMapPng, setScoreMapPng] = useState<string | null>(null);
     const [retuning, setRetuning] = useState(false);
     const [dispatchJobId, setDispatchJobId] = useState<string | null>(null);
+    // Remember the ippName we dispatched with so we can detect when the
+    // RMQ poll lands a matching IPP in the store and flip drawerState to
+    // 'results' (mirrors what the sync onRun path does).
+    const [dispatchedIppName, setDispatchedIppName] = useState<string | null>(null);
 
     // Backend selection
     const [backends, setBackends] = useState<BackendInfo[]>([]);
@@ -192,12 +200,33 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     );
     const retuneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Sync external running state
+    // Sync external running state. We must distinguish "just entered
+    // dispatched" (isRunning still false because dispatchPick hasn't
+    // toggled it yet) from "dispatched and now done" (isRunning went
+    // true→false). The dispatch flow only fires the results/configure
+    // transition on the second of those — gated by a wasRunning ref.
+    const wasRunningRef = useRef(false);
     useEffect(() => {
-        if (isRunning && drawerState !== 'running' && drawerState !== 'dispatched') setDrawerState('running');
-        if (!isRunning && drawerState === 'running') setDrawerState(resultCount !== null ? 'results' : 'configure');
-        if (!isRunning && drawerState === 'dispatched') setDrawerState('configure');
-    }, [isRunning, resultCount]);
+        const wasRunning = wasRunningRef.current;
+        wasRunningRef.current = isRunning;
+        if (isRunning && drawerState !== 'running' && drawerState !== 'dispatched') {
+            setDrawerState('running');
+            return;
+        }
+        if (!isRunning && drawerState === 'running') {
+            setDrawerState(resultCount !== null ? 'results' : 'configure');
+            return;
+        }
+        if (!isRunning && wasRunning && drawerState === 'dispatched') {
+            if (dispatchedIppName && ippName === dispatchedIppName) {
+                setDrawerState('results');
+                setDispatchedIppName(null);
+            } else {
+                setDrawerState('configure');
+                setDispatchedIppName(null);
+            }
+        }
+    }, [isRunning, resultCount, ippName, dispatchedIppName]);
 
     // Load live backends
     useEffect(() => {
@@ -354,12 +383,14 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
             setPreviewId(null);
         }
         const name = ippName || `Auto-pick ${new Date().toISOString().slice(0, 16)}`;
+        setDispatchedIppName(name);
         setDrawerState('dispatched');
         const result = await onDispatch(selectedBackend, name);
         if (result?.job_id) {
             setDispatchJobId(result.job_id);
         } else {
             setDrawerState('configure');
+            setDispatchedIppName(null);
         }
     };
 
@@ -603,7 +634,9 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                     <>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                             <ValidIcon sx={{ fontSize: 16, color: 'success.main' }} />
-                            <Typography variant="caption"><strong>{resultCount ?? 0}</strong> particles picked</Typography>
+                            <Typography variant="caption">
+                                <strong>{resultCount ?? currentParticleCount ?? 0}</strong> particles picked
+                            </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', gap: 0.5 }}>
                             <Button variant="outlined" size="small" color="error" startIcon={<DiscardIcon sx={{ fontSize: 12 }} />}
@@ -781,7 +814,9 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                         <Typography variant="caption" sx={{
                             color: "text.secondary"
                         }}>
-                            {resultCount} particles detected. Click <strong>Accept</strong> to keep or <strong>Discard</strong> to remove.
+                            {resultCount ?? currentParticleCount ?? 0} particles detected
+                            {ippName ? ` and saved as “${ippName}”` : ''}.
+                            {' '}Click <strong>Accept</strong> to keep or <strong>Discard</strong> to remove.
                         </Typography>
                     </Box>
                 )}

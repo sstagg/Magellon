@@ -38,7 +38,7 @@ export interface PickDispatchResponse {
     task_id: string;
 }
 
-export type Tool = 'add' | 'remove' | 'select' | 'move' | 'box' | 'auto' | 'brush' | 'pan';
+export type Tool = 'add' | 'remove' | 'select' | 'move' | 'box' | 'auto' | 'brush' | 'pan' | 'lasso';
 export type ViewMode = 'normal' | 'overlay' | 'heatmap' | 'comparison';
 
 interface UseParticleOperationsParams {

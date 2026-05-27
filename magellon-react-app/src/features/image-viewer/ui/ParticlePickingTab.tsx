@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type {
     SelectChangeEvent} from '@mui/material';
 import {
@@ -193,7 +193,58 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
     // Scale the display radius to the coordinate space (reference: 15px at 1024 wide).
     const PARTICLE_RADIUS = imageShape ? Math.round(imageShape[1] / 1024 * 15) : 15;
 
-    // Register settings panel content into the app-level side panel slot
+    // Global keyboard shortcuts — declared here so undo/redo/etc. are in scope
+    const handleKeyDown = useCallback((e: KeyboardEvent) => {
+        const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+        const ctrl = e.ctrlKey || e.metaKey;
+
+        if (!ctrl && !e.shiftKey) {
+            switch (e.key) {
+                case '1': setTool('add'); break;
+                case '2': setTool('remove'); break;
+                case '3': setTool('select'); break;
+                case '4': setTool('move'); break;
+                case '5': setTool('box'); break;
+                case '6': setTool('brush'); break;
+                case 'l': case 'L': setTool('lasso'); break;
+                case 'g': case 'G': setShowGrid((v) => !v); break;
+                case 'h': case 'H': setHelpOpen(true); break;
+                case '+': case '=': setZoom((z) => Math.min(z * 1.2, 5)); break;
+                case '-': setZoom((z) => Math.max(z / 1.2, 0.2)); break;
+                case '0': setZoom(1); break;
+            }
+        } else if (ctrl && !e.shiftKey) {
+            switch (e.key.toLowerCase()) {
+                case 'z': undo(); e.preventDefault(); break;
+                case 'a': selectAll(); e.preventDefault(); break;
+                case 'c': copySelected(); e.preventDefault(); break;
+                case 'v': pasteParticles(); e.preventDefault(); break;
+                case 's': handleSave(); e.preventDefault(); break;
+            }
+        } else if (ctrl && e.shiftKey) {
+            if (e.key.toLowerCase() === 'z') { redo(); e.preventDefault(); }
+        } else if (e.key === 'Delete' || e.key === 'Backspace') {
+            deleteSelected();
+        }
+    }, [undo, redo, selectAll, copySelected, pasteParticles, deleteSelected, handleSave]);
+
+    useEffect(() => {
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [handleKeyDown]);
+
+    // Clear the side-panel slot only when the tab actually unmounts.
+    // The previous pattern (cleanup → setContent on every dep change)
+    // forced the panel to unmount and remount, blowing away its
+    // internal state — including the `dispatchedIppName` that drives
+    // the post-dispatch transition to the 'results' card.
+    useEffect(() => clearContent, [clearContent]);
+
+    // Push the latest panel JSX into the slot. setContent replaces the
+    // stored node atomically, so React reconciles into the same panel
+    // instance (state preserved) instead of remounting.
     useEffect(() => {
         setContent(
             <ParticleSettingsPanel
@@ -226,9 +277,9 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 autoPickingProgress={autoPickingProgress}
                 resultCount={lastResultCount}
                 ippName={selectedParticlePicking?.name}
+                currentParticleCount={particles.length}
             />
         );
-        return () => clearContent();
     }, [settingsOpen, pickerParams, isAutoPickingRunning, autoPickingProgress, lastResultCount,
         particles, selectedImage, previewParticles, sessionName, selectedParticlePicking?.name]);
 
