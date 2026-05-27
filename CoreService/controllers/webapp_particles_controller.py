@@ -125,6 +125,11 @@ def get_image_particles(
             oid=image_meta_data.oid,
             name=image_meta_data.name,
             image_id=image_meta_data.image_id,
+            # ``data`` carries the algorithm-side metadata (image_shape
+            # in particular) the canvas needs to size its viewBox to
+            # match pick coordinates. Without it, the frontend has to
+            # estimate from the picks' bounding box and drifts ~5%.
+            data=image_meta_data.data,
             data_json=json.dumps(image_meta_data.data_json),
             # status=particlepickingjobitem.status,
             # type=particlepickingjobitem.type

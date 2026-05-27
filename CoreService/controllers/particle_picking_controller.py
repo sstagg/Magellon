@@ -25,6 +25,7 @@ controller doesn't move.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import math
 import os
@@ -710,9 +711,10 @@ async def template_pick_run_and_save(
         for idx, p in enumerate(raw_particles)
     ]
 
+    image_shape = body.get("image_shape")
     loop = asyncio.get_running_loop()
     row = await loop.run_in_executor(
-        None, _save_particle_picking, db, image_oid, req.ipp_name, points,
+        None, _save_particle_picking, db, image_oid, req.ipp_name, points, image_shape,
     )
 
     return RunAndSaveResponse(
@@ -720,7 +722,7 @@ async def template_pick_run_and_save(
         ipp_name=row.name,
         image_oid=str(image_oid),
         num_particles=len(points),
-        image_shape=body.get("image_shape"),
+        image_shape=image_shape,
     )
 
 
@@ -882,9 +884,20 @@ def _save_particle_picking(
     image_oid: UUID,
     ipp_name: str,
     particles_payload: list[dict],
+    image_shape: Optional[list[int]] = None,
 ) -> ImageMetaData:
-    """Upsert the ImageMetaData row (type=5) that stores picked particles."""
+    """Upsert the ImageMetaData row (type=5) that stores picked particles.
+
+    ``image_shape`` (height, width of the source micrograph) is persisted
+    in the ``data`` JSON column so the React canvas can size its viewBox
+    to match pick coordinates on reload, instead of inferring from the
+    pick bounding box (~5% off, drops picks at the edges)."""
     plugin_oid = _get_pp_plugin_oid(db)
+    meta_data: Optional[str] = (
+        json.dumps({"image_shape": [int(image_shape[0]), int(image_shape[1])]})
+        if image_shape and len(image_shape) == 2
+        else None
+    )
     existing = (
         db.query(ImageMetaData)
         .filter(ImageMetaData.image_id == image_oid, ImageMetaData.name == ipp_name)
@@ -892,6 +905,8 @@ def _save_particle_picking(
     )
     if existing:
         existing.data_json = particles_payload
+        if meta_data is not None:
+            existing.data = meta_data
         existing.plugin_id = plugin_oid
         existing.last_modified_date = datetime.now()
         db.commit()
@@ -903,6 +918,7 @@ def _save_particle_picking(
         image_id=image_oid,
         plugin_id=plugin_oid,
         type=5,
+        data=meta_data,
         data_json=particles_payload,
     )
     db.add(row)
@@ -990,16 +1006,17 @@ async def _run_batch_job(
                         for idx, p in enumerate(raw_particles)
                     ]
 
+                    batch_image_shape = body.get("image_shape")
                     loop = asyncio.get_running_loop()
                     await loop.run_in_executor(
-                        None, _save_particle_picking, db, image_oid, req.ipp_name, points,
+                        None, _save_particle_picking, db, image_oid, req.ipp_name, points, batch_image_shape,
                     )
 
                     items.append(BatchItemResult(
                         image_oid=entry.oid,
                         image_name=entry.name,
                         num_particles=len(points),
-                        image_shape=body.get("image_shape"),
+                        image_shape=batch_image_shape,
                         status="done",
                     ))
                     succeeded += 1
