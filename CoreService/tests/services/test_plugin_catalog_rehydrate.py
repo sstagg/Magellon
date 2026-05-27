@@ -113,3 +113,83 @@ def test_rehydrate_seeds_registry_through_record_announce(monkeypatch):
     assert len(received) == 1
     assert received[0].plugin_id == "topaz-particle-picking"
     assert Capability.PREVIEW in received[0].manifest.capabilities
+
+
+def test_runtime_announce_refreshes_existing_manifest_and_endpoint(monkeypatch):
+    """A discovered row may have stale capabilities after an upgrade.
+    A later announce must refresh the full runtime manifest, not just
+    schemas, so PREVIEW survives the next CoreService restart."""
+    existing = _make_row(
+        plugin_id="topaz-particle-picking",
+        with_manifest=True,
+        http_endpoint=None,
+    )
+    existing.oid = "plugin-oid"
+    existing.manifest_json["capabilities"] = ["cpu_intensive"]
+
+    class _DB:
+        def add(self, row):
+            self.row = row
+
+        def commit(self):
+            pass
+
+        def rollback(self):
+            pass
+
+        def close(self):
+            pass
+
+    persistence = PluginCatalogPersistence(session_factory=_DB)
+    refreshed_manifest = PluginManifest(
+        info=PluginInfo(
+            name="Topaz Particle Picking",
+            version="1.0.0",
+            developer="test",
+            schema_version="1",
+        ),
+        backend_id="topaz-particle-picking",
+        capabilities=[Capability.CPU_INTENSIVE, Capability.PREVIEW],
+    ).model_dump(mode="json")
+    refreshed_manifest.update({
+        "name": "Topaz Particle Picking",
+        "version": "1.0.0",
+        "author": "test",
+        "category": "topazparticlepicking",
+        "backend_id": "topaz-particle-picking",
+        "schema_version": "1",
+        "discovered": {"source": "announce", "instance_id": "inst-2"},
+        "input_schema": {"type": "object"},
+    })
+
+    monkeypatch.setattr(
+        "services.plugin_catalog_persistence.PluginRepository",
+        lambda db: SimpleNamespace(
+            get_by_manifest_plugin_id=lambda plugin_id: existing,
+            get_by_category_backend=lambda category, backend_id: None,
+            upsert_catalog=lambda *a, **k: None,
+        ),
+    )
+    monkeypatch.setattr(
+        "services.plugin_catalog_persistence.PluginStateRepository",
+        lambda db: SimpleNamespace(
+            touch_heartbeat=lambda oid, seen_at: None,
+            set_enabled=lambda oid, enabled: None,
+        ),
+    )
+
+    persistence._upsert_discovered(
+        plugin_id="topaz-particle-picking",
+        manifest=refreshed_manifest,
+        install_result={
+            "install_method": "discovered",
+            "container_ref": "topaz_pick_tasks_queue",
+            "http_endpoint": "http://127.0.0.1:18003/",
+        },
+        seen_at=datetime(2026, 5, 27, 10, 0, 0),
+    )
+
+    assert "preview" in existing.manifest_json["capabilities"]
+    assert existing.manifest_json["input_schema"] == {"type": "object"}
+    assert existing.http_endpoint == "http://127.0.0.1:18003/"
+    assert existing.container_ref == "topaz_pick_tasks_queue"

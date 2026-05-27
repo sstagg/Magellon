@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { alpha } from '@mui/material';
 import { useAuthenticatedImage } from '../../../shared/lib/useAuthenticatedImage.ts';
 import type { Point, ParticleClass, Tool } from '../lib/useParticleOperations.ts';
+import { pointRadius } from '../lib/useParticleOperations.ts';
 
 interface ParticleCanvasProps {
     imageUrl: string;
@@ -254,6 +255,7 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
             id: generateId(),
             type: 'manual',
             confidence: 1,
+            radius: particleRadius,
             class: activeClass,
             timestamp: Date.now(),
         };
@@ -285,7 +287,7 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
             particles.find((p) => {
                 const dx = p.x - point.x;
                 const dy = p.y - point.y;
-                return Math.sqrt(dx * dx + dy * dy) <= particleRadius;
+                return Math.sqrt(dx * dx + dy * dy) <= pointRadius(p, particleRadius);
             }) || null
         );
     };
@@ -350,6 +352,7 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
                     {particles.map((particle) => {
                         const particleClass = particleClasses.find((c) => c.id === particle.class);
                         if (!particleClass?.visible) return null;
+                        const radius = pointRadius(particle, particleRadius);
 
                         return (
                             <g
@@ -360,7 +363,7 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
                                 <circle
                                     cx={particle.x}
                                     cy={particle.y}
-                                    r={particleRadius}
+                                    r={radius}
                                     fill="none"
                                     stroke={getParticleColor(particle)}
                                     strokeWidth={selectedParticles.has(particle.id || '') ? 3 : 2}
@@ -371,9 +374,9 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
                                 {showCrosshair && (
                                     <>
                                         <line
-                                            x1={particle.x - particleRadius / 2}
+                                            x1={particle.x - radius / 2}
                                             y1={particle.y}
-                                            x2={particle.x + particleRadius / 2}
+                                            x2={particle.x + radius / 2}
                                             y2={particle.y}
                                             stroke={getParticleColor(particle)}
                                             strokeWidth={2}
@@ -382,9 +385,9 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
                                         />
                                         <line
                                             x1={particle.x}
-                                            y1={particle.y - particleRadius / 2}
+                                            y1={particle.y - radius / 2}
                                             x2={particle.x}
-                                            y2={particle.y + particleRadius / 2}
+                                            y2={particle.y + radius / 2}
                                             stroke={getParticleColor(particle)}
                                             strokeWidth={2}
                                             opacity={particleOpacity}
@@ -397,7 +400,7 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
                                     <circle
                                         cx={particle.x}
                                         cy={particle.y}
-                                        r={particleRadius * 0.15}
+                                        r={Math.max(radius * 0.15, 2)}
                                         fill={getParticleColor(particle)}
                                         opacity={Math.min(particle.confidence, 1)}
                                     />

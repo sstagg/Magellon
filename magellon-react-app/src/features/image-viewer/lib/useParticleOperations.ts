@@ -16,6 +16,8 @@ export interface Point {
     y: number;
     id?: string;
     confidence?: number;
+    score?: number;
+    radius?: number;
     type?: 'manual' | 'auto' | 'suggested';
     class?: string;
     timestamp?: number;
@@ -40,6 +42,30 @@ export interface PickDispatchResponse {
 
 export type Tool = 'add' | 'remove' | 'select' | 'move' | 'box' | 'auto' | 'brush' | 'pan' | 'lasso' | 'sam2';
 export type ViewMode = 'normal' | 'overlay' | 'heatmap' | 'comparison';
+
+export function clampConfidence(value: unknown, fallback = 1): number {
+    const n = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(0, Math.min(n, 1));
+}
+
+export function confidenceFromScore(score: unknown, isLogLikelihood = false): number {
+    const n = typeof score === 'number' ? score : Number(score);
+    if (!Number.isFinite(n)) return 0;
+    if (!isLogLikelihood) return clampConfidence(n, 0);
+    if (n >= 0) {
+        const z = Math.exp(-n);
+        return 1 / (1 + z);
+    }
+    const z = Math.exp(n);
+    return z / (1 + z);
+}
+
+export function pointRadius(point: Point, fallback: number): number {
+    return typeof point.radius === 'number' && Number.isFinite(point.radius) && point.radius > 0
+        ? point.radius
+        : fallback;
+}
 
 interface UseParticleOperationsParams {
     selectedParticlePicking: ParticlePickingDto | null;
@@ -112,7 +138,7 @@ export function useParticleOperations({
         const manual = particleList.filter(p => p.type === 'manual').length;
         const auto = particleList.filter(p => p.type === 'auto').length;
         const avgConfidence = particleList.length > 0
-            ? particleList.reduce((sum, p) => sum + (p.confidence || 1), 0) / particleList.length
+            ? particleList.reduce((sum, p) => sum + clampConfidence(p.confidence), 0) / particleList.length
             : 0;
 
         const particlesPerClass: Record<string, number> = {};
@@ -183,7 +209,14 @@ export function useParticleOperations({
 
         if (selectedParticlePicking?.data_json) {
             try {
-                const parsedParticles = selectedParticlePicking.data_json as Point[];
+                const parsedParticles = (selectedParticlePicking.data_json as Point[]).map((p) => {
+                    const radius = Number(p.radius);
+                    return {
+                        ...p,
+                        confidence: typeof p.confidence === 'number' ? clampConfidence(p.confidence, 0) : p.confidence,
+                        radius: Number.isFinite(radius) && radius > 0 ? radius : undefined,
+                    };
+                });
                 isLoadingFromIpp.current = true;
                 setParticles(parsedParticles);
                 updateStats(parsedParticles);
@@ -391,15 +424,21 @@ export function useParticleOperations({
                     setImageShape([result.image_shape[0], result.image_shape[1]]);
                 }
                 const threshold = pickerParams.threshold ?? 0.4;
-                autoParticles = (result.particles || []).map((p: any, idx: number) => ({
-                    x: p.x,
-                    y: p.y,
-                    id: `auto-${Date.now()}-${idx}`,
-                    type: 'auto' as const,
-                    confidence: Math.min(p.score, 1.0),
-                    class: p.score >= threshold ? '1' : '4',
-                    timestamp: Date.now(),
-                }));
+                autoParticles = (result.particles || []).map((p: any, idx: number) => {
+                    const score = Number(p.score ?? 0);
+                    const radius = Number(p.radius);
+                    return {
+                        x: p.x,
+                        y: p.y,
+                        id: `auto-${Date.now()}-${idx}`,
+                        type: 'auto' as const,
+                        confidence: confidenceFromScore(score),
+                        score,
+                        radius: Number.isFinite(radius) && radius > 0 ? radius : undefined,
+                        class: score >= threshold ? '1' : '4',
+                        timestamp: Date.now(),
+                    };
+                });
 
                 const updatedParticles = [...particles, ...autoParticles];
                 setParticles(updatedParticles);
@@ -492,7 +531,7 @@ export function useParticleOperations({
                         }
                     }
                 } catch { /* refetch errors are transient; keep polling */ }
-                if (attempts < 20) {
+                if (attempts < 60) {
                     setTimeout(poll, 5000);
                 } else {
                     setIsAutoPickingRunning(false);
@@ -545,7 +584,8 @@ export function useParticleOperations({
                 y: result.centroid_y,
                 id: `sam2-${Date.now()}-${Math.random()}`,
                 type: 'auto',
-                confidence: Math.min(result.confidence, 1.0),
+                confidence: clampConfidence(result.confidence),
+                radius: result.radius_estimate,
                 class: '1',
                 timestamp: Date.now(),
             };

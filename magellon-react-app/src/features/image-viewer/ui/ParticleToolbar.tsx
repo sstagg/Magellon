@@ -15,6 +15,7 @@ import {
     Tooltip,
     CircularProgress,
     Menu,
+    Slider,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -40,6 +41,7 @@ import {
     PanTool as PanToolIcon,
     TouchApp as TouchAppIcon,
     MoreVert,
+    RadioButtonUnchecked as RadiusIcon,
 } from '@mui/icons-material';
 import { Move, Lasso, Magnet } from 'lucide-react';
 import type { Tool } from '../lib/useParticleOperations.ts';
@@ -87,6 +89,9 @@ export interface ParticleToolbarProps {
     onToggleGrid: () => void;
     onAutoPickRun: () => void;
     isAutoPickingRunning: boolean;
+    particleRadius: number;
+    particleRadiusMax: number;
+    onParticleRadiusChange: (radius: number) => void;
     onSettingsOpen: () => void;
     onHelpOpen: () => void;
     isMobile: boolean;
@@ -123,6 +128,9 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
     onToggleGrid,
     onAutoPickRun,
     isAutoPickingRunning,
+    particleRadius,
+    particleRadiusMax,
+    onParticleRadiusChange,
     onSettingsOpen,
     onHelpOpen,
 }) => {
@@ -214,6 +222,36 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
                     variant="outlined"
                     sx={{ height: 20, fontSize: '0.62rem', ml: 0.5, px: 0.25 }}
                 />
+
+                <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+
+                <Tooltip title="Particle radius">
+                    <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.75,
+                        width: 152,
+                        height: 28,
+                        px: 0.5,
+                    }}>
+                        <RadiusIcon sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0 }} />
+                        <Slider
+                            size="small"
+                            min={4}
+                            max={Math.max(4, particleRadiusMax)}
+                            step={1}
+                            value={Math.max(4, Math.min(particleRadius, particleRadiusMax))}
+                            onChange={(_, value) => onParticleRadiusChange(Array.isArray(value) ? value[0] : value)}
+                            sx={{ flex: 1, minWidth: 72 }}
+                        />
+                        <Chip
+                            label={Math.round(particleRadius)}
+                            size="small"
+                            variant="outlined"
+                            sx={{ height: 20, minWidth: 38, fontSize: '0.62rem' }}
+                        />
+                    </Box>
+                </Tooltip>
 
                 <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
 

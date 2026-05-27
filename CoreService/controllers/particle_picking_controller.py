@@ -77,6 +77,40 @@ _PLUGIN_ID = "particle-picking/template-picker"
 _CATEGORY = "particle_picking"
 
 
+def _confidence_from_score(score: float) -> float:
+    if not math.isfinite(score):
+        return 0.0
+    return max(0.0, min(score, 1.0))
+
+
+def _point_from_raw_pick(
+    p: Dict[str, Any],
+    idx: int,
+    now_ts: int,
+    threshold: float,
+) -> Dict[str, Any]:
+    score = float(p.get("score", 0.0))
+    center = p.get("center")
+    if isinstance(center, (list, tuple)) and len(center) >= 2:
+        x, y = center[0], center[1]
+    else:
+        x, y = p["x"], p["y"]
+    point = {
+        "x": x,
+        "y": y,
+        "id": f"auto-{now_ts}-{idx}",
+        "type": "auto",
+        "confidence": _confidence_from_score(score),
+        "score": score,
+        "class": "1" if score >= threshold else "4",
+        "timestamp": now_ts,
+    }
+    radius = p.get("radius")
+    if isinstance(radius, (int, float)) and radius > 0:
+        point["radius"] = float(radius)
+    return point
+
+
 # ---------------------------------------------------------------------------
 # Wire shape — plugin owns TemplatePickerInput as its real input model
 # (PE2-UI, 2026-05-12). The facade now passes the validated body straight
@@ -698,18 +732,7 @@ async def template_pick_run_and_save(
     raw_particles = _load_particles_from_plugin_output(body)
     threshold = picker.threshold
     now_ts = int(datetime.now().timestamp() * 1000)
-    points = [
-        {
-            "x": p["x"],
-            "y": p["y"],
-            "id": f"auto-{now_ts}-{idx}",
-            "type": "auto",
-            "confidence": min(float(p.get("score", 0.0)), 1.0),
-            "class": "1" if p.get("score", 0.0) >= threshold else "4",
-            "timestamp": now_ts,
-        }
-        for idx, p in enumerate(raw_particles)
-    ]
+    points = [_point_from_raw_pick(p, idx, now_ts, threshold) for idx, p in enumerate(raw_particles)]
 
     image_shape = body.get("image_shape")
     loop = asyncio.get_running_loop()
@@ -994,15 +1017,7 @@ async def _run_batch_job(
                     threshold = picker.threshold
                     now_ts = int(datetime.now().timestamp() * 1000)
                     points = [
-                        {
-                            "x": p["x"],
-                            "y": p["y"],
-                            "id": f"auto-{now_ts}-{idx}",
-                            "type": "auto",
-                            "confidence": min(float(p.get("score", 0.0)), 1.0),
-                            "class": "1" if p.get("score", 0.0) >= threshold else "4",
-                            "timestamp": now_ts,
-                        }
+                        _point_from_raw_pick(p, idx, now_ts, threshold)
                         for idx, p in enumerate(raw_particles)
                     ]
 
@@ -1103,9 +1118,7 @@ async def template_pick_record_coco(
 
     width = int(image.dimension_x) if image.dimension_x is not None else 0
     height = int(image.dimension_y) if image.dimension_y is not None else 0
-    r = float(radius)
-    diameter = 2.0 * r
-    area = math.pi * r * r
+    fallback_radius = float(radius)
 
     annotations: list[dict] = []
     for idx, p in enumerate(points, start=1):
@@ -1113,6 +1126,14 @@ async def template_pick_record_coco(
             continue
         cx = float(p.get("x", 0.0))
         cy = float(p.get("y", 0.0))
+        raw_radius = p.get("radius")
+        r = (
+            float(raw_radius)
+            if isinstance(raw_radius, (int, float)) and float(raw_radius) > 0
+            else fallback_radius
+        )
+        diameter = 2.0 * r
+        area = math.pi * r * r
         cls = str(p.get("class", "1"))
         category_id = int(cls) if cls.isdigit() else 1
         ann: dict = {

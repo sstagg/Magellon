@@ -32,7 +32,7 @@ import { SchemaForm, type BrowseFileRequest } from '../../../shared/ui/SchemaFor
 import { ImagePickerDialog } from '../../plugin-runner/ui/ImagePickerDialog.tsx';
 import { settings as appSettings } from '../../../shared/config/settings.ts';
 import type { PickDispatchResponse, Point} from '../lib/useParticleOperations.ts';
-import { TEMPLATE_PICKER_PATH } from '../lib/useParticleOperations.ts';
+import { confidenceFromScore, TEMPLATE_PICKER_PATH } from '../lib/useParticleOperations.ts';
 import { useJobStepEvents } from '../../../shared/lib/useJobStepEvents.ts';
 
 interface BackendInfo {
@@ -133,6 +133,28 @@ function schemaDefaults(schema: any): Record<string, any> {
 // ---------------------------------------------------------------------------
 
 const API_URL = appSettings.ConfigData.SERVER_API_URL;
+
+function pointFromBackendPick(
+    p: any,
+    idPrefix: string,
+    idx: number,
+    threshold: number,
+    isTopaz: boolean,
+): Point {
+    const score = Number(p.score ?? 0);
+    const radius = Number(p.radius);
+    return {
+        x: p.x,
+        y: p.y,
+        id: `${idPrefix}-${Date.now()}-${idx}`,
+        type: 'auto',
+        confidence: confidenceFromScore(score, isTopaz),
+        score,
+        radius: Number.isFinite(radius) && radius > 0 ? radius : undefined,
+        class: score >= threshold ? '1' : '4',
+        timestamp: Date.now(),
+    };
+}
 
 export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     open,
@@ -323,20 +345,17 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
             setPreviewCount(data.num_particles);
             setScoreMapPng(data.score_map_png_base64 || null);
 
-            const pts: Point[] = (data.particles || []).map((p: any, i: number) => ({
-                x: p.x, y: p.y, id: `preview-${Date.now()}-${i}`,
-                type: 'auto' as const,
-                confidence: Math.min(p.score, 1.0),
-                class: p.score >= (pickerParams.threshold ?? 0.4) ? '1' : '4',
-                timestamp: Date.now(),
-            }));
+            const threshold = pickerParams.threshold ?? (isTopazBackend ? -3.0 : 0.4);
+            const pts: Point[] = (data.particles || []).map((p: any, i: number) =>
+                pointFromBackendPick(p, 'preview', i, threshold, isTopazBackend)
+            );
             onPreviewParticles(pts);
             setDrawerState('preview');
         } catch (err: any) {
             setDrawerState('configure');
             setRuntimeError(`Preview failed: ${err.message}`);
         }
-    }, [isValid, pickerParams, imageName, onPreviewParticles]);
+    }, [isValid, pickerParams, imageName, selectedBackend, sessionName, onPreviewParticles]);
 
     // --- Retune (debounced) ---
     const handleRetune = useCallback((newParams: Record<string, any>) => {
@@ -365,19 +384,16 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                 if (res.ok) {
                     const data = await res.json();
                     setPreviewCount(data.num_particles);
-                    const pts: Point[] = (data.particles || []).map((p: any, i: number) => ({
-                        x: p.x, y: p.y, id: `retune-${Date.now()}-${i}`,
-                        type: 'auto' as const,
-                        confidence: Math.min(p.score, 1.0),
-                        class: p.score >= (newParams.threshold ?? 0.4) ? '1' : '4',
-                        timestamp: Date.now(),
-                    }));
+                    const threshold = newParams.threshold ?? (isTopazBackend ? -3.0 : 0.4);
+                    const pts: Point[] = (data.particles || []).map((p: any, i: number) =>
+                        pointFromBackendPick(p, 'retune', i, threshold, isTopazBackend)
+                    );
                     onPreviewParticles(pts);
                 }
             } catch { /* ignore */ }
             setRetuning(false);
         }, 300);
-    }, [previewId, onPreviewParticles, onPickerParamsChange]);
+    }, [previewId, selectedBackend, isTopazBackend, onPreviewParticles, onPickerParamsChange]);
 
     // --- Run (RMQ dispatch) ---
     const handleRun = async () => {

@@ -14,6 +14,8 @@ queue or category sent the message:
 """
 from __future__ import annotations
 
+import json
+import math
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -151,6 +153,38 @@ def test_queue_config_returns_none_for_unknown_type():
     proc, _ = _make_processor(out_queues=[])
     assert proc._get_queue_type_output_dir("ctf") is None
     assert proc._get_queue_type_category("ctf") is None
+
+
+def test_save_topaz_particle_picks_preserves_radius_and_normalizes_confidence(tmp_path, monkeypatch):
+    picks_path = tmp_path / "picks.json"
+    picks_path.write_text(
+        json.dumps([
+            {"center": [10, 20], "radius": 112, "score": -3.0},
+            {"center": [30, 40], "radius": 112, "score": 6.0},
+        ]),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("core.helper.from_canonical_gpfs_path", lambda p: p)
+
+    proc, db = _make_processor()
+    result = _StubResult(
+        task_id=uuid4(),
+        type_code=8,
+        type_name="TopazParticlePicking",
+    )
+    result.output_data = {
+        "particles_json_path": str(picks_path),
+        "threshold": -3.0,
+        "image_shape": [4096, 4096],
+    }
+
+    proc._save_particle_picks(result)
+
+    row = db.add.call_args.args[0]
+    assert row.data_json[0]["radius"] == 112
+    assert row.data_json[0]["score"] == -3.0
+    assert row.data_json[0]["confidence"] == pytest.approx(1 / (1 + math.exp(3.0)))
+    assert row.data_json[1]["confidence"] == pytest.approx(1 / (1 + math.exp(-6.0)))
 
 
 # ---------------------------------------------------------------------------

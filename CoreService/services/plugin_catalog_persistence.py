@@ -140,6 +140,7 @@ class PluginCatalogPersistence:
             "install_dir": None,
             "image_ref": None,
             "container_ref": msg.task_queue,
+            "http_endpoint": msg.http_endpoint,
         }
         self._upsert_discovered(
             plugin_id=msg.plugin_id,
@@ -200,25 +201,39 @@ class PluginCatalogPersistence:
             if existing is None:
                 row = repo.upsert_catalog(plugin_id, manifest, install_result)
             else:
-                # An install-time row already represents this plugin;
-                # don't overwrite its install_dir / port / endpoint
-                # with discovery-time nulls. Just update the heartbeat.
-                # Exception (2026-05-13): merge input_schema /
-                # output_schema from the announce into manifest_json
-                # so the schema endpoint can read it back after a
-                # CoreService restart. Both fields are safe to update
-                # in place — they're derived from the plugin's
-                # PluginInfo.input_schema() introspection, not from
-                # install-time state, so an announce always wins.
                 merged: Dict[str, Any] = dict(existing.manifest_json or {})
                 changed = False
-                for key in ("input_schema", "output_schema"):
+                has_runtime_manifest = bool(manifest.get("info") or manifest.get("capabilities"))
+                merge_keys = manifest.keys() if has_runtime_manifest else ("input_schema", "output_schema")
+                for key in merge_keys:
                     new_val = manifest.get(key)
                     if new_val is not None and merged.get(key) != new_val:
                         merged[key] = new_val
                         changed = True
                 if changed:
                     existing.manifest_json = merged
+                if has_runtime_manifest:
+                    for attr, key in (
+                        ("version", "version"),
+                        ("author", "author"),
+                        ("category", "category"),
+                        ("backend_id", "backend_id"),
+                        ("schema_version", "schema_version"),
+                    ):
+                        new_val = manifest.get(key)
+                        if new_val is not None and getattr(existing, attr, None) != new_val:
+                            setattr(existing, attr, new_val)
+                            changed = True
+                    for attr, key in (
+                        ("container_ref", "container_ref"),
+                        ("http_endpoint", "http_endpoint"),
+                        ("port", "port"),
+                    ):
+                        new_val = install_result.get(key)
+                        if new_val is not None and getattr(existing, attr, None) != new_val:
+                            setattr(existing, attr, new_val)
+                            changed = True
+                if changed:
                     db.add(existing)
                 row = existing
             state_repo.touch_heartbeat(row.oid, seen_at)

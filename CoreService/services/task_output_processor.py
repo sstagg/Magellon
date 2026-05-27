@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import shutil
 import uuid
@@ -72,6 +73,21 @@ _ARTIFACT_KIND_CLASS_AVERAGES = "class_averages"
 # Default category id when no OutQueueConfig matches — preserves the
 # old plugin's fallback so existing rows keep their lineage.
 _DEFAULT_CATEGORY_ID = 10
+
+
+def _confidence_from_score(score: float, *, is_log_likelihood: bool) -> float:
+    """Return a 0..1 display confidence for saved particle-picking points."""
+    if not math.isfinite(score):
+        return 0.0
+    if is_log_likelihood:
+        # Topaz scores are log-likelihood ratios. Sigmoid keeps the raw
+        # score available while making the UI confidence/stat widgets sane.
+        if score >= 0:
+            z = math.exp(-score)
+            return 1.0 / (1.0 + z)
+        z = math.exp(score)
+        return z / (1.0 + z)
+    return max(0.0, min(score, 1.0))
 
 
 def _move_file_to_directory(file_path: str, destination_dir: str) -> None:
@@ -253,7 +269,9 @@ class TaskOutputProcessor:
                     if isinstance(raw, list):
                         import time as _time
                         now_ms = int(_time.time() * 1000)
-                        threshold = float(out.get("threshold", 0.35))
+                        type_code = task_result.type.code if task_result.type else None
+                        is_topaz = type_code == _TASK_TYPE_TOPAZ_PARTICLE_PICKING
+                        threshold = float(out.get("threshold", -3.0 if is_topaz else 0.35))
                         max_x, max_y, max_radius = 0, 0, 0
                         for idx, p in enumerate(raw):
                             if isinstance(p, dict):
@@ -267,15 +285,22 @@ class TaskOutputProcessor:
                                 max_x = max(max_x, int(px))
                                 max_y = max(max_y, int(py))
                                 max_radius = max(max_radius, radius)
-                                particles_payload.append({
+                                point = {
                                     "x": px,
                                     "y": py,
                                     "id": f"auto-{now_ms}-{idx}",
                                     "type": "auto",
-                                    "confidence": min(score, 1.0),
+                                    "confidence": _confidence_from_score(
+                                        score,
+                                        is_log_likelihood=is_topaz,
+                                    ),
+                                    "score": score,
                                     "class": "1" if score >= threshold else "4",
                                     "timestamp": now_ms,
-                                })
+                                }
+                                if radius > 0:
+                                    point["radius"] = radius
+                                particles_payload.append(point)
                         if particles_payload and image_shape is None:
                             # Fallback: derive image dimensions from the
                             # bounding box of picks when the plugin didn't

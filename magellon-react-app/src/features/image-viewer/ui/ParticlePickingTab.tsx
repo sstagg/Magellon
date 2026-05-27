@@ -86,6 +86,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
     const [helpOpen, setHelpOpen] = useState(false);
     const [batchDialogOpen, setBatchDialogOpen] = useState(false);
     const [activeClass, setActiveClass] = useState('1');
+    const [customParticleRadius, setCustomParticleRadius] = useState<number | null>(null);
 
     const PARTICLE_OPACITY = 0.8;
     const SHOW_CROSSHAIR = true;
@@ -193,8 +194,24 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
         onRefreshIppList: onParticlePickingLoad,
     });
 
-    // Scale the display radius to the coordinate space (reference: 15px at 1024 wide).
-    const PARTICLE_RADIUS = imageShape ? Math.round(imageShape[1] / 1024 * 15) : 15;
+    // Scale the default display radius to the coordinate space (reference: 15px at 1024 wide).
+    const DEFAULT_PARTICLE_RADIUS = imageShape ? Math.round(imageShape[1] / 1024 * 15) : 15;
+    const PARTICLE_RADIUS = customParticleRadius ?? DEFAULT_PARTICLE_RADIUS;
+    const PARTICLE_RADIUS_MAX = imageShape ? Math.max(64, Math.round(imageShape[1] / 8)) : 256;
+
+    useEffect(() => {
+        setCustomParticleRadius(null);
+    }, [selectedImage?.oid]);
+
+    const handleParticleRadiusChange = useCallback((radius: number) => {
+        const nextRadius = Math.max(4, Math.min(Math.round(radius), PARTICLE_RADIUS_MAX));
+        setCustomParticleRadius(nextRadius);
+        if (selectedParticles.size === 0) return;
+        const updated = particles.map((p) =>
+            selectedParticles.has(p.id || '') ? { ...p, radius: nextRadius } : p
+        );
+        handleParticlesUpdate(updated);
+    }, [PARTICLE_RADIUS_MAX, selectedParticles, particles, handleParticlesUpdate]);
 
     // Global keyboard shortcuts — declared here so undo/redo/etc. are in scope
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -356,6 +373,9 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 onToggleGrid={() => setShowGrid(!showGrid)}
                 onAutoPickRun={runAutoPicking}
                 isAutoPickingRunning={isAutoPickingRunning}
+                particleRadius={PARTICLE_RADIUS}
+                particleRadiusMax={PARTICLE_RADIUS_MAX}
+                onParticleRadiusChange={handleParticleRadiusChange}
                 onSettingsOpen={() => togglePanel('settings')}
                 onHelpOpen={() => setHelpOpen(true)}
                 isMobile={isMobile}
