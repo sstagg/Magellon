@@ -18,13 +18,23 @@ name: contract-tests
 on:
   push:
     branches: [main]
+    paths:
+      - 'CoreService/**'
+      - 'magellon-sdk/**'
+      - 'plugins/**'
+      - '.github/workflows/contract-tests.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'CoreService/**'
+      - 'magellon-sdk/**'
+      - 'plugins/**'
+      - '.github/workflows/contract-tests.yml'
   workflow_dispatch:
 
 jobs:
   contract-collect:
-    name: contract suite (skip-mode)
+    name: contract suite (collect-only)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,12 +45,14 @@ jobs:
         working-directory: CoreService
         run: |
           pip install -e ../magellon-sdk[rabbitmq,nats,logging,config]
-          pip install -r requirements.txt || true
+          pip install -r requirements.txt
           pip install pytest httpx
-      - name: Collect + run (every test should skip)
+      - name: pytest --collect-only (imports + fixtures resolve)
         working-directory: CoreService
         run: |
-          pytest tests/contracts/ -v --tb=short
+          # Skip-mode execution gave a false sense of coverage; the
+          # actual prove-it run is contract-integration on dispatch.
+          pytest tests/contracts/ --collect-only -q
           # Regression check: at least one test in each plugin contract file
           # must be present (catches accidental file deletion).
           test $(grep -c "^def test_" tests/contracts/test_ctf_plugin_contract.py) -ge 1

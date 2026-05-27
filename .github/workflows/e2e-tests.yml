@@ -20,8 +20,16 @@ name: e2e-tests
 on:
   push:
     branches: [main]
+    paths:
+      - 'CoreService/**'
+      - 'magellon-sdk/**'
+      - '.github/workflows/e2e-tests.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'CoreService/**'
+      - 'magellon-sdk/**'
+      - '.github/workflows/e2e-tests.yml'
   workflow_dispatch:
   schedule:
     # Nightly at 06:00 UTC (C.3) — the live-stack e2e safety net.
@@ -29,7 +37,7 @@ on:
 
 jobs:
   e2e-collect:
-    name: integration suite (skip-mode)
+    name: integration suite (collect-only)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,16 +48,19 @@ jobs:
         working-directory: CoreService
         run: |
           pip install -e ../magellon-sdk[rabbitmq,nats,logging,config]
-          pip install -r requirements.txt || true
+          pip install -r requirements.txt
           pip install pytest httpx pillow numpy "python-socketio[asyncio_client]" aiohttp pytest-asyncio sqlalchemy pymysql
-      - name: Collect + run (every test must skip without MAGELLON_E2E_STACK)
+      - name: pytest --collect-only (imports + fixtures resolve)
         working-directory: CoreService
         run: |
-          # All tests gated on MAGELLON_E2E_STACK=up should skip here.
-          # The fft_full_stack test predates that gate so we exclude it.
+          # Verifies every integration test module imports cleanly and
+          # pytest can build its collection graph. We deliberately don't
+          # execute: the suite is broker-gated and a no-op run gives a
+          # false sense of coverage. The nightly e2e-integration job
+          # is the actual prove-it run.
           pytest tests/integration/ \
             --ignore=tests/integration/test_fft_full_stack_e2e.py \
-            -v --tb=short
+            --collect-only -q
           # Regression: each Wave 2/3 e2e file must contain at least
           # one test (catches accidental file deletion).
           for f in \
