@@ -1157,4 +1157,83 @@ async def template_pick_record_coco(
     }
 
 
+# ---------------------------------------------------------------------------
+# SAM2 interactive click-pick proxy
+#
+# Routes to the SAM2 plugin's custom /click-pick endpoint via the SYNC
+# capability using target_backend="sam2-particle-picker".  The encoder
+# embedding is cached inside the plugin (TTL 10 min, 4 images) so only
+# the first click on each micrograph is slow (~3 s CPU / ~0.3 s GPU);
+# all subsequent clicks on the same image return in under 500 ms.
+# ---------------------------------------------------------------------------
+
+
+class Sam2ClickPoint(BaseModel):
+    x: float
+    y: float
+    label: int = 1  # 1=foreground, 0=background
+
+
+class Sam2ClickRequest(BaseModel):
+    image_path: str
+    session_name: Optional[str] = None  # used for path resolution when image_path is a bare name
+    click_points: List[Sam2ClickPoint]
+    model_variant: str = "facebook/sam2.1-hiera-tiny"
+    mask_threshold: float = 0.5
+
+
+class Sam2ClickResult(BaseModel):
+    centroid_x: float
+    centroid_y: float
+    mask_polygon: List[List[float]]
+    confidence: float
+    radius_estimate: float
+    image_shape: List[int]
+
+
+_SAM2_BACKEND_ID = "sam2-particle-picker"
+_SAM2_CATEGORY = "particle_picking"
+
+
+@particle_picking_router.post(
+    "/sam2-click",
+    response_model=Sam2ClickResult,
+    summary="SAM2 interactive click-to-pick (proxied to the SAM2 plugin)",
+)
+async def sam2_click_pick(req: Sam2ClickRequest) -> Sam2ClickResult:
+    """Proxy an interactive click to the SAM2 plugin's /click-pick endpoint.
+
+    The image embedding is cached in the plugin so the first call on a
+    micrograph embeds the image (~3 s CPU); subsequent clicks on the same
+    micrograph complete in under 500 ms.
+
+    Accepts either an absolute /gpfs/... path or a bare image name with
+    ``session_name`` for server-side path resolution.
+    """
+    resolved_path = _resolve_preview_image_path(req.session_name, req.image_path)
+    body = {
+        "image_path": resolved_path,
+        "click_points": [p.model_dump() for p in req.click_points],
+        "model_variant": req.model_variant,
+        "mask_threshold": req.mask_threshold,
+    }
+    try:
+        loop = asyncio.get_running_loop()
+        response_body = await loop.run_in_executor(
+            None,
+            lambda: dispatch_capability(
+                _SAM2_CATEGORY,
+                Capability.SYNC,
+                "POST",
+                "/click-pick",
+                body=body,
+                target_backend=_SAM2_BACKEND_ID,
+                timeout_seconds=30.0,
+            ),
+        )
+    except (BackendNotLive, CapabilityMissing, PluginCallFailed) as exc:
+        raise _http_from_dispatch_error(exc)
+    return Sam2ClickResult.model_validate(response_body)
+
+
 __all__ = ["particle_picking_router"]

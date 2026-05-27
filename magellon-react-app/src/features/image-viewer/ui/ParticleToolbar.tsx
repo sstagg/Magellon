@@ -41,7 +41,7 @@ import {
     TouchApp as TouchAppIcon,
     MoreVert,
 } from '@mui/icons-material';
-import { Move, Lasso } from 'lucide-react';
+import { Move, Lasso, Magnet } from 'lucide-react';
 import type { Tool } from '../lib/useParticleOperations.ts';
 
 const TOOL_LABELS: Record<Tool, string> = {
@@ -52,6 +52,7 @@ const TOOL_LABELS: Record<Tool, string> = {
     box:    'Box  [5]',
     brush:  'Brush  [6]',
     lasso:  'Lasso  [L]',
+    sam2:   'SAM2  [S]',
     auto:   'Auto',
     pan:    'Pan',
 };
@@ -201,6 +202,7 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
                     <ToggleButton value="box"><Tooltip title="Box Select (5)"><CropFreeIcon sx={{ fontSize: 16 }} /></Tooltip></ToggleButton>
                     <ToggleButton value="lasso"><Tooltip title="Lasso Select (L)"><Lasso size={14} /></Tooltip></ToggleButton>
                     <ToggleButton value="brush"><Tooltip title="Brush (6)"><BrushIcon sx={{ fontSize: 16 }} /></Tooltip></ToggleButton>
+                    <ToggleButton value="sam2"><Tooltip title="SAM2 Click-Pick (S)"><Magnet size={14} /></Tooltip></ToggleButton>
                     <ToggleButton value="pan"><Tooltip title="Pan"><PanToolIcon sx={{ fontSize: 16 }} /></Tooltip></ToggleButton>
                 </ToggleButtonGroup>
 

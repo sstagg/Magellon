@@ -38,7 +38,7 @@ export interface PickDispatchResponse {
     task_id: string;
 }
 
-export type Tool = 'add' | 'remove' | 'select' | 'move' | 'box' | 'auto' | 'brush' | 'pan' | 'lasso';
+export type Tool = 'add' | 'remove' | 'select' | 'move' | 'box' | 'auto' | 'brush' | 'pan' | 'lasso' | 'sam2';
 export type ViewMode = 'normal' | 'overlay' | 'heatmap' | 'comparison';
 
 interface UseParticleOperationsParams {
@@ -78,6 +78,8 @@ export function useParticleOperations({
     const [copiedParticles, setCopiedParticles] = useState<Point[]>([]);
     const [isAutoPickingRunning, setIsAutoPickingRunning] = useState(false);
     const [autoPickingProgress, setAutoPickingProgress] = useState(0);
+    const [isSam2Loading, setIsSam2Loading] = useState(false);
+    const [sam2MaskPolygon, setSam2MaskPolygon] = useState<number[][]>([]);
     // [height, width] of the coord space particles live in — set by the picker
     // backend so the canvas can size its viewBox to match particle positions.
     const [imageShape, setImageShape] = useState<[number, number] | null>(null);
@@ -507,6 +509,60 @@ export function useParticleOperations({
         }
     };
 
+    /** Send a click to the SAM2 plugin and add the segmented particle. */
+    const sam2Click = async (imageX: number, imageY: number) => {
+        if (!selectedImage?.name) {
+            showSnackbar('No image selected', 'warning');
+            return;
+        }
+        setIsSam2Loading(true);
+        setSam2MaskPolygon([]);
+
+        const API_URL = settings.ConfigData.SERVER_API_URL;
+        const token = localStorage.getItem('access_token');
+        const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+        try {
+            const body = {
+                image_path: selectedImage.name,
+                session_name: sessionName || undefined,
+                click_points: [{ x: imageX, y: imageY, label: 1 }],
+            };
+            const res = await fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/sam2-click`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...authHeader },
+                body: JSON.stringify(body),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ detail: res.statusText }));
+                throw new Error(err.detail || `Server error ${res.status}`);
+            }
+            const result = await res.json();
+            setSam2MaskPolygon(result.mask_polygon || []);
+
+            const newParticle: Point = {
+                x: result.centroid_x,
+                y: result.centroid_y,
+                id: `sam2-${Date.now()}-${Math.random()}`,
+                type: 'auto',
+                confidence: Math.min(result.confidence, 1.0),
+                class: '1',
+                timestamp: Date.now(),
+            };
+            const updated = [...particles, newParticle];
+            setParticles(updated);
+            addToHistory(updated);
+            updateStats(updated);
+
+            // Dismiss mask overlay after 2 s
+            setTimeout(() => setSam2MaskPolygon([]), 2000);
+        } catch (err: any) {
+            showSnackbar(`SAM2 failed: ${err.message}`, 'error');
+        } finally {
+            setIsSam2Loading(false);
+        }
+    };
+
     const exportParticles = () => {
         const dataStr = JSON.stringify(particles, null, 2);
         const dataUri = `data:application/json;charset=utf-8,${  encodeURIComponent(dataStr)}`;
@@ -572,5 +628,9 @@ export function useParticleOperations({
         importParticles,
         runAutoPicking,
         dispatchPick,
+        sam2Click,
+        isSam2Loading,
+        sam2MaskPolygon,
+        setSam2MaskPolygon,
     };
 }

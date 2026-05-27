@@ -22,6 +22,12 @@ interface ParticleCanvasProps {
     onShowSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
     /** Called when the underlying image reports its natural dimensions. */
     onImageNaturalSize?: (shape: [number, number]) => void;
+    /** Called when tool === 'sam2' and user clicks the canvas. */
+    onSam2Click?: (imageX: number, imageY: number) => void;
+    /** SAM2 mask polygon to overlay (fades out automatically after being set). */
+    sam2MaskPolygon?: number[][];
+    /** Show loading spinner overlay while SAM2 is running. */
+    isSam2Loading?: boolean;
 }
 
 const MINI_W = 150;
@@ -58,6 +64,9 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
     onSelectedParticlesUpdate,
     onShowSnackbar,
     onImageNaturalSize,
+    onSam2Click,
+    sam2MaskPolygon = [],
+    isSam2Loading = false,
 }) => {
     const svgRef = useRef<SVGSVGElement>(null);
     const minimapRef = useRef<HTMLCanvasElement>(null);
@@ -233,6 +242,9 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
             case 'select':
                 toggleParticleSelection(point);
                 break;
+            case 'sam2':
+                onSam2Click?.(point.x, point.y);
+                break;
         }
     };
 
@@ -292,6 +304,7 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
         tool === 'add' ? 'crosshair' :
         tool === 'move' || tool === 'pan' ? 'move' :
         tool === 'lasso' ? 'crosshair' :
+        tool === 'sam2' ? (isSam2Loading ? 'wait' : 'crosshair') :
         tool === 'select' ? 'pointer' :
         'default';
 
@@ -394,14 +407,35 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
                     })}
                 </g>
 
-                {/* Hover ring — shows pick radius in add/remove mode */}
-                {cursorPos && (tool === 'add' || tool === 'remove') && (
+                {/* SAM2 mask polygon overlay */}
+                {sam2MaskPolygon.length > 2 && (
+                    <polygon
+                        points={sam2MaskPolygon.map(([x, y]) => `${x},${y}`).join(' ')}
+                        fill="rgba(33,150,243,0.20)"
+                        stroke="#2196f3"
+                        strokeWidth={1.5}
+                        strokeDasharray="4 2"
+                        vectorEffect="non-scaling-stroke"
+                        style={{ pointerEvents: 'none' }}
+                    />
+                )}
+
+                {/* Hover ring — shows pick radius in add/remove/sam2 mode */}
+                {cursorPos && (tool === 'add' || tool === 'remove' || tool === 'sam2') && (
                     <circle
                         cx={cursorPos.x}
                         cy={cursorPos.y}
                         r={particleRadius}
-                        fill={tool === 'add' ? 'rgba(76,175,80,0.08)' : 'rgba(244,67,54,0.08)'}
-                        stroke={tool === 'add' ? '#4caf50' : '#f44336'}
+                        fill={
+                            tool === 'add' ? 'rgba(76,175,80,0.08)' :
+                            tool === 'sam2' ? 'rgba(33,150,243,0.08)' :
+                            'rgba(244,67,54,0.08)'
+                        }
+                        stroke={
+                            tool === 'add' ? '#4caf50' :
+                            tool === 'sam2' ? '#2196f3' :
+                            '#f44336'
+                        }
                         strokeWidth={1.5}
                         strokeDasharray="5 3"
                         opacity={0.75}
@@ -438,6 +472,22 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
                     />
                 )}
             </svg>
+
+            {/* SAM2 loading spinner */}
+            {isSam2Loading && (
+                <div style={{
+                    position: 'absolute', inset: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(0,0,0,0.25)', pointerEvents: 'none',
+                }}>
+                    <div style={{
+                        width: 40, height: 40, border: '4px solid rgba(33,150,243,0.3)',
+                        borderTop: '4px solid #2196f3', borderRadius: '50%',
+                        animation: 'spin 0.8s linear infinite',
+                    }} />
+                    <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+                </div>
+            )}
 
             {/* Minimap overlay — bottom-left, pointer-events off so it doesn't block canvas */}
             <canvas

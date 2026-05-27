@@ -174,6 +174,9 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
         importParticles,
         runAutoPicking,
         dispatchPick,
+        sam2Click,
+        isSam2Loading,
+        sam2MaskPolygon,
     } = useParticleOperations({
         selectedParticlePicking,
         handleIppUpdate,
@@ -209,6 +212,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 case '5': setTool('box'); break;
                 case '6': setTool('brush'); break;
                 case 'l': case 'L': setTool('lasso'); break;
+                case 's': case 'S': setTool('sam2'); break;
                 case 'g': case 'G': setShowGrid((v) => !v); break;
                 case 'h': case 'H': setHelpOpen(true); break;
                 case '+': case '=': setZoom((z) => Math.min(z * 1.2, 5)); break;
@@ -416,6 +420,9 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                             // when backend hasn't supplied image_shape yet.
                             if (!imageShape) setImageShape(shape);
                         }}
+                        onSam2Click={sam2Click}
+                        sam2MaskPolygon={sam2MaskPolygon}
+                        isSam2Loading={isSam2Loading}
                     />
                 </Box>
 

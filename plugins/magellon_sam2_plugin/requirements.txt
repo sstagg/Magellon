@@ -1,0 +1,32 @@
+# Magellon Plugin SDK — shared rabbitmq / logging / bootstrap / events helpers.
+# Bundled wheel; survives archive extraction.
+./wheels/magellon_sdk-2.4.0-py3-none-any.whl[rabbitmq,nats,logging,config]
+
+fastapi
+uvicorn
+pydantic
+rich
+pyyaml
+
+python-json-logger
+
+prometheus_client
+python-dotenv
+
+pika==1.3.2
+
+mrcfile>=1.5.0
+numpy>=1.26.4
+scipy>=1.13.0
+Pillow>=10.4.0
+
+# SAM2 + PyTorch (CPU is sufficient; GPU is auto-detected at runtime)
+sam2>=1.0
+torch>=2.3.0
+torchvision>=0.18.0
+
+# Hugging Face hub — used by SAM2ImagePredictor.from_pretrained()
+huggingface_hub>=0.23.0
+
+# Preview-cache TTLCache
+cachetools>=5.3

@@ -1,0 +1,49 @@
+manifest_version: "1"
+
+plugin_id: sam2-particle-picker
+archive_id: 00000000-0000-7000-8000-000000000001
+
+name: "SAM2 Particle Picker"
+version: 1.0.0
+requires_sdk: ">=2.4,<3.0"
+
+author: "Behdad Khoshbin b.khoshbin@gmail.com"
+license: MIT
+description: >
+  Segment Anything Model 2 (Meta, 2024) for cryo-EM particle picking.
+  Supports interactive click-to-pick (single HTTP round-trip after
+  first-image warm-up) and full-image automatic mask generation.
+  GPU optional — tiny model runs on CPU in ~3 s per image.
+
+category: particle_picking
+backend_id: sam2-particle-picker
+
+requires:
+  - broker
+  - gpfs
+
+resources:
+  cpu_cores: 2
+  memory_mb: 4000
+  gpu_count: 0
+  typical_duration_seconds: 30
+
+install:
+  - method: docker
+    dockerfile: Dockerfile
+    build_context: .
+    requires:
+      - docker_daemon: true
+
+health_check:
+  timeout_seconds: 120
+  expected_announce: true
+
+ui: null
+
+tags:
+  - sam2
+  - segment-anything
+  - particle-picking
+  - interactive
+  - cryo-em

@@ -44,6 +44,9 @@ export const ParticleHelpDialog: React.FC<ParticleHelpDialogProps> = ({
                         <ListItemText primary="L" secondary="Lasso select — drag to draw a freehand selection polygon" />
                     </ListItem>
                     <ListItem>
+                        <ListItemText primary="S" secondary="SAM2 click-pick — click a particle to segment it with Segment Anything Model 2" />
+                    </ListItem>
+                    <ListItem>
                         <ListItemText primary="Ctrl+Z / Cmd+Z" secondary="Undo last action" />
                     </ListItem>
                     <ListItem>
