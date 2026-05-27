@@ -28,6 +28,26 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+
+def _resolve_path(path: str) -> str:
+    """Apply settings-level REPLACE_TYPE/PATTERN/WITH to translate
+    canonical /gpfs/... wire paths to the local filesystem path.
+    No-op in production (REPLACE_TYPE=none or missing); in Windows dev
+    (REPLACE_TYPE=standard, REPLACE_PATTERN=/gpfs, REPLACE_WITH=C:/magellon/gpfs)
+    this converts /gpfs/... → C:/magellon/gpfs/...
+    """
+    try:
+        from core.settings import AppSettingsSingleton
+        s = AppSettingsSingleton.get_instance()
+        rtype = (s.REPLACE_TYPE or "none").lower()
+        if rtype != "none" and s.REPLACE_PATTERN and s.REPLACE_WITH is not None:
+            from magellon_sdk.messaging import custom_replace
+            return custom_replace(path, rtype, s.REPLACE_PATTERN, s.REPLACE_WITH)
+    except Exception:
+        pass
+    return path
+
+
 # ---------------------------------------------------------------------------
 # Model cache  (image_path, mtime, model_variant) → predictor-with-image-set
 # ---------------------------------------------------------------------------
@@ -205,6 +225,7 @@ def click_pick(
     """
     import torch
 
+    image_path = _resolve_path(image_path)
     predictor = _get_predictor_with_image(image_path, model_variant)
 
     coords = np.array([[p["x"], p["y"]] for p in click_points], dtype=np.float32)
@@ -287,6 +308,8 @@ def auto_pick(
     """
     import json
     import torch
+
+    image_path = _resolve_path(image_path)
 
     from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator
 
