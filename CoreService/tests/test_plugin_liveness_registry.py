@@ -157,6 +157,10 @@ def test_liveness_listener_persists_announce_and_heartbeat(monkeypatch):
     persisted_heartbeats = []
     monkeypatch.setattr(liveness_mod, "persist_announce", persisted_announces.append)
     monkeypatch.setattr(liveness_mod, "persist_heartbeat", persisted_heartbeats.append)
+    # The listener now rehydrates the registry from the DB-backed
+    # catalog at startup; this test exercises only the wire path and
+    # explicitly starts from an empty registry, so stub the rehydrator.
+    monkeypatch.setattr(liveness_mod, "rehydrate_announces", lambda registry: 0)
 
     bus = _Bus()
     reg = PluginLivenessRegistry()

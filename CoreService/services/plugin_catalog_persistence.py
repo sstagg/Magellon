@@ -12,6 +12,7 @@ durable ``plugin``/``plugin_state`` tables. The invariant is:
 from __future__ import annotations
 
 import logging
+import uuid as _uuid
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -239,6 +240,100 @@ class PluginCatalogPersistence:
                     plugin_id,
                 )
 
+    def rehydrate_announces(self, registry: Any) -> int:
+        """Seed the in-memory liveness registry from persisted announces.
+
+        Announces are one-shot at plugin startup. A CoreService restart
+        wipes the registry and the only thing the plugins keep sending
+        is heartbeats, which materialize manifest-less stubs (status,
+        last_heartbeat, but no capabilities / input_schema /
+        http_endpoint). The side panel — and any consumer that filters
+        on ``has_preview`` / ``has_sync`` / per-plugin schema — then
+        flips to its degraded branch until the next manual plugin
+        restart.
+
+        Every announce we ever received was already persisted via
+        ``record_announce``. This loads those rows back and replays
+        them through the same ``registry.record_announce`` path the
+        bus listener uses, so subsequent heartbeats refresh real
+        entries instead of creating stubs.
+
+        Returns the number of entries seeded.
+        """
+        db = self._session_factory()
+        try:
+            rows = PluginRepository(db).list_installed()
+            seeded = 0
+            for row in rows:
+                announce = self._row_to_announce(row)
+                if announce is None:
+                    continue
+                try:
+                    registry.record_announce(announce)
+                    seeded += 1
+                except Exception:
+                    logger.exception(
+                        "rehydrate_announces: registry rejected row plugin_id=%s",
+                        row.manifest_plugin_id or row.name,
+                    )
+            return seeded
+        finally:
+            db.close()
+
+    @staticmethod
+    def _row_to_announce(row: Plugin) -> Optional[Announce]:
+        """Reconstruct an Announce from a Plugin catalog row.
+
+        Returns None for rows that only ever carried a heartbeat-only
+        stub payload — they have no real manifest to seed from and the
+        next live announce will fill them in normally.
+        """
+        payload = row.manifest_json or {}
+        # Heartbeat stubs only carry the wrapper keys (no ``info`` /
+        # ``capabilities``); skip them — PluginManifest.model_validate
+        # would reject anyway since info is required.
+        if not payload.get("info") and not payload.get("capabilities"):
+            return None
+        try:
+            manifest = PluginManifest.model_validate(payload)
+        except Exception as exc:
+            logger.debug(
+                "rehydrate_announces: skipping plugin_id=%s (manifest parse failed: %s)",
+                row.manifest_plugin_id or row.name,
+                exc,
+            )
+            return None
+
+        discovered = payload.get("discovered") or {}
+        instance_id = discovered.get("instance_id") or str(_uuid.uuid4())
+
+        last_heartbeat = None
+        state = getattr(row, "state", None)
+        if state is not None and state.last_heartbeat_at is not None:
+            ts = state.last_heartbeat_at
+            last_heartbeat = ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+
+        try:
+            return Announce(
+                plugin_id=row.manifest_plugin_id or row.name or "",
+                plugin_version=row.version or manifest.info.version or "0",
+                category=row.category or "",
+                instance_id=instance_id,
+                ts=last_heartbeat or datetime.now(timezone.utc),
+                manifest=manifest,
+                task_queue=row.container_ref,
+                backend_id=row.backend_id or manifest.resolved_backend_id(),
+                http_endpoint=row.http_endpoint,
+                input_schema=payload.get("input_schema"),
+                output_schema=payload.get("output_schema"),
+            )
+        except Exception as exc:
+            logger.debug(
+                "rehydrate_announces: Announce build failed for plugin_id=%s: %s",
+                row.manifest_plugin_id or row.name, exc,
+            )
+            return None
+
     def _load_archive_manifest(self, archive_path: Path) -> PluginArchiveManifest:
         with zipfile.ZipFile(archive_path) as z:
             for name in (self.CANONICAL_MANIFEST, self.LEGACY_MANIFEST):
@@ -265,6 +360,11 @@ def persist_announce(msg: Announce) -> None:
 def persist_heartbeat(msg: Heartbeat) -> None:
     """Best-effort module-level helper for the liveness listener."""
     get_plugin_catalog_persistence().record_heartbeat(msg)
+
+
+def rehydrate_announces(registry: Any) -> int:
+    """Module-level helper — see :meth:`PluginCatalogPersistence.rehydrate_announces`."""
+    return get_plugin_catalog_persistence().rehydrate_announces(registry)
 
 
 def _archive_manifest_payload(manifest: PluginArchiveManifest) -> Dict[str, Any]:
@@ -336,4 +436,5 @@ __all__ = [
     "get_plugin_catalog_persistence",
     "persist_announce",
     "persist_heartbeat",
+    "rehydrate_announces",
 ]

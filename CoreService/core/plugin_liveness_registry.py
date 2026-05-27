@@ -29,7 +29,11 @@ from magellon_sdk.discovery import Announce, Heartbeat
 from magellon_sdk.envelope import Envelope
 from magellon_sdk.errors import PermanentError
 
-from services.plugin_catalog_persistence import persist_announce, persist_heartbeat
+from services.plugin_catalog_persistence import (
+    persist_announce,
+    persist_heartbeat,
+    rehydrate_announces,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +57,20 @@ def start_liveness_listener(
     """
     target = registry or get_registry()
     resolved_bus = bus if bus is not None else get_bus()
+
+    # Plugin announces are one-shot at plugin startup. After a
+    # CoreService restart, the only liveness traffic is heartbeats,
+    # which materialize manifest-less stubs (no capabilities, no
+    # schemas, no http_endpoint). Replay the persisted announce
+    # catalog into the registry BEFORE we subscribe, so subsequent
+    # heartbeats refresh real entries instead of stubs and downstream
+    # consumers (side panel canPreview, sync_dispatcher endpoint
+    # lookups) see the same state they did before the restart.
+    try:
+        seeded = rehydrate_announces(target)
+        logger.info("liveness listener: rehydrated %d announce(s) from catalog", seeded)
+    except Exception:
+        logger.exception("liveness listener: rehydrate from catalog failed")
 
     def _on_announce(envelope: Envelope) -> None:
         try:
