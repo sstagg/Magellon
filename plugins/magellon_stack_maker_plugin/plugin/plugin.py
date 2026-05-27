@@ -33,7 +33,7 @@ from magellon_sdk.models.tasks import ParticleExtractionInput
 from magellon_sdk.progress import NullReporter, ProgressReporter
 from magellon_sdk.runner import emit_step, make_step_reporter
 
-from plugin.compute import extract_particles
+from plugin.compute import extract_particles, extract_particles_batch
 from plugin.events import STEP_NAME, get_publisher
 
 logger = logging.getLogger(__name__)
@@ -63,7 +63,7 @@ class StackMakerPlugin(PluginBase[ParticleExtractionInput, ParticleExtractionOut
     def get_info(self) -> PluginInfo:
         return PluginInfo(
             name="Stack Maker",
-            version="0.1.0",
+            version="0.1.1",
             developer="Behdad Khoshbin b.khoshbin@gmail.com",
             description=(
                 "Extracts boxed particles from a micrograph given picker "
@@ -91,20 +91,32 @@ class StackMakerPlugin(PluginBase[ParticleExtractionInput, ParticleExtractionOut
         try:
             opts = input_data.engine_opts or {}
             allow_partial = bool(opts.get("allow_partial", True))
+            batch_manifest_path = opts.get("batch_manifest_path")
 
             if step is not None:
                 emit_step(step.progress(10.0, "loading micrograph"))
 
-            summary = extract_particles(
-                micrograph_path=input_data.micrograph_path,
-                particles_path=input_data.particles_path,
-                box_size=input_data.box_size,
-                edge_width=input_data.edge_width,
-                apix=input_data.apix,
-                output_dir=input_data.output_dir,
-                ctf_path=input_data.ctf_path,
-                allow_partial=allow_partial,
-            )
+            if batch_manifest_path:
+                summary = extract_particles_batch(
+                    batch_manifest_path=str(batch_manifest_path),
+                    box_size=input_data.box_size,
+                    edge_width=input_data.edge_width,
+                    apix=input_data.apix,
+                    output_dir=input_data.output_dir,
+                    allow_partial=allow_partial,
+                    output_stem=opts.get("output_stem"),
+                )
+            else:
+                summary = extract_particles(
+                    micrograph_path=input_data.micrograph_path,
+                    particles_path=input_data.particles_path,
+                    box_size=input_data.box_size,
+                    edge_width=input_data.edge_width,
+                    apix=input_data.apix,
+                    output_dir=input_data.output_dir,
+                    ctf_path=input_data.ctf_path,
+                    allow_partial=allow_partial,
+                )
 
             if step is not None:
                 emit_step(
@@ -124,13 +136,19 @@ class StackMakerPlugin(PluginBase[ParticleExtractionInput, ParticleExtractionOut
                 box_size=input_data.box_size,
                 edge_width=input_data.edge_width,
                 micrograph_name=summary["micrograph_name"],
-                source_micrograph_path=input_data.micrograph_path,
+                source_micrograph_path=summary.get(
+                    "source_micrograph_path",
+                    input_data.micrograph_path,
+                ),
                 # particle_stack_id stays None — TaskOutputProcessor will
                 # write the artifact row + project the id back when
                 # Phase 4 lands. Per rule 2 (immutability): plugins
                 # never write the artifact row themselves.
                 particle_stack_id=None,
-                extras={"json_path": summary["json_path"]},
+                extras={
+                    "json_path": summary["json_path"],
+                    "source_micrograph_count": summary.get("source_micrograph_count", 1),
+                },
             )
         except Exception as exc:
             if step is not None:
@@ -170,6 +188,8 @@ def build_extraction_result(
             "particle_count": output.particle_count,
             "apix": output.apix,
             "box_size": output.box_size,
+            "edge_width": output.edge_width,
+            "micrograph_name": output.micrograph_name,
             **output.extras,
         },
         output_files=files,

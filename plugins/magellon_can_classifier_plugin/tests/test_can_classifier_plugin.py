@@ -44,15 +44,17 @@ def test_get_info_matches_provenance():
 
     info = CanClassifierPlugin().get_info()
     assert info.name == "CAN Classifier"
-    assert info.version == "0.1.0"
+    assert info.version == "0.1.1"
 
 
-def test_manifest_advertises_gpu_and_progress():
+def test_manifest_advertises_gpu_optional_and_progress():
     from magellon_sdk.models.manifest import Capability, Transport
     from plugin.plugin import CanClassifierPlugin
 
     manifest = CanClassifierPlugin().manifest()
-    assert Capability.GPU_REQUIRED in manifest.capabilities
+    assert Capability.GPU_OPTIONAL in manifest.capabilities
+    assert Capability.MEMORY_INTENSIVE in manifest.capabilities
+    assert Capability.LONG_RUNNING in manifest.capabilities
     assert Capability.PROGRESS_REPORTING in manifest.capabilities
     assert manifest.default_transport == Transport.RMQ
     # Resource hints reflect the heavyweight nature of the algorithm.
@@ -192,12 +194,53 @@ def test_execute_propagates_filesystem_error_from_missing_star(tmp_path):
     from plugin import plugin as plugin_mod
 
     inp = TwoDClassificationInput(
-        mrcs_path=str(tmp_path / "stack.mrcs"),
+        mrcs_path=str(tmp_path / "missing.mrcs"),
         star_path=str(tmp_path / "missing.star"),
         output_dir=str(tmp_path / "out"),
     )
     with pytest.raises((FileNotFoundError, RuntimeError, OSError)):
         plugin_mod.CanClassifierPlugin().execute(inp)
+
+
+def test_resolve_image_path_accepts_relion_and_legacy_order(tmp_path):
+    from plugin.compute import _resolve_image_path
+
+    star = tmp_path / "particles.star"
+    star.write_text("")
+
+    path, idx0 = _resolve_image_path(str(star), "000007@stack.mrcs")
+    assert Path(path) == (tmp_path / "stack.mrcs").resolve()
+    assert idx0 == 6
+
+    path, idx0 = _resolve_image_path(str(star), "stack.mrcs@000007")
+    assert Path(path) == (tmp_path / "stack.mrcs").resolve()
+    assert idx0 == 6
+
+
+def test_derive_apix_accepts_legacy_pixel_size_column():
+    from plugin.compute import _derive_apix_from_star
+
+    assert _derive_apix_from_star(
+        [{"_rlnPixelSize": "1.75"}, {"_rlnPixelSize": "1.25"}],
+        [],
+    ) == pytest.approx(1.5)
+
+
+def test_load_particles_from_stack_direct_mrcs_fallback(tmp_path):
+    import mrcfile
+    import numpy as np
+
+    from plugin.compute import _load_particles_from_stack
+
+    stack = np.random.rand(3, 16, 16).astype(np.float32)
+    mrcs_path = tmp_path / "direct.mrcs"
+    with mrcfile.new(str(mrcs_path), overwrite=True) as f:
+        f.set_data(stack)
+        f.voxel_size = 1.4
+
+    loaded, apix = _load_particles_from_stack(str(mrcs_path), max_particles=2)
+    assert loaded.shape == (2, 16, 16)
+    assert apix == pytest.approx(1.4)
 
 
 # ---------------------------------------------------------------------------
@@ -346,6 +389,8 @@ def test_build_classification_result_carries_refs_only():
     assert result.output_data["class_averages_path"] == "/work/can/class_averages.mrcs"
     assert result.output_data["num_classes_emitted"] == 50
     assert result.output_data["num_particles_classified"] == 20000
+    assert result.output_data["apix"] == 1.23
+    assert result.output_data["output_dir"] is None
     # All four output files shape up correctly.
     file_names = {f.name for f in result.output_files}
     assert "class_averages.mrcs" in file_names

@@ -2,7 +2,7 @@
 
 CAN 2D-classification plugin — runs competitive-Hebbian topology +
 multi-reference alignment on a RELION particle stack, emits class
-averages + assignments + FRC summaries. Phase 7 deliverable
+averages + assignments + run summaries. Phase 7 deliverable
 (2026-05-03).
 
 Category: `TWO_D_CLASSIFICATION` (code 4).
@@ -39,13 +39,11 @@ align+CAN → output writing.
 
 ### What's still deferred
 
-- **Production CUDA build.** The Dockerfile keeps `python:3.11-slim`
-  so CI without a GPU can still build + run contract tests. Switch
-  the FROM line + add `--extra-index-url https://download.pytorch.org/whl/cu121`
-  to the pip install in deploys with a real GPU.
-- **End-to-end integration test on a synthetic 20-particle stack**.
-  Lands when the test environment has torch installed (CI runner
-  swap or a dedicated GPU job).
+- **GPU acceleration.** `Dockerfile.cuda` is selected on GPU hosts;
+  the CPU Dockerfile remains supported with `compute_backend=cpu`.
+- **Larger GPU integration test.** A tiny CPU synthetic-stack test
+  runs locally; a production-sized GPU smoke should run on a GPU
+  runner.
 - **Subject axis dispatch wiring**. The classifier reads paths
   directly from `TwoDClassificationInput.mrcs_path` / `.star_path`;
   Phase 3d's `TaskMessage.subject_id` is propagated through the

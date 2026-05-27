@@ -6,6 +6,7 @@ fidelity) lives in the algorithm-level tests in the Sandbox crate
 and in the Phase 5b integration tests (deferred)."""
 from __future__ import annotations
 
+import importlib.util
 import sys
 from pathlib import Path
 from uuid import uuid4
@@ -35,7 +36,7 @@ def test_get_info_matches_provenance():
 
     info = StackMakerPlugin().get_info()
     assert info.name == "Stack Maker"
-    assert info.version == "0.1.0"
+    assert info.version == "0.1.1"
 
 
 def test_manifest_advertises_progress_and_rmq_default():
@@ -116,6 +117,8 @@ def test_build_extraction_result_carries_envelope_identifiers():
     assert result.output_data["star_path"] == "/work/out/stack.star"
     assert result.output_data["particle_count"] == 42
     assert result.output_data["json_path"] == "/work/out/stack.json"
+    assert result.output_data["edge_width"] == 2
+    assert result.output_data["micrograph_name"] == "m.mrc"
     assert {f.name for f in result.output_files} == {"stack.mrcs", "stack.star", "stack.json"}
 
 
@@ -161,3 +164,138 @@ def test_execute_round_trip_extracts_and_normalizes(tmp_path):
     # MRCS shape: 2 particles × 32 × 32
     with mrcfile.open(output.mrcs_path, permissive=True) as f:
         assert f.data.shape == (2, 32, 32)
+
+
+def test_execute_accepts_topaz_center_pick_schema_and_zero_edge_width(tmp_path):
+    """Topaz batch writes ``center: [x, y]`` picks. The extractor must
+    consume those files directly so Topaz -> stack-maker has no
+    conversion step."""
+    import json
+
+    import mrcfile
+
+    from magellon_sdk.models.tasks import ParticleExtractionInput
+    from plugin.plugin import StackMakerPlugin
+
+    mic = np.random.rand(96, 96).astype(np.float32)
+    mic_path = tmp_path / "topaz-source.mrc"
+    with mrcfile.new(str(mic_path), overwrite=True) as f:
+        f.set_data(mic)
+
+    picks_path = tmp_path / "topaz-picks.json"
+    picks_path.write_text(json.dumps([
+        {"center": [48, 48], "radius": 112, "score": 6.4},
+        {"center": [24, 24], "radius": 112, "score": 5.9},
+    ]))
+
+    output = StackMakerPlugin().execute(ParticleExtractionInput(
+        micrograph_path=str(mic_path),
+        particles_path=str(picks_path),
+        box_size=32,
+        edge_width=0,
+        apix=1.5,
+        output_dir=str(tmp_path / "out"),
+    ))
+
+    assert output.particle_count == 2
+    assert output.edge_width == 0
+    star_text = Path(output.star_path).read_text()
+    assert "000001@topaz-source_particles.mrcs" in star_text
+    assert "_rlnImagePixelSize" in star_text
+
+
+def test_stack_maker_star_is_readable_by_can_loader(tmp_path):
+    """Interop smoke: the STAR/MRCS emitted here can be consumed by the
+    CAN classifier's STAR loader without hand-rolled conversion."""
+    import json
+
+    import mrcfile
+
+    from magellon_sdk.models.tasks import ParticleExtractionInput
+    from plugin.plugin import StackMakerPlugin
+
+    mic = np.random.rand(128, 128).astype(np.float32)
+    mic_path = tmp_path / "interop.mrc"
+    with mrcfile.new(str(mic_path), overwrite=True) as f:
+        f.set_data(mic)
+
+    picks_path = tmp_path / "picks.json"
+    picks_path.write_text(json.dumps([
+        {"x": 64, "y": 64, "score": 0.9},
+        {"center": [32, 32], "score": 0.8},
+    ]))
+
+    output = StackMakerPlugin().execute(ParticleExtractionInput(
+        micrograph_path=str(mic_path),
+        particles_path=str(picks_path),
+        box_size=32,
+        edge_width=2,
+        apix=1.25,
+        output_dir=str(tmp_path / "stack"),
+    ))
+
+    can_compute_path = (
+        _PLUGIN_ROOT.parent / "magellon_can_classifier_plugin" / "plugin" / "compute.py"
+    )
+    spec = importlib.util.spec_from_file_location("can_compute_for_interop_test", can_compute_path)
+    assert spec and spec.loader
+    can_compute = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(can_compute)
+
+    stack, apix = can_compute._load_particles_from_star(output.star_path)
+    assert stack.shape == (2, 32, 32)
+    assert apix == pytest.approx(1.25)
+
+
+def test_batch_manifest_builds_one_aggregate_stack_for_classification(tmp_path):
+    """Topaz batch picking produces one picks file per micrograph; stack
+    maker's batch manifest combines them into one classifier-ready
+    particle stack."""
+    import json
+
+    import mrcfile
+
+    from magellon_sdk.models.tasks import ParticleExtractionInput
+    from plugin.plugin import StackMakerPlugin
+
+    manifest_items = []
+    for idx in range(2):
+        mic = np.random.rand(96, 96).astype(np.float32)
+        mic_path = tmp_path / f"mic_{idx}.mrc"
+        with mrcfile.new(str(mic_path), overwrite=True) as f:
+            f.set_data(mic)
+        picks_path = tmp_path / f"mic_{idx}_topaz_picks.json"
+        picks_path.write_text(json.dumps([
+            {"center": [48, 48], "score": 6.0 + idx},
+            {"x": 24, "y": 24, "score": 5.0 + idx},
+        ]))
+        manifest_items.append({
+            "micrograph_path": str(mic_path),
+            "particles_path": str(picks_path),
+        })
+
+    manifest_path = tmp_path / "topaz_batch_manifest.json"
+    manifest_path.write_text(json.dumps({"items": manifest_items}))
+
+    output = StackMakerPlugin().execute(ParticleExtractionInput(
+        micrograph_path=manifest_items[0]["micrograph_path"],
+        particles_path=manifest_items[0]["particles_path"],
+        box_size=32,
+        edge_width=2,
+        apix=1.1,
+        output_dir=str(tmp_path / "out"),
+        engine_opts={
+            "batch_manifest_path": str(manifest_path),
+            "output_stem": "session_particle_stack",
+        },
+    ))
+
+    assert output.particle_count == 4
+    assert output.micrograph_name == "session_particle_stack"
+    assert output.extras["source_micrograph_count"] == 2
+    with mrcfile.open(output.mrcs_path, permissive=True) as f:
+        assert f.data.shape == (4, 32, 32)
+    star_text = Path(output.star_path).read_text()
+    assert "000004@session_particle_stack.mrcs" in star_text
+    assert "mic_0.mrc" in star_text
+    assert "mic_1.mrc" in star_text

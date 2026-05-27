@@ -87,6 +87,16 @@ def _to_int(value: Any, name: str) -> int:
     return ivalue
 
 
+def _to_nonnegative_int(value: Any, name: str) -> int:
+    try:
+        ivalue = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be an integer, got {value!r}") from exc
+    if ivalue < 0:
+        raise ValueError(f"{name} must be >= 0")
+    return ivalue
+
+
 def _to_float(value: Any, name: str) -> Optional[float]:
     if value is None:
         return None
@@ -229,7 +239,14 @@ def _as_particle_coords(source: Sequence[Dict[str, Any]]) -> List[ParticleCoordi
         if not isinstance(item, dict):
             raise ValueError("particle items must be dictionaries")
         if "x" not in item or "y" not in item:
-            if "x_coordinate" in item and "y_coordinate" in item:
+            if "center" in item:
+                center = item["center"]
+                if not isinstance(center, (list, tuple)) or len(center) < 2:
+                    raise ValueError("particle center must be a 2-item [x, y] list")
+                item = dict(item)
+                item["x"] = center[0]
+                item["y"] = center[1]
+            elif "x_coordinate" in item and "y_coordinate" in item:
                 item = dict(item)
                 item["x"] = item["x_coordinate"]
                 item["y"] = item["y_coordinate"]
@@ -280,7 +297,7 @@ def build_particle_records(
     if micrograph.ndim != 2:
         raise ValueError("micrograph must be a 2D array")
     box = _to_int(config.box_size, "box_size")
-    edge_width = _to_int(config.edge_width, "edge_width")
+    edge_width = _to_nonnegative_int(config.edge_width, "edge_width")
     micrograph_name = config.image_name or "micrograph.mrc"
     rows: List[ParticleStackRow] = []
 
@@ -464,8 +481,14 @@ def write_json_output(rows: Sequence[ParticleStackRow], output_path: str) -> Non
 def load_particles_from_json(path: str) -> List[Dict[str, Any]]:
     with Path(path).open() as handle:
         data = json.load(handle)
+    if isinstance(data, dict):
+        for key in ("particles", "picks", "coordinates"):
+            value = data.get(key)
+            if isinstance(value, list):
+                data = value
+                break
     if not isinstance(data, list):
-        raise ValueError("particle JSON must be a list")
+        raise ValueError("particle JSON must be a list or an object with particles/picks")
     return data
 
 

@@ -1,6 +1,6 @@
 [project]
 name = "magellon-can-classifier-plugin"
-version = "0.1.0"
+version = "0.1.1"
 description = "CAN 2D-classification plugin for Magellon — competitive-Hebbian topology + MRA on a RELION particle stack."
 readme = "README.md"
 requires-python = ">=3.10"

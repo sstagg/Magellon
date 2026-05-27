@@ -46,7 +46,9 @@ class CanClassifierPlugin(PluginBase[TwoDClassificationInput, TwoDClassification
     """Run CAN topology + MRA alignment on a particle stack."""
 
     capabilities = [
-        Capability.GPU_REQUIRED,
+        Capability.GPU_OPTIONAL,
+        Capability.MEMORY_INTENSIVE,
+        Capability.LONG_RUNNING,
         Capability.PROGRESS_REPORTING,
     ]
     supported_transports = [
@@ -68,12 +70,12 @@ class CanClassifierPlugin(PluginBase[TwoDClassificationInput, TwoDClassification
     def get_info(self) -> PluginInfo:
         return PluginInfo(
             name="CAN Classifier",
-            version="0.1.0",
+            version="0.1.1",
             developer="Behdad Khoshbin b.khoshbin@gmail.com",
             description=(
                 "Competitive-Hebbian topology + MRA 2D classification on "
                 "a RELION-style particle stack. Emits class averages, "
-                "particle assignments, FRC summaries."
+                "particle assignments, and run summaries."
             ),
         )
 
@@ -202,6 +204,8 @@ def build_classification_result(
             "aligned_stack_path": output.aligned_stack_path,
             "num_classes_emitted": output.num_classes_emitted,
             "num_particles_classified": output.num_particles_classified,
+            "apix": output.apix,
+            "output_dir": output.output_dir,
             "source_particle_stack_id": output.source_particle_stack_id,
             **output.extras,
         },

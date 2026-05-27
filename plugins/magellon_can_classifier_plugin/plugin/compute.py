@@ -81,7 +81,17 @@ def _resolve_image_path(star_path: str, image_name: str) -> Tuple[str, int]:
     """
     if "@" not in image_name:
         raise RuntimeError(f"Unsupported _rlnImageName format: {image_name}")
-    idx_txt, rel = image_name.split("@", 1)
+    left, right = image_name.split("@", 1)
+    left = left.strip()
+    right = right.strip()
+    if left.isdigit():
+        idx_txt, rel = left, right
+    elif right.isdigit():
+        # Legacy stack-maker wrote stack.mrcs@000001. Accept old
+        # artifacts, but keep the extractor's output in RELION order.
+        idx_txt, rel = right, left
+    else:
+        raise RuntimeError(f"Unsupported _rlnImageName format: {image_name}")
     idx0 = int(idx_txt) - 1
     abs_path = str((Path(star_path).parent / rel).resolve())
     return abs_path, idx0
@@ -93,10 +103,13 @@ def _derive_apix_from_star(
 ) -> Optional[float]:
     """Pull pixel size from the STAR — particle column first, optics
     fallback. Phase 5's stack-maker fix writes ``_rlnImagePixelSize``
-    (what RELION expects), not the legacy ``_rlnPixelSize``."""
+    (what RELION expects), but older stack-maker outputs used
+    ``_rlnPixelSize`` and should remain classifiable."""
     pixvals: List[float] = []
     for row in particle_rows:
         v = row.get("_rlnImagePixelSize")
+        if v is None:
+            v = row.get("_rlnPixelSize")
         if v is not None:
             try:
                 pixvals.append(float(v))
@@ -110,6 +123,8 @@ def _derive_apix_from_star(
         for row in optics_rows:
             grp = row.get("_rlnOpticsGroup")
             ap = row.get("_rlnImagePixelSize")
+            if ap is None:
+                ap = row.get("_rlnPixelSize")
             if grp is not None and ap is not None:
                 try:
                     group_to_apix[str(grp)] = float(ap)
@@ -172,6 +187,34 @@ def _load_particles_from_star(
     if not particles:
         raise RuntimeError(f"Loaded 0 particles from {star_path}")
     return np.stack(particles, axis=0).astype(np.float32, copy=False), apix
+
+
+def _load_particles_from_stack(
+    mrcs_path: str,
+    max_particles: Optional[int] = None,
+) -> Tuple[np.ndarray, Optional[float]]:
+    """Load a direct .mrc/.mrcs particle stack when no STAR is available."""
+    import mrcfile  # lazy
+
+    with mrcfile.open(mrcs_path, permissive=True) as m:
+        stack = np.asarray(m.data, dtype=np.float32, order="C")
+        derived_apix: Optional[float] = None
+        try:
+            vx = float(m.voxel_size.x)
+            if np.isfinite(vx) and vx > 0:
+                derived_apix = vx
+        except Exception:
+            derived_apix = None
+
+    if stack.ndim == 2:
+        stack = stack[np.newaxis, :, :]
+    if stack.ndim != 3:
+        raise RuntimeError(f"unsupported stack dim {stack.ndim} at {mrcs_path}")
+    if max_particles is not None:
+        stack = stack[: int(max_particles)]
+    if stack.shape[0] == 0:
+        raise RuntimeError(f"Loaded 0 particles from {mrcs_path}")
+    return stack.astype(np.float32, copy=False), derived_apix
 
 
 # ---------------------------------------------------------------------------
@@ -309,14 +352,23 @@ def classify_stack(
     center_particles = bool(opts.get("center_particles", True))
     normalize = bool(opts.get("normalize", True))
 
-    # Load particles + derive apix if not supplied.
-    raw_stack, derived_apix = _load_particles_from_star(
-        star_path, max_particles=max_particles
-    )
+    # Load particles + derive apix if not supplied. STAR is preferred
+    # because it preserves metadata; direct MRCS fallback keeps local
+    # smokes and older artifacts usable when no STAR exists.
+    if star_path and os.path.exists(star_path):
+        raw_stack, derived_apix = _load_particles_from_star(
+            star_path, max_particles=max_particles
+        )
+        input_ref = star_path
+    else:
+        raw_stack, derived_apix = _load_particles_from_stack(
+            mrcs_path, max_particles=max_particles
+        )
+        input_ref = mrcs_path
     effective_apix = float(apix if apix is not None else (derived_apix or 1.0))
     logger.info(
         "classify_stack: loaded %d particles from %s (apix=%.4f)",
-        raw_stack.shape[0], star_path, effective_apix,
+        raw_stack.shape[0], input_ref, effective_apix,
     )
 
     # Preprocess (centering / normalize / lowpass / fft scaling /

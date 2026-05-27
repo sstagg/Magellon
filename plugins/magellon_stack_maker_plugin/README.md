@@ -1,32 +1,50 @@
 # magellon_stack_maker_plugin
 
-Particle extraction plugin — boxes particles from a micrograph given a
-picker's coordinate file, writes a RELION-style `.mrcs` + `.star` +
-companion `.json`. Phase 5 deliverable (2026-05-03).
+Particle extraction plugin. It boxes particles from micrographs given
+picker coordinate files, then writes a RELION-style `.mrcs` stack, a
+`.star` metadata file, and a companion `.json`.
 
 Category: `PARTICLE_EXTRACTION` (code 10).
 Backend id: `stack-maker`.
-Subject: source micrograph (one task per micrograph).
 
-The algorithm is vendored from `Sandbox/magellon_stack_maker` with two
-known integration bugs from `MAGELLON_PARTICLE_PIPELINE.md` fixed in
-`plugin/algorithm.py`:
+## Contract Fixes
 
-1. RELION `_rlnImageName` token order — now `NNNNNN@stack.mrcs`
-   (what the CAN classifier parses), reversed from the original.
-2. Pixel size column — now `_rlnImagePixelSize`, what the classifier's
-   STAR reader expects.
+The vendored algorithm differs from the original sandbox copy in two
+important ways:
 
-## Deferred follow-ups (Phase 4 + 5b)
+1. RELION `_rlnImageName` token order is `NNNNNN@stack.mrcs`, which is
+   what the CAN classifier parses.
+2. Pixel size is written as `_rlnImagePixelSize`.
 
-- Phase 4 lands the `artifact` table; `TaskOutputProcessor` then writes
-  one `particle_stack` artifact per result and projects
-  `particle_stack_id` back onto `output_data`. Until then the plugin
-  emits paths only.
-- Integration tests against testcontainers RMQ + a synthetic 2D
-  micrograph + a tiny picks JSON — copy from the FFT plugin's
-  `tests/integration/` once the wire path is ready.
+## Topaz And Batch Handoff
 
-See `Documentation/CATEGORIES_AND_BACKENDS.md` and
-`memory/project_artifact_bus_invariants.md` (ratified 2026-05-03) for
-the architectural decisions this plugin embodies.
+The extractor accepts GUI-saved pick rows (`x` / `y`) and Topaz batch
+pick rows (`center: [x, y]`). For a single exposure, pass
+`micrograph_path` and `particles_path` normally.
+
+For session-level 2D classification after Topaz batch picking, pass
+`engine_opts.batch_manifest_path` pointing to a JSON file:
+
+```json
+{
+  "items": [
+    {
+      "micrograph_path": "C:/magellon/gpfs/home/session/original/mic1.mrc",
+      "particles_path": "C:/magellon/gpfs/home/session/topazparticlepicking/mic1/picks.json"
+    }
+  ]
+}
+```
+
+All listed micrograph/picks pairs are boxed into one aggregate
+classifier-ready stack and one STAR file. `engine_opts.output_stem`
+can override the output basename.
+
+## Deferred Follow-Ups
+
+- Core/GUI should generate the batch manifest from selected Topaz pick
+  runs and dispatch `stack-maker` through the generic plugin job API.
+- `TaskOutputProcessor` writes the `particle_stack` artifact and
+  projects `particle_stack_id` back onto `output_data`.
+- A larger live-broker integration test should cover the full
+  Topaz -> stack-maker -> CAN route once the GUI orchestration lands.
