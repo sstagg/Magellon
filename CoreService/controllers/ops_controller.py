@@ -97,13 +97,17 @@ def get_ops_info():
 def get_ops_summary():
     """Category × status breakdown with counts and avg duration."""
     glob = _log_glob()
+    # ``MIN(ts) / MAX(ts)`` come back as datetime objects; the
+    # SummaryRow model declares them as Optional[str] so the React
+    # side can pass them straight into ``new Date(...)``. Cast to
+    # ISO via ``strftime`` so Pydantic accepts the value.
     rows = _run_duck(f"""
         SELECT
             COALESCE(category, '?') AS category,
             COALESCE(status,   '?') AS status,
             COUNT(*)                AS n,
-            MIN(ts)                 AS first_seen,
-            MAX(ts)                 AS last_seen,
+            strftime(MIN(CAST(ts AS TIMESTAMP)), '%Y-%m-%dT%H:%M:%S') AS first_seen,
+            strftime(MAX(CAST(ts AS TIMESTAMP)), '%Y-%m-%dT%H:%M:%S') AS last_seen,
             ROUND(AVG(TRY_CAST(duration_ms AS DOUBLE)) / 1000.0, 2) AS avg_s
         FROM read_json_auto('{glob}', ignore_errors=true)
         GROUP BY 1, 2
@@ -112,16 +116,29 @@ def get_ops_summary():
     return [SummaryRow(**r) for r in rows]
 
 
+# Columns the JSONL log carries today. ``processor_error`` and
+# ``queue`` are reserved in the response model for future writers,
+# but the SQL must emit NULL placeholders rather than reference the
+# names — DuckDB binds names against the inferred schema and 500s if
+# a referenced column never appears in any record.
+_EVENT_SELECT = """
+    strftime(CAST(ts AS TIMESTAMP), '%Y-%m-%dT%H:%M:%S') AS ts,
+    event, category, status,
+    session_name, image_name,
+    CAST(job_id  AS VARCHAR) AS job_id,
+    CAST(task_id AS VARCHAR) AS task_id,
+    TRY_CAST(duration_ms AS DOUBLE) AS duration_ms,
+    CAST(NULL AS VARCHAR) AS processor_error,
+    CAST(NULL AS VARCHAR) AS queue
+"""
+
+
 @ops_router.get("/recent", response_model=List[EventRow])
 def get_ops_recent(limit: int = Query(50, ge=1, le=500)):
     """Most recent N events across all categories."""
     glob = _log_glob()
     rows = _run_duck(f"""
-        SELECT
-            ts, event, category, status,
-            session_name, image_name, job_id, task_id,
-            TRY_CAST(duration_ms AS DOUBLE) AS duration_ms,
-            processor_error, queue
+        SELECT {_EVENT_SELECT}
         FROM read_json_auto('{glob}', ignore_errors=true)
         ORDER BY ts DESC
         LIMIT {limit}
@@ -134,11 +151,7 @@ def get_ops_failed(limit: int = Query(100, ge=1, le=1000)):
     """All failed task events, newest first."""
     glob = _log_glob()
     rows = _run_duck(f"""
-        SELECT
-            ts, event, category, status,
-            session_name, image_name, job_id, task_id,
-            TRY_CAST(duration_ms AS DOUBLE) AS duration_ms,
-            processor_error, queue
+        SELECT {_EVENT_SELECT}
         FROM read_json_auto('{glob}', ignore_errors=true)
         WHERE status = 'failed'
         ORDER BY ts DESC
@@ -159,11 +172,7 @@ def get_ops_by_category(
     if status:
         where += f" AND status = '{status}'"
     rows = _run_duck(f"""
-        SELECT
-            ts, event, category, status,
-            session_name, image_name, job_id, task_id,
-            TRY_CAST(duration_ms AS DOUBLE) AS duration_ms,
-            processor_error, queue
+        SELECT {_EVENT_SELECT}
         FROM read_json_auto('{glob}', ignore_errors=true)
         {where}
         ORDER BY ts DESC
@@ -176,13 +185,17 @@ def get_ops_by_category(
 def get_ops_throughput():
     """Events per hour for the last 24 hours, grouped by category."""
     glob = _log_glob()
+    # Comparing the raw ``ts`` column (VARCHAR or TIMESTAMP depending
+    # on what DuckDB inferred) to a strftime'd VARCHAR errored with
+    # "Cannot compare values of type TIMESTAMP and type VARCHAR".
+    # Cast both sides to TIMESTAMP explicitly.
     rows = _run_duck(f"""
         SELECT
             strftime(CAST(ts AS TIMESTAMP), '%Y-%m-%dT%H:00') AS hour,
             COALESCE(category, '?') AS category,
             COUNT(*) AS n
         FROM read_json_auto('{glob}', ignore_errors=true)
-        WHERE ts >= strftime(NOW() - INTERVAL 24 HOURS, '%Y-%m-%dT%H:%M:%S')
+        WHERE CAST(ts AS TIMESTAMP) >= NOW() - INTERVAL 24 HOURS
         GROUP BY 1, 2
         ORDER BY 1, 2
     """)
