@@ -95,6 +95,17 @@ export function useParticleOperations({
         particlesPerClass: {} as Record<string, number>
     });
 
+    // Latest-ref so updateStats can read class IDs without taking
+    // particleClasses as a useCallback dep. Without this the closure
+    // identity churns on every setParticleClasses() call (prev.map()
+    // always returns a new array), which propagated into effects that
+    // listed updateStats in their dep list and re-fired them
+    // unboundedly — that loop blew up MUI's SpeedDial+useForkRef
+    // chain with "Maximum update depth exceeded" after RMQ polling
+    // populated selectedParticlePicking.
+    const particleClassesRef = useRef(particleClasses);
+    particleClassesRef.current = particleClasses;
+
     const updateStats = useCallback((particleList: Point[]) => {
         const manual = particleList.filter(p => p.type === 'manual').length;
         const auto = particleList.filter(p => p.type === 'auto').length;
@@ -103,23 +114,29 @@ export function useParticleOperations({
             : 0;
 
         const particlesPerClass: Record<string, number> = {};
-        particleClasses.forEach(cls => {
+        for (const cls of particleClassesRef.current) {
             particlesPerClass[cls.id] = particleList.filter(p => (p.class || '1') === cls.id).length;
-        });
+        }
 
         setStats({
             total: particleList.length,
             manual,
             auto,
             avgConfidence,
-            particlesPerClass
+            particlesPerClass,
         });
 
-        setParticleClasses(prev => prev.map(cls => ({
-            ...cls,
-            count: particlesPerClass[cls.id] || 0
-        })));
-    }, [particleClasses, setParticleClasses]);
+        setParticleClasses(prev => {
+            let changed = false;
+            const next = prev.map(cls => {
+                const count = particlesPerClass[cls.id] || 0;
+                if (cls.count === count) return cls;
+                changed = true;
+                return { ...cls, count };
+            });
+            return changed ? next : prev;
+        });
+    }, [setParticleClasses]);
 
     // Image changes must never carry particle overlays across. Clear both
     // local layer state and the globally-selected IPP immediately.

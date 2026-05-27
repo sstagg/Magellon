@@ -61,6 +61,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
 
+    {
+      name: 'e2e-live-firefox',
+      testDir: './tests/e2e',
+      use: { ...devices['Desktop Firefox'] },
+    },
+
     /* Test against mobile viewports. */
     // {
     //   name: 'Mobile Chrome',
