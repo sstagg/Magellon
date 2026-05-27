@@ -157,9 +157,6 @@ def test_liveness_listener_persists_announce_and_heartbeat(monkeypatch):
     persisted_heartbeats = []
     monkeypatch.setattr(liveness_mod, "persist_announce", persisted_announces.append)
     monkeypatch.setattr(liveness_mod, "persist_heartbeat", persisted_heartbeats.append)
-    # The listener now rehydrates the registry from the DB-backed
-    # catalog at startup; this test exercises only the wire path and
-    # explicitly starts from an empty registry, so stub the rehydrator.
     monkeypatch.setattr(liveness_mod, "rehydrate_announces", lambda registry: 0)
 
     bus = _Bus()
@@ -180,3 +177,31 @@ def test_liveness_listener_persists_announce_and_heartbeat(monkeypatch):
     live = reg.list_live()
     assert len(live) == 1
     assert live[0].status == "busy"
+
+
+def test_heartbeat_inherits_manifest_from_rehydrated_sibling(monkeypatch):
+    """A live heartbeat under a fresh instance_id should inherit the
+    manifest from a sibling entry rehydrated under the historic
+    instance_id, so the side panel's has_preview / has_sync flags
+    don't drop the moment the rehydrated entry ages out."""
+    from core.plugin_liveness_registry import _inherit_manifest_from_sibling
+
+    reg = PluginLivenessRegistry(stale_after_seconds=120)
+    # 1. Seed a "rehydrated" entry with full manifest, OLD instance_id.
+    reg.record_announce(_announce(instance_id="i-old"))
+    rehydrated = reg._entries[("ctf-ctffind", "i-old")]
+    assert rehydrated.manifest is not None
+    assert rehydrated.http_endpoint is None  # announce doesn't set it here
+
+    # 2. Plugin's current process heartbeats with NEW instance_id.
+    fresh_heartbeat = _heartbeat(instance_id="i-new", status="ready")
+    reg.record_heartbeat(fresh_heartbeat)
+    live_stub = reg._entries[("ctf-ctffind", "i-new")]
+    assert live_stub.manifest is None  # bare stub before inheritance
+
+    # 3. CoreService's heartbeat handler runs the inheritance.
+    _inherit_manifest_from_sibling(reg, fresh_heartbeat)
+
+    # 4. The live stub now carries the rehydrated manifest.
+    assert live_stub.manifest is rehydrated.manifest
+    assert Capability.CPU_INTENSIVE in live_stub.manifest.capabilities

@@ -92,6 +92,7 @@ def start_liveness_listener(
         except Exception as exc:
             raise PermanentError(f"liveness: bad Heartbeat payload: {exc}") from exc
         target.record_heartbeat(msg)
+        _inherit_manifest_from_sibling(target, msg)
         try:
             persist_heartbeat(msg)
         except Exception:
@@ -109,6 +110,67 @@ def start_liveness_listener(
         announce_handle=announce_handle,
         heartbeat_handle=heartbeat_handle,
     )
+
+
+def _inherit_manifest_from_sibling(
+    registry: PluginLivenessRegistry, msg: Heartbeat
+) -> None:
+    """Copy a sibling rehydrated entry's manifest onto a fresh heartbeat stub.
+
+    The registry keys entries by ``(plugin_id, instance_id)``. After a
+    CoreService restart, the rehydrator seeds entries under the
+    *historic* instance_id stored in the catalog, but the plugin's
+    current process heartbeats with a *fresh* instance_id (set on every
+    plugin restart). That leaves us with two entries:
+
+    1. The rehydrated one — has manifest / http_endpoint / schemas,
+       but its ``last_heartbeat`` never refreshes in memory (only the
+       persistence layer's DB row does), so it ages out after
+       ``stale_after_seconds`` and disappears from ``list_live``.
+    2. The live heartbeat stub — fresh ``last_heartbeat``, but no
+       manifest. ``has_preview`` / ``has_sync`` flip to false; the
+       side panel falls into its degraded branch.
+
+    Hand the manifest from (1) onto (2) on every heartbeat so the live
+    entry carries the right capabilities even though it never received
+    a fresh Announce. The rehydrated entry then naturally ages out
+    without taking the capabilities with it.
+
+    No-op when:
+    - the heartbeat already has a manifest (announce arrived first),
+    - there's no sibling entry with a manifest under the same plugin_id,
+    - any concurrent mutation makes the inheritance racy (best-effort).
+    """
+    try:
+        with registry._lock:  # noqa: SLF001 — registry is in same package
+            current = registry._entries.get(
+                (msg.plugin_id, msg.instance_id)
+            )
+            if current is None or current.manifest is not None:
+                return
+            sibling = None
+            for (pid, iid), entry in registry._entries.items():
+                if pid != msg.plugin_id or iid == msg.instance_id:
+                    continue
+                if entry.manifest is None:
+                    continue
+                sibling = entry
+                break
+            if sibling is None:
+                return
+            current.manifest = sibling.manifest
+            current.plugin_version = sibling.plugin_version or current.plugin_version
+            current.backend_id = sibling.backend_id or current.backend_id
+            current.task_queue = sibling.task_queue or current.task_queue
+            current.http_endpoint = sibling.http_endpoint or current.http_endpoint
+            current.input_schema = sibling.input_schema or current.input_schema
+            current.output_schema = sibling.output_schema or current.output_schema
+            current.category = current.category or sibling.category
+    except Exception:
+        logger.exception(
+            "liveness listener: manifest inheritance failed for plugin_id=%s",
+            msg.plugin_id,
+        )
 
 
 __all__ = [
