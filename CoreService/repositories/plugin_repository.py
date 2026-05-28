@@ -151,6 +151,23 @@ class PluginRepository:
             .first()
         )
 
+    @staticmethod
+    def _norm_cat(s: str) -> str:
+        """Normalize a category slug for fuzzy comparison.
+
+        Strips all non-alphanumeric characters and lowercases so
+        ``"topaz_particle_picking"``, ``"TopazParticlePicking"``, and
+        ``"topazparticlepicking"`` all compare equal. The SDK announces
+        categories as ``contract.category.name.lower()`` (e.g.
+        ``"topazparticlepicking"``), but install manifests use
+        ``manifest.yaml``'s snake_case form (``"topaz_particle_picking"``).
+        Without normalization the lookup fails and a new "discovered"
+        row is created every announce cycle — leading to duplicates
+        with conflicting enabled states.
+        """
+        import re
+        return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
     def get_by_category_backend(
         self, category: str, backend_id: str,
     ) -> Optional[Plugin]:
@@ -161,22 +178,26 @@ class PluginRepository:
 
         Backend_id substring tolerance handles the archive-vs-runtime
         drift case (archive ``backend_id: fft`` vs runtime SDK-default
-        ``"fft-plugin"``). Same logic the conditions reducer uses.
+        ``"fft-plugin"``). Category comparison is normalized (removes
+        underscores, hyphens, spaces) so SDK announce form
+        (``"topazparticlepicking"``) matches install manifest form
+        (``"topaz_particle_picking"``).
         """
-        cat_lower = (category or "").lower()
+        cat_norm = self._norm_cat(category)
         bk_lower = (backend_id or "").lower()
-        if not cat_lower or not bk_lower:
+        if not cat_norm or not bk_lower:
             return None
         rows = (
             self.db.query(Plugin)
             .filter(Plugin.deleted_date.is_(None))
-            .filter(Plugin.category == cat_lower)
             .all()
         )
-        for r in rows:
+        # Filter to matching category (normalized both sides).
+        cat_rows = [r for r in rows if self._norm_cat(r.category or "") == cat_norm]
+        for r in cat_rows:
             if (r.backend_id or "").lower() == bk_lower:
                 return r
-        for r in rows:
+        for r in cat_rows:
             rb = (r.backend_id or "").lower()
             if rb and (rb in bk_lower or bk_lower in rb):
                 return r

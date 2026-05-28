@@ -45,6 +45,7 @@ interface BackendInfo {
     has_sync: boolean;
     http_endpoint: string | null;
     status: string;
+    enabled: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -203,7 +204,8 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     const [backendsLoading, setBackendsLoading] = useState(false);
 
     const activeBackend = backends.find(b => b.backend_id === selectedBackend);
-    const canPreview = activeBackend?.has_preview ?? (selectedBackend === 'template-picker');
+    const backendEnabled = activeBackend?.enabled !== false;
+    const canPreview = (activeBackend?.has_preview ?? (selectedBackend === 'template-picker')) && backendEnabled;
     const isTopazBackend = selectedBackend.replace('_', '-').toLowerCase().includes('topaz');
     const { events: dispatchEvents, connected: socketConnected } = useJobStepEvents(dispatchJobId);
     const latestDispatchEvent = dispatchEvents[dispatchEvents.length - 1];
@@ -450,7 +452,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         threshold: newParams.threshold ?? 0.4,
-                        radius: newParams.radius ?? null,
+                        radius: newParams.radius ?? newParams.min_distance ?? null,
                         max_threshold: newParams.max_threshold ?? null,
                         max_peaks: newParams.max_peaks ?? 500,
                         overlap_multiplier: newParams.overlap_multiplier ?? 1.0,
@@ -588,10 +590,15 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                 {drawerState === 'configure' && (
                     <>
                         {!canPreview && (
-                            <Alert severity="info" sx={{ mb: 0.75, py: 0.25, '& .MuiAlert-message': { fontSize: '0.7rem' } }}>
-                                {isTopazBackend
-                                    ? 'Topaz currently runs as a queued job and saves an IPP record when it finishes. No-save preview is not available for this backend yet.'
-                                    : 'This backend does not advertise no-save preview; running will save an IPP record.'}
+                            <Alert
+                                severity={!backendEnabled ? 'warning' : 'info'}
+                                sx={{ mb: 0.75, py: 0.25, '& .MuiAlert-message': { fontSize: '0.7rem' } }}
+                            >
+                                {!backendEnabled
+                                    ? 'This backend is disabled by the operator. Enable it in the Plugin Registry before using preview or dispatch.'
+                                    : isTopazBackend
+                                        ? 'Topaz currently runs as a queued job and saves an IPP record when it finishes. No-save preview is not available for this backend yet.'
+                                        : 'This backend does not advertise no-save preview; running will save an IPP record.'}
                             </Alert>
                         )}
                         {canPreview && (

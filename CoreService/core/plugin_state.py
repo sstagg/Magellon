@@ -84,7 +84,27 @@ class PluginStateStore:
                         .filter(Plugin.GCRecord.is_(None))
                         .all()
                     )
-                    for plugin, state in rows:
+                    # Process rows in ascending heartbeat order so the most
+                    # recently active row's state wins (last write wins).
+                    # Duplicate "discovered" rows arise when the SDK announces
+                    # a category in a different format than the install
+                    # manifest (e.g. "topazparticlepicking" vs
+                    # "topaz_particle_picking"), causing the catalog
+                    # persistence to miss the existing row and insert a new
+                    # stub that is immediately disabled.  The live stub keeps
+                    # getting heartbeat-bumped; the stale stub does not —
+                    # ordering by last_heartbeat_at ASC ensures the live,
+                    # operator-enabled row is processed last and wins.
+                    from datetime import datetime as _dt
+                    _MIN_DT = _dt.min
+                    rows_ordered = sorted(
+                        rows,
+                        key=lambda ps: (
+                            ps[1].last_heartbeat_at or _MIN_DT
+                            if ps[1] is not None else _MIN_DT
+                        ),
+                    )
+                    for plugin, state in rows_ordered:
                         if state is not None:
                             self._enabled[plugin.name] = bool(state.enabled)
                             if plugin.manifest_plugin_id:

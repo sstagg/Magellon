@@ -42,6 +42,7 @@ from sqlalchemy.orm import Session
 from config import ORIGINAL_IMAGES_SUB_URL, app_settings
 from core.helper import dispatch_particle_pick_task, to_canonical_gpfs_path
 from core.plugin_liveness_registry import get_registry as get_liveness_registry
+from core.plugin_state import get_state_store
 from core.sqlalchemy_row_level_security import check_session_access
 from database import get_db
 from dependencies.auth import get_current_user_id
@@ -249,6 +250,11 @@ def _preview_payload(req: PreviewRequest, is_topaz: bool) -> Dict[str, Any]:
         # the MRC path server-side from the image name + session so the
         # frontend doesn't need the filesystem layout.
         return {"input_file": image_path, "image_path": image_path, "engine_opts": extras}
+    if req.backend and "template" not in req.backend.lower():
+        # Non-template particle-picking backends own their input schema.
+        # CoreService already fetches that schema for the side panel; keep
+        # the facade backend-agnostic and let the plugin validate its body.
+        return {"image_path": image_path, **extras}
     # template-picker: re-validate against the strict input model so a
     # bad body still 422s even though this endpoint's signature is loose.
     tp = TemplatePickerInput.model_validate({"image_path": image_path, **extras})
@@ -274,6 +280,7 @@ async def template_pick_preview(req: PreviewRequest) -> PreviewResult:
             lambda: dispatch_capability(
                 category, Capability.PREVIEW, "POST", "/preview",
                 body=payload,
+                target_backend=req.backend,
             ),
         )
     except (BackendNotLive, CapabilityMissing, PluginCallFailed) as exc:
@@ -298,6 +305,7 @@ async def template_pick_retune(
                 category, Capability.PREVIEW, "POST",
                 f"/preview/{preview_id}/retune",
                 body=params.model_dump(),
+                target_backend=backend,
             ),
         )
     except (BackendNotLive, CapabilityMissing, PluginCallFailed) as exc:
@@ -318,6 +326,7 @@ async def template_pick_preview_delete(preview_id: str, backend: Optional[str] =
             lambda: dispatch_capability(
                 category, Capability.PREVIEW, "DELETE",
                 f"/preview/{preview_id}",
+                target_backend=backend,
             ),
         )
     except (BackendNotLive, CapabilityMissing, PluginCallFailed) as exc:
@@ -446,6 +455,7 @@ async def list_pp_backends():
         "topazparticlepicking",
     }
     registry = get_liveness_registry()
+    state = get_state_store()
     entries = [
         e for e in registry.list_live()
         if (e.category or "").lower() in _PP_CATEGORIES
@@ -468,6 +478,7 @@ async def list_pp_backends():
             "has_sync": Capability.SYNC in (caps or []),
             "http_endpoint": e.http_endpoint,
             "status": e.status,
+            "enabled": state.is_enabled(e.plugin_id),
         })
     # De-duplicate by backend_id. Heartbeats can create a lightweight
     # stub before the richer announce entry arrives, so keep the entry
