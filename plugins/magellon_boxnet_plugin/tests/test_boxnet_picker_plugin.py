@@ -64,9 +64,7 @@ def test_manifest_advertises_progress_and_rmq_default():
     manifest = BoxnetPickerPlugin().manifest()
     assert Capability.PROGRESS_REPORTING in manifest.capabilities
     assert Capability.SYNC in manifest.capabilities
-    # No PREVIEW for now — BoxNet's only knob is the threshold and the
-    # bus path already accepts it inline.
-    assert Capability.PREVIEW not in manifest.capabilities
+    assert Capability.PREVIEW in manifest.capabilities
     assert manifest.default_transport == Transport.RMQ
 
 
@@ -241,3 +239,54 @@ def test_execute_round_trip_writes_canonical_particle_json(monkeypatch, tmp_path
     assert saved[0]["center"] == [32, 32]
     assert saved[0]["radius"] == 56
     assert saved[0]["score"] == 0.91
+
+
+def test_preview_returns_unsaved_particles_and_retunes(monkeypatch, tmp_path):
+    import mrcfile
+    import numpy as np
+
+    from magellon_sdk.capabilities import PickingRetuneRequest
+    from plugin import algorithm as algorithm_mod
+    from plugin.models import BoxnetPickerInput
+    from plugin.plugin import BoxnetPickerPlugin
+
+    mic_path = tmp_path / "m.mrc"
+    with mrcfile.new(str(mic_path), overwrite=True) as f:
+        f.set_data(np.random.rand(16, 16).astype(np.float32))
+
+    score_map = np.zeros((8, 8), dtype=np.float32)
+    score_map[2, 3] = 0.9
+    score_map[6, 6] = 0.4
+    monkeypatch.setattr(
+        algorithm_mod,
+        "compute_boxnet_score_map",
+        lambda image, **kwargs: score_map,
+    )
+
+    plugin = BoxnetPickerPlugin()
+    preview = plugin.preview(
+        BoxnetPickerInput(
+            image_path=str(mic_path),
+            threshold=0.5,
+            min_distance=1,
+            scale=2,
+        )
+    )
+
+    assert preview.num_particles == 1
+    assert preview.particles[0].x == 6
+    assert preview.particles[0].y == 4
+    assert preview.score_map_png_base64
+
+    retuned = plugin.retune(
+        preview.preview_id,
+        PickingRetuneRequest(threshold=0.3, radius=1, max_peaks=10),
+    )
+    assert retuned is not None
+    assert retuned.num_particles == 2
+
+    assert plugin.discard_preview(preview.preview_id) is True
+    assert plugin.retune(
+        preview.preview_id,
+        PickingRetuneRequest(threshold=0.3),
+    ) is None

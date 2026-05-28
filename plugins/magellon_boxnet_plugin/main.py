@@ -25,7 +25,7 @@ from starlette.responses import JSONResponse
 
 from core.settings import AppSettingsSingleton
 from magellon_sdk.bus.bootstrap import install_rmq_bus
-from magellon_sdk.capabilities import make_sync_router
+from magellon_sdk.capabilities import make_preview_router, make_sync_router
 from magellon_sdk.categories.contract import PARTICLE_PICKER
 from magellon_sdk.logging_config import setup_logging
 from magellon_sdk.models.manifest import Capability
@@ -144,6 +144,8 @@ Instrumentator().instrument(app).expose(app)
 
 if Capability.SYNC in _plugin.capabilities:
     app.include_router(make_sync_router(_plugin))
+if Capability.PREVIEW in _plugin.capabilities:
+    app.include_router(make_preview_router(_plugin))
 
 
 @app.get("/schema/input")

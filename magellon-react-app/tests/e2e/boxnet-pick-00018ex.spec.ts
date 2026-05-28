@@ -39,6 +39,7 @@ test('boxnet-picker runs end-to-end on 00018ex from the image viewer', async ({ 
   expect(topaz, 'Topaz backend must still be advertised').toBeTruthy();
   expect(boxnet, 'BoxNet backend must be advertised').toBeTruthy();
   expect(boxnet.has_sync, 'BoxNet must advertise sync capability').toBe(true);
+  expect(boxnet.has_preview, 'BoxNet must advertise preview capability').toBe(true);
 
   const sessImgs = await (await fetch(
     `${BACKEND}/particle-picking/session-images?session_name=${SESSION}`,
@@ -93,7 +94,8 @@ test('boxnet-picker runs end-to-end on 00018ex from the image viewer', async ({ 
 
   await page.getByRole('combobox').filter({ hasText: /Topaz Particle Picking/i }).click();
   await page.getByRole('option', { name: /BoxNet Picker/i }).click({ timeout: 10_000 });
-  await expect(page.getByText(/This backend does not advertise no-save preview/i)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('button', { name: /preview.*tune/i })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/This backend does not advertise no-save preview/i)).toHaveCount(0);
 
   await page.getByText('Preprocessing', { exact: true }).click();
   const invert = page.getByRole('checkbox', { name: /Toggle ON when raw inference/i });
@@ -109,7 +111,7 @@ test('boxnet-picker runs end-to-end on 00018ex from the image viewer', async ({ 
   const dispatchResponsePromise = page.waitForResponse((res) =>
     res.url().includes('/particle-picking/dispatch') && res.request().method() === 'POST',
   );
-  await page.getByRole('button', { name: /run and save image/i }).click();
+  await page.getByRole('button', { name: /run and save image|save current image/i }).click();
   const [req, dispatchResponse] = await Promise.all([dispatchRequest, dispatchResponsePromise]);
   const dispatchBody = JSON.parse(req.postData() || '{}');
   fs.writeFileSync(path.join(SHOTS, 'dispatch.json'), JSON.stringify(dispatchBody, null, 2));

@@ -58,10 +58,11 @@ class BoxnetPickerPlugin(PluginBase[BoxnetPickerInput, ParticlePickingOutput]):
         Capability.PROGRESS_REPORTING,
         # PT-4: expose sync HTTP endpoint alongside the bus consumer.
         # Plugin manager / particle-picking UI calls SYNC for the
-        # "run-on-one-image" feature. PREVIEW is not enabled here —
-        # BoxNet doesn't have a cheap retune knob (the threshold IS
-        # the only knob and we already accept it inline).
+        # "run-on-one-image" feature. PREVIEW runs the CNN once and
+        # retunes threshold/min-distance against the cached score map
+        # without saving an IPP record.
         Capability.SYNC,
+        Capability.PREVIEW,
     ]
     supported_transports = [
         Transport.RMQ,
@@ -153,6 +154,21 @@ class BoxnetPickerPlugin(PluginBase[BoxnetPickerInput, ParticlePickingOutput]):
         self, input_data: BoxnetPickerInput,
     ) -> ParticlePickingOutput:
         return self.execute(input_data, reporter=NullReporter())
+
+    def preview(self, input_data: BoxnetPickerInput):
+        from plugin.preview import run_preview
+
+        return run_preview(input_data)
+
+    def retune(self, preview_id, params):
+        from plugin.preview import run_retune
+
+        return run_retune(preview_id, params)
+
+    def discard_preview(self, preview_id) -> bool:
+        from plugin.preview import discard_preview
+
+        return discard_preview(preview_id)
 
 
 def build_pick_result(

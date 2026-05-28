@@ -18,6 +18,7 @@ from controllers.particle_picking_controller import (
     _preview_payload,
     _resolve_pp_category,
     particle_picking_router,
+    template_pick_preview,
 )
 from magellon_sdk.models.manifest import Capability
 
@@ -140,6 +141,74 @@ def test_preview_payload_template_picker_rejects_bad_input():
         _preview_payload(req, is_topaz=False)
 
 
+def test_preview_payload_boxnet_uses_plugin_owned_input_shape():
+    """BoxNet has no template_paths; its plugin-owned schema validates
+    threshold/min_distance/invert on the plugin side."""
+    req = PreviewRequest(
+        backend="boxnet-picker",
+        image_path="/gpfs/x.mrc",
+        threshold=0.3,
+        min_distance=14,
+        scale=8,
+        invert=True,
+    )
+
+    payload = _preview_payload(req, is_topaz=False)
+
+    assert payload == {
+        "image_path": "/gpfs/x.mrc",
+        "threshold": 0.3,
+        "min_distance": 14,
+        "scale": 8,
+        "invert": True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_preview_dispatch_pins_selected_boxnet_backend(monkeypatch):
+    """A preview-capable BoxNet must not resolve to the category-default
+    template-picker just because both share particle_picking."""
+    calls = {}
+
+    def fake_dispatch(category, capability, method, path, *, body=None, target_backend=None):
+        calls.update(
+            category=category,
+            capability=capability,
+            method=method,
+            path=path,
+            body=body,
+            target_backend=target_backend,
+        )
+        return {
+            "preview_id": "pv-boxnet",
+            "particles": [],
+            "num_particles": 0,
+            "num_templates": 0,
+            "target_pixel_size": 8.0,
+            "image_binning": 8,
+            "image_shape": [16, 16],
+        }
+
+    monkeypatch.setattr(
+        "controllers.particle_picking_controller.dispatch_capability",
+        fake_dispatch,
+    )
+
+    result = await template_pick_preview(
+        PreviewRequest(
+            backend="boxnet-picker",
+            image_path="/gpfs/x.mrc",
+            threshold=0.3,
+        )
+    )
+
+    assert result.preview_id == "pv-boxnet"
+    assert calls["category"] == "particle_picking"
+    assert calls["capability"] is Capability.PREVIEW
+    assert calls["target_backend"] == "boxnet-picker"
+    assert calls["body"]["threshold"] == 0.3
+
+
 @pytest.mark.asyncio
 async def test_backends_prefers_announced_metadata_over_heartbeat_stub(monkeypatch):
     """Heartbeat stubs can arrive before announce metadata. The UI must
@@ -168,6 +237,10 @@ async def test_backends_prefers_announced_metadata_over_heartbeat_stub(monkeypat
         "controllers.particle_picking_controller.get_liveness_registry",
         lambda: registry,
     )
+    monkeypatch.setattr(
+        "controllers.particle_picking_controller.get_state_store",
+        lambda: SimpleNamespace(is_enabled=lambda plugin_id: True),
+    )
 
     body = await list_pp_backends()
 
@@ -180,6 +253,7 @@ async def test_backends_prefers_announced_metadata_over_heartbeat_stub(monkeypat
         "has_sync": True,
         "http_endpoint": "http://127.0.0.1:18001/",
         "status": "ready",
+        "enabled": True,
     }]
 
 

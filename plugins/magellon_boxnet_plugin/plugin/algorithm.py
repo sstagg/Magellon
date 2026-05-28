@@ -560,6 +560,71 @@ def _downsample(img: NDArray, scale: int) -> NDArray:
     ).mean(axis=(1, 3))
 
 
+def compute_boxnet_score_map(
+    image: NDArray,
+    *,
+    weights_path: str | None = None,
+    scale: int = 8,
+    device: str = "auto",
+    invert: bool = False,
+) -> NDArray:
+    """Run the BoxNet CNN once and return the particle-channel score map."""
+    weights = weights_path or default_weights_path()
+    model = BoxnetPT(weights).to(_resolve_device(device))
+
+    working = -image if invert else image
+    downsampled = _downsample(working, scale)
+    masks = model(downsampled)  # (H', W', 3)
+    return masks[:, :, 1]
+
+
+def picks_from_score_map(
+    particle_mask: NDArray,
+    *,
+    threshold: float = 0.3,
+    min_distance: int = 14,
+    scale: int = 8,
+    max_peaks: int | None = None,
+    max_threshold: float | None = None,
+) -> List[dict]:
+    """Extract canonical pick dicts from a BoxNet particle score map."""
+    from skimage.feature import peak_local_max  # lazy; not needed at import
+
+    peak_kwargs = {
+        "min_distance": max(1, int(min_distance)),
+        "threshold_abs": float(threshold),
+        "exclude_border": False,
+    }
+    if max_peaks is not None and int(max_peaks) > 0:
+        peak_kwargs["num_peaks"] = int(max_peaks)
+
+    coords = peak_local_max(particle_mask, **peak_kwargs)
+    if len(coords) == 0:
+        return []
+    scores = particle_mask[coords[:, 0], coords[:, 1]]
+    if max_threshold is not None:
+        keep = scores <= float(max_threshold)
+        coords = coords[keep]
+        scores = scores[keep]
+        if len(coords) == 0:
+            return []
+
+    # Cheap radius proxy in lieu of a learned size head — half the NMS
+    # spacing, in original-image pixels.
+    half_box = max(1, int(min_distance // 2)) * scale
+
+    results = [
+        {
+            "center": [int(xp * scale), int(yp * scale)],
+            "radius": int(half_box),
+            "score": float(s),
+        }
+        for (yp, xp), s in zip(coords, scores)
+    ]
+    results.sort(key=lambda r: -r["score"])
+    return results
+
+
 def pick_with_boxnet(
     image: NDArray,
     *,
@@ -587,47 +652,28 @@ def pick_with_boxnet(
     zero picks; ``invert=True`` corrects the polarity. See model
     statistics in ``pick_with_boxnet``'s docstring for a quick test.
     """
-    from skimage.feature import peak_local_max  # lazy; not needed at import
-
-    weights = weights_path or default_weights_path()
-    model = BoxnetPT(weights).to(_resolve_device(device))
-
-    working = -image if invert else image
-    downsampled = _downsample(working, scale)
-    masks = model(downsampled)  # (H', W', 3)
-    particle_mask = masks[:, :, 1]
-
-    coords = peak_local_max(
-        particle_mask,
-        min_distance=max(1, int(min_distance)),
-        threshold_abs=float(threshold),
-        exclude_border=False,
+    particle_mask = compute_boxnet_score_map(
+        image,
+        weights_path=weights_path,
+        scale=scale,
+        device=device,
+        invert=invert,
     )
-    if len(coords) == 0:
-        return []
-    scores = particle_mask[coords[:, 0], coords[:, 1]]
-
-    # Cheap radius proxy in lieu of a learned size head — half the NMS
-    # spacing, in original-image pixels.
-    half_box = max(1, int(min_distance // 2)) * scale
-
-    results = [
-        {
-            "center": [int(xp * scale), int(yp * scale)],
-            "radius": int(half_box),
-            "score": float(s),
-        }
-        for (yp, xp), s in zip(coords, scores)
-    ]
-    results.sort(key=lambda r: -r["score"])
-    return results
+    return picks_from_score_map(
+        particle_mask,
+        threshold=threshold,
+        min_distance=min_distance,
+        scale=scale,
+    )
 
 
 __all__ = [
     "BoxnetPT",
+    "compute_boxnet_score_map",
     "flexible_forward",
     "pad_to_unit_3d",
     "unpad_batch",
+    "picks_from_score_map",
     "pick_with_boxnet",
     "default_weights_path",
 ]
