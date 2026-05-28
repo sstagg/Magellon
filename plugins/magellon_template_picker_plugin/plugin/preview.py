@@ -60,7 +60,11 @@ def run_preview(input_data: TemplatePickerInput) -> PickingPreviewResult:
     """
     from plugin.algorithm import pick_particles
     from plugin.compute import (
-        _load_mrc, _load_template_cached, _resolve_template_paths,
+        _load_mrc,
+        _load_template_cached,
+        _preprocess_image_and_templates,
+        _resolve_template_paths,
+        _scale_particle_to_original,
     )
 
     if not input_data.image_path:
@@ -76,13 +80,23 @@ def run_preview(input_data: TemplatePickerInput) -> PickingPreviewResult:
     # that triggers a fresh /preview doesn't re-read template files
     # off GPFS. Image stays uncached.
     templates = [_load_template_cached(p) for p in template_paths]
+    image_working, templates_working, target_apix, effective_bin = (
+        _preprocess_image_and_templates(
+            image=image,
+            templates=templates,
+            image_pixel_size_angstrom=pixel_size,
+            template_pixel_size_angstrom=template_pixel_size,
+            bin_factor=int(input_data.bin_factor),
+            invert_templates=bool(input_data.invert_templates),
+            lowpass_resolution=input_data.lowpass_resolution,
+        )
+    )
 
     params: Dict[str, Any] = {
         "diameter_angstrom": diameter,
-        "pixel_size_angstrom": pixel_size,
+        "pixel_size_angstrom": target_apix,
         "threshold": threshold,
-        "template_pixel_size_angstrom": template_pixel_size,
-        "bin": int(input_data.bin_factor),
+        "bin": 1.0,
         "max_peaks": int(input_data.max_peaks),
         "overlap_multiplier": float(input_data.overlap_multiplier),
         "max_blob_size_multiplier": float(input_data.max_blob_size_multiplier),
@@ -97,18 +111,23 @@ def run_preview(input_data: TemplatePickerInput) -> PickingPreviewResult:
             for ar in input_data.angle_ranges
         ]
 
-    result = pick_particles(image=image, templates=templates, params=params)
+    result = pick_particles(image=image_working, templates=templates_working, params=params)
 
     # Cache the per-template score+angle maps so retune doesn't
     # recompute the FFT correlation. The algorithm normalises
     # template index from 0; preserve the same shape on retune.
     preview_id = str(uuid.uuid4())
-    radius_pixels = diameter / pixel_size / 2.0
+    radius_pixels_original = diameter / pixel_size / 2.0
+    radius_pixels_working = diameter / target_apix / 2.0
     image_shape = (int(image.shape[0]), int(image.shape[1]))
+    working_shape = (int(image_working.shape[0]), int(image_working.shape[1]))
     _previews[preview_id] = {
         "template_results": result["template_results"],
-        "image_shape": image_shape,
-        "radius_pixels": radius_pixels,
+        "image_shape": working_shape,
+        "original_image_shape": image_shape,
+        "radius_pixels": radius_pixels_working,
+        "radius_pixels_original": radius_pixels_original,
+        "bin_factor": effective_bin,
         "created_at": datetime.now(),
     }
 
@@ -119,14 +138,20 @@ def run_preview(input_data: TemplatePickerInput) -> PickingPreviewResult:
     return PickingPreviewResult(
         preview_id=preview_id,
         particles=[
-            {"x": int(p["x"]), "y": int(p["y"]), "score": float(p["score"]),
-             **{k: v for k, v in p.items() if k not in ("x", "y", "score")}}
+            {
+                **_scale_particle_to_original(
+                    p,
+                    bin_factor=effective_bin,
+                    default_radius=radius_pixels_original,
+                ),
+                "score": float(p["score"]),
+            }
             for p in result["particles"]
         ],
         num_particles=len(result["particles"]),
         num_templates=len(templates),
-        target_pixel_size=pixel_size,
-        image_binning=int(params.get("bin", 1)),
+        target_pixel_size=target_apix,
+        image_binning=effective_bin,
         image_shape=[image_shape[0], image_shape[1]],
         score_map_png_base64=_score_map_to_base64_png(merged_map),
         score_range=[score_min, score_max],
@@ -152,6 +177,8 @@ def run_retune(
         return None
 
     radius_pixels = preview["radius_pixels"]
+    radius_pixels_original = preview.get("radius_pixels_original", radius_pixels)
+    bin_factor = int(preview.get("bin_factor", 1))
     image_shape = preview["image_shape"]
 
     all_particles: List[Dict[str, Any]] = []
@@ -186,8 +213,14 @@ def run_retune(
 
     return PickingRetuneResult(
         particles=[
-            {"x": int(p["x"]), "y": int(p["y"]), "score": float(p["score"]),
-             **{k: v for k, v in p.items() if k not in ("x", "y", "score")}}
+            {
+                **_scale_particle_to_original(
+                    p,
+                    bin_factor=bin_factor,
+                    default_radius=radius_pixels_original,
+                ),
+                "score": float(p["score"]),
+            }
             for p in merged
         ],
         num_particles=len(merged),

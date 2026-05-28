@@ -16,7 +16,7 @@ import logging
 import os
 from pathlib import Path
 from threading import Lock
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 from cachetools import LRUCache
@@ -90,6 +90,149 @@ def _load_template_cached(path: str) -> np.ndarray:
     with _template_cache_lock:
         _template_cache[key] = arr
     return arr
+
+
+def _is_power_of_two(value: int) -> bool:
+    return value > 0 and (value & (value - 1)) == 0
+
+
+def _bin_image(image: np.ndarray, bin_factor: int) -> np.ndarray:
+    """Average-bin a 2D image by a power-of-two factor."""
+    bin_factor = int(bin_factor)
+    if not _is_power_of_two(bin_factor):
+        raise ValueError("bin_factor must be a power-of-two integer (1,2,4,8,...)")
+    if bin_factor == 1:
+        return np.asarray(image, dtype=np.float32)
+
+    height, width = image.shape
+    binned_height = (height // bin_factor) * bin_factor
+    binned_width = (width // bin_factor) * bin_factor
+    if binned_height == 0 or binned_width == 0:
+        raise ValueError("bin_factor is too large for image dimensions")
+
+    cropped = np.asarray(image[:binned_height, :binned_width], dtype=np.float32)
+    reshaped = cropped.reshape(
+        binned_height // bin_factor,
+        bin_factor,
+        binned_width // bin_factor,
+        bin_factor,
+    )
+    return reshaped.mean(axis=(1, 3), dtype=np.float32)
+
+
+def _rescale_template(
+    template: np.ndarray,
+    template_apix: float,
+    target_apix: float,
+) -> np.ndarray:
+    """Resample a template so its pixel size matches the working image."""
+    if template_apix <= 0 or target_apix <= 0:
+        raise ValueError("pixel sizes must be > 0")
+    scale = float(template_apix) / float(target_apix)
+    if abs(scale - 1.0) < 1e-6:
+        return np.asarray(template, dtype=np.float32)
+
+    from scipy import ndimage  # lazy
+
+    out = ndimage.zoom(np.asarray(template, dtype=np.float32), zoom=scale, order=1)
+    if out.ndim != 2 or min(out.shape) < 2:
+        raise ValueError(
+            "template became too small after pixel-size/bin rescaling; "
+            "lower bin_factor or use a larger template"
+        )
+    return out.astype(np.float32)
+
+
+def _lowpass_gaussian(
+    image: np.ndarray,
+    apix: float,
+    resolution_angstrom: Optional[float],
+) -> np.ndarray:
+    if resolution_angstrom is None:
+        return np.asarray(image, dtype=np.float32)
+    if resolution_angstrom <= 0:
+        raise ValueError("lowpass_resolution must be > 0")
+    if apix <= 0:
+        raise ValueError("pixel size must be > 0")
+
+    from scipy import ndimage  # lazy
+
+    sigma_pixels = 0.187 * float(resolution_angstrom) / float(apix)
+    if sigma_pixels <= 0:
+        return np.asarray(image, dtype=np.float32)
+    return ndimage.gaussian_filter(image, sigma=sigma_pixels).astype(np.float32)
+
+
+def _preprocess_image_and_templates(
+    *,
+    image: np.ndarray,
+    templates: Sequence[np.ndarray],
+    image_pixel_size_angstrom: float,
+    template_pixel_size_angstrom: Optional[float],
+    bin_factor: int,
+    invert_templates: bool,
+    lowpass_resolution: Optional[float],
+) -> Tuple[np.ndarray, List[np.ndarray], float, int]:
+    """Prepare the working arrays used by the FFT matcher.
+
+    The algorithm operates in the coordinate system of the arrays it is
+    given. This helper performs the binning/resampling first and returns
+    the effective working pixel size so callers can scale particles back
+    to source-image coordinates.
+    """
+    effective_bin = int(bin_factor or 1)
+    binned_image = _bin_image(image, effective_bin)
+    target_apix = float(image_pixel_size_angstrom) * float(effective_bin)
+    binned_image = _lowpass_gaussian(binned_image, target_apix, lowpass_resolution)
+
+    template_apix = float(template_pixel_size_angstrom or image_pixel_size_angstrom)
+    processed_templates: List[np.ndarray] = []
+    for template in templates:
+        tmpl = np.asarray(template, dtype=np.float32)
+        if invert_templates:
+            tmpl = -1.0 * tmpl
+        tmpl = _rescale_template(tmpl, template_apix, target_apix)
+        tmpl = _lowpass_gaussian(tmpl, target_apix, lowpass_resolution)
+        processed_templates.append(tmpl.astype(np.float32))
+
+    return binned_image.astype(np.float32), processed_templates, target_apix, effective_bin
+
+
+def _scale_particle_to_original(
+    particle: Dict[str, Any],
+    *,
+    bin_factor: int,
+    default_radius: Optional[float] = None,
+) -> Dict[str, Any]:
+    """Map one picker particle from working-image pixels to source pixels."""
+    out = dict(particle)
+    scale = int(bin_factor or 1)
+
+    center = out.get("center")
+    if isinstance(center, (list, tuple)) and len(center) >= 2:
+        x = float(center[0])
+        y = float(center[1])
+    else:
+        x = float(out.get("x", 0))
+        y = float(out.get("y", 0))
+
+    if scale > 1:
+        x = (x + 0.5) * scale - 0.5
+        y = (y + 0.5) * scale - 0.5
+
+    x_i = int(round(x))
+    y_i = int(round(y))
+    out["x"] = x_i
+    out["y"] = y_i
+    out["center"] = [x_i, y_i]
+
+    if "radius" in out and out["radius"] is not None:
+        radius = float(out["radius"])
+        out["radius"] = max(1, int(round(radius * scale)))
+    elif default_radius is not None:
+        out["radius"] = max(1, int(round(float(default_radius))))
+
+    return out
 
 
 def _resolve_template_paths(spec: Any) -> List[str]:
@@ -173,41 +316,50 @@ def run_template_pick(
     image = _load_mrc(image_path)
     # Templates use the cached loader; image stays uncached (each
     # batch image is unique to one job).
-    templates = [_load_template_cached(p) for p in template_paths]
-
     opts = engine_opts or {}
+    templates = [_load_template_cached(p) for p in template_paths]
+    bin_factor = int(opts.get("bin", opts.get("bin_factor", 1)) or 1)
+    lowpass_resolution = opts.get("lowpass_resolution")
+    image_working, templates_working, target_apix, effective_bin = (
+        _preprocess_image_and_templates(
+            image=image,
+            templates=templates,
+            image_pixel_size_angstrom=float(pixel_size_angstrom),
+            template_pixel_size_angstrom=template_pixel_size_angstrom,
+            bin_factor=bin_factor,
+            invert_templates=bool(opts.get("invert_templates", False)),
+            lowpass_resolution=lowpass_resolution,
+        )
+    )
+
     params: Dict[str, Any] = {
         "diameter_angstrom": float(diameter_angstrom),
-        "pixel_size_angstrom": float(pixel_size_angstrom),
+        "pixel_size_angstrom": float(target_apix),
         "threshold": float(threshold),
+        # Preprocessing has already applied the bin factor. The matcher
+        # should treat the working image as its native coordinate system.
+        "bin": 1.0,
     }
     # Optional knobs flow through engine_opts unmodified.
     for k in (
-        "bin", "max_threshold", "max_peaks", "overlap_multiplier",
+        "max_threshold", "max_peaks", "overlap_multiplier",
         "max_blob_size_multiplier", "min_blob_roundness", "peak_position",
         "border_pixels", "angle_ranges",
     ):
         if k in opts:
             params[k] = opts[k]
-    if "bin" not in params and opts.get("bin_factor") is not None:
-        params["bin"] = opts["bin_factor"]
 
-    # Template apix can override per call (Sandbox CLI accepts mismatch).
-    if template_pixel_size_angstrom is not None:
-        # The vendored algorithm rescales templates internally when
-        # bin/apix differs; override happens via the algorithm's own
-        # rescale path. We pass it as a side input via engine_opts.
-        params.setdefault("template_pixel_size_angstrom", float(template_pixel_size_angstrom))
-
-    result = pick_particles(image=image, templates=templates, params=params)
-    bin_factor = float(params.get("bin", 1.0))
+    result = pick_particles(image=image_working, templates=templates_working, params=params)
     default_radius = _canonical_radius_pixels(
         diameter_angstrom=diameter_angstrom,
         pixel_size_angstrom=pixel_size_angstrom,
-        bin_factor=bin_factor,
+        bin_factor=1.0,
     )
     particles = [
-        _canonicalize_particle_pick(p, default_radius=default_radius)
+        _canonicalize_particle_pick(
+            _scale_particle_to_original(p, bin_factor=effective_bin),
+            default_radius=default_radius,
+        )
         for p in result.get("particles", [])
     ]
 

@@ -113,6 +113,36 @@ def test_execute_picker_params_have_sensible_defaults():
     assert inp.invert_templates is True
 
 
+def test_preprocess_bins_image_and_rescales_templates():
+    """The plugin path must apply bin_factor before FFT matching.
+
+    A previous regression only used bin_factor to shrink the reported
+    radius, leaving the full-resolution image in the expensive FFT loop.
+    """
+    from plugin.compute import _preprocess_image_and_templates
+
+    image = np.arange(16, dtype=np.float32).reshape(4, 4)
+    template = np.ones((4, 4), dtype=np.float32)
+
+    working_image, working_templates, target_apix, effective_bin = (
+        _preprocess_image_and_templates(
+            image=image,
+            templates=[template],
+            image_pixel_size_angstrom=1.0,
+            template_pixel_size_angstrom=1.0,
+            bin_factor=2,
+            invert_templates=False,
+            lowpass_resolution=None,
+        )
+    )
+
+    assert effective_bin == 2
+    assert target_apix == pytest.approx(2.0)
+    assert working_image.shape == (2, 2)
+    assert np.allclose(working_image, np.array([[2.5, 4.5], [10.5, 12.5]], dtype=np.float32))
+    assert working_templates[0].shape == (2, 2)
+
+
 # ---------------------------------------------------------------------------
 # Compute helpers (path resolution)
 # ---------------------------------------------------------------------------
@@ -218,6 +248,69 @@ def test_execute_round_trip_with_mocked_algorithm(monkeypatch, tmp_path):
     assert saved[0]["radius"] == 89
     assert saved[0]["x"] == 32
     assert saved[0]["y"] == 32
+
+
+def test_preview_bins_working_arrays_and_returns_source_coordinates(monkeypatch, tmp_path):
+    """Preview computes on binned arrays but returns source-image pixels.
+
+    The image-viewer side panel overlays preview particles on the original
+    micrograph canvas, so returned x/y/radius must be full-resolution.
+    """
+    import mrcfile
+
+    from plugin.models import TemplatePickerInput
+    from plugin.preview import discard_preview, run_preview
+
+    mic = np.arange(64 * 64, dtype=np.float32).reshape(64, 64)
+    tmpl = np.ones((16, 16), dtype=np.float32)
+    mic_path = tmp_path / "m.mrc"
+    tmpl_path = tmp_path / "t.mrc"
+    with mrcfile.new(str(mic_path), overwrite=True) as f:
+        f.set_data(mic)
+    with mrcfile.new(str(tmpl_path), overwrite=True) as f:
+        f.set_data(tmpl)
+
+    def _fake_pick(image, templates, params):
+        assert image.shape == (16, 16)
+        assert templates[0].shape == (4, 4)
+        assert params["pixel_size_angstrom"] == pytest.approx(8.0)
+        assert params["bin"] == 1.0
+        score_map = np.ones(image.shape, dtype=np.float32)
+        angle_map = np.zeros(image.shape, dtype=np.float32)
+        return {
+            "particles": [{"x": 2, "y": 3, "score": 0.6}],
+            "template_results": [{
+                "score_map": score_map,
+                "angle_map": angle_map,
+                "template_index": 1,
+            }],
+            "merged_score_map": score_map,
+        }
+
+    import plugin.algorithm as algorithm_mod
+    monkeypatch.setattr(algorithm_mod, "pick_particles", _fake_pick)
+
+    result = run_preview(
+        TemplatePickerInput(
+            image_path=str(mic_path),
+            template_paths=[str(tmpl_path)],
+            diameter_angstrom=200.0,
+            image_pixel_size=2.0,
+            template_pixel_size=2.0,
+            bin_factor=4,
+            invert_templates=False,
+        )
+    )
+    body = result.model_dump()
+
+    assert body["image_shape"] == [64, 64]
+    assert body["image_binning"] == 4
+    assert body["target_pixel_size"] == pytest.approx(8.0)
+    assert body["particles"][0]["x"] == 10
+    assert body["particles"][0]["y"] == 14
+    assert body["particles"][0]["center"] == [10, 14]
+    assert body["particles"][0]["radius"] == 50
+    assert discard_preview(body["preview_id"]) is True
 
 
 # ---------------------------------------------------------------------------
