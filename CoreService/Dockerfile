@@ -49,6 +49,11 @@ COPY CoreService/config.py ./config.py
 COPY CoreService/database.py ./database.py
 COPY CoreService/test_main.http ./
 
+COPY CoreService/alembic ./alembic
+COPY CoreService/alembic.ini ./alembic.ini
+COPY CoreService/entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
+
 VOLUME /magellon
 VOLUME ./configs
 VOLUME /gpfs
@@ -59,4 +64,4 @@ ENV DATA_DIR=/app/CoreService/data \
     APP_ENV=production
 
 EXPOSE 80
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["./entrypoint.sh"]

@@ -34,6 +34,7 @@ imagecodecs
 #sqlacodegen
 #mysqlclient
 python-dotenv
+httpx
 strawberry-graphql[fastapi]==0.243.0
 # bump-pydantic
 rich==13.7.0

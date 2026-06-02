@@ -29,13 +29,13 @@ COPY nginx.conf ./nginx.conf
 
 # If API_URL is provided, perform the replacement
 RUN if [ -n "${API_URL}" ]; then \
-      sed -i "s|http://127.0.0.1:8000|${API_URL}|g" /app/src/config/configs.json; \
+      sed -i "s|http://127.0.0.1:8000|${API_URL}|g" /app/src/shared/config/configs.json; \
     fi
 
 #RUN cp /app/src/config/configs.json /app/configs.json
 # Install dependencies
 #RUN pnpm install
-RUN pnpm install --force
+RUN pnpm install --force --config.dangerouslyAllowAllBuilds=true
 #RUN yarn install
 
 # Build the application
