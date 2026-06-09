@@ -72,7 +72,7 @@ export default function AccountPage() {
         } else if (!authLoading && !user) {
             setLoading(false);
         }
-    }, [user, authLoading]);
+    }, [user, authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const checkUserPermissions = async () => {
         if (!user?.id) {

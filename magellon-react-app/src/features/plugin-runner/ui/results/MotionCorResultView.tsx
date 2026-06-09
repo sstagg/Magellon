@@ -26,7 +26,7 @@ interface MotionCorOutput {
  * drift direction at a glance.
  */
 export const MotionCorResultView: React.FC<{ result: MotionCorOutput }> = ({ result }) => {
-    const drift = result?.drift ?? [];
+    const drift = useMemo(() => result.drift ?? [], [result.drift]);
     const summary = result?.summary;
 
     const { width, height, points, bounds } = useMemo(

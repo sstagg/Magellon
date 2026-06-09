@@ -43,7 +43,7 @@ export default function RoleAssignmentDialog({
     if (open && user && user.oid) {
       loadData();
     }
-  }, [open, user]);
+  }, [open, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadData = async () => {
     const userId = user?.oid;

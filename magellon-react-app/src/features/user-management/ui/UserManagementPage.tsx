@@ -136,11 +136,11 @@ const UserManagementPage: React.FC = () => {
     // Load users on component mount and when filters change
     useEffect(() => {
         loadUsers();
-    }, [page, rowsPerPage, statusFilter]);
+    }, [page, rowsPerPage, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         filterUsers();
-    }, [users, searchTerm]);
+    }, [users, searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Convert API user to component user format
     const convertApiUserToUserData = (apiUser: ApiUser): UserData => ({

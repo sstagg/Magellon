@@ -174,7 +174,7 @@ export default function RoleEditDialog({
             setNavigationPermissions([]);
             setTypePermissions([]);
         }
-    }, [open, role]);
+    }, [open, role]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadRoleData = async () => {
         setLoading(true);

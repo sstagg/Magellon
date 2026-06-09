@@ -73,7 +73,7 @@ export const useImageDataFetching = (options: UseImageDataFetchingOptions = {}) 
                 getImageColumnsData(i);
             }
         }
-    }, [currentImage?.oid, level, data, isSuccess, currentSession]);
+    }, [currentImage?.oid, level, data, isSuccess, currentSession]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return {
         data,

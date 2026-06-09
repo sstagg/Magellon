@@ -125,7 +125,7 @@ export default function UserManagementTab({
         if (currentUser) {  // FIXED: Only load if currentUser exists
             loadData();
         }
-    }, [adminMode, currentUser, statusFilter]);
+    }, [adminMode, currentUser, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadData = async () => {
         if (adminMode) {

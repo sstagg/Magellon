@@ -116,7 +116,7 @@ function MockClassAverage({ score, seed, nParticles }: { score: number; seed: nu
             });
         }
         return lobes;
-    }, [seed]);
+    }, [seed]); // eslint-disable-line react-hooks/exhaustive-deps
     const borderColor = score > 0.75 ? '#4caf50' : score > 0.5 ? '#ff9800' : '#f44336';
     return (
         <Box

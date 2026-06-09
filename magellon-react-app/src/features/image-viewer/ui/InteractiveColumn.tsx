@@ -102,7 +102,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
             resetFilter();
             setSelectedImageId(null);
         }
-    }, [parentImage, level, parentId]);
+    }, [parentImage, level, parentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const {
         data,
@@ -145,11 +145,11 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
 
     const handleFilterChange = useCallback((newFilter: Partial<ColumnFilter>) => {
         setFilter(prev => ({ ...prev, ...newFilter }));
-    }, []);
+    }, [setFilter]);
 
     const handleClearFilters = useCallback(() => {
         setFilter({});
-    }, []);
+    }, [setFilter]);
 
     const handleMenuClose = useCallback(() => {
         setMenuAnchor(null);

@@ -291,7 +291,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                 setDispatchedIppName(null);
             }
         }
-    }, [isRunning, resultCount, ippName, dispatchedIppName]);
+    }, [isRunning, resultCount, ippName, dispatchedIppName]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Load live backends. ``cache: 'no-store'`` because the answer
     // changes whenever a plugin process restarts (capabilities,
@@ -323,7 +323,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
             })
             .catch(() => { /* backends endpoint optional — fall back to template-picker */ })
             .finally(() => setBackendsLoading(false));
-    }, [open]);
+    }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Fetch schema (re-fetch when backend changes)
     useEffect(() => {
@@ -352,7 +352,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
             })
             .catch((err) => setSchemaError(`Could not load: ${err.message}`))
             .finally(() => setSchemaLoading(false));
-    }, [open, selectedBackend]);
+    }, [open, selectedBackend]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const validationErrors = useMemo(
         () => (schema ? validateParams(schema, pickerParams, imageName) : []),
@@ -399,7 +399,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
             setDrawerState('configure');
             setRuntimeError(`Preview failed: ${apiErrorMessage(err, 'unknown error')}`);
         }
-    }, [isValid, pickerParams, imageName, selectedBackend, sessionName, onPreviewParticles]);
+    }, [isValid, pickerParams, imageName, selectedBackend, sessionName, onPreviewParticles]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleTrainSession = useCallback(async () => {
         if (!isTopazBackend || !imageName || !sessionName) return;

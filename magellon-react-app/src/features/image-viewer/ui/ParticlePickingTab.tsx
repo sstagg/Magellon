@@ -127,7 +127,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                     : { ...prev, image_pixel_size: apix },
             );
         }
-    }, [selectedImage?.oid]);
+    }, [selectedImage?.oid]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Preview state — particles shown on canvas before committing
     const [previewParticles, setPreviewParticles] = useState<Point[] | null>(null);
@@ -303,6 +303,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 currentParticles={particles}
             />
         );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [settingsOpen, pickerParams, isAutoPickingRunning, autoPickingProgress, lastResultCount,
         particles, selectedImage, previewParticles, sessionName, selectedParticlePicking?.name]);
 

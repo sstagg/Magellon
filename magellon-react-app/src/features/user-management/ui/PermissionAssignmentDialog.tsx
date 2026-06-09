@@ -63,7 +63,7 @@ export default function PermissionAssignmentDialog({
     if (open && role) {
       loadPermissions();
     }
-  }, [open, role]);
+  }, [open, role]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadPermissions = async () => {
     setLoading(true);

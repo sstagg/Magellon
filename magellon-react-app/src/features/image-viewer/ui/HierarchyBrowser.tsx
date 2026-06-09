@@ -53,7 +53,7 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
     const { currentImage } = useImageViewerStore();
 
     // Extract all images from the paginated data
-    const allImages = images?.pages?.flatMap(page => page.result) || [];
+    const allImages = useMemo(() => images?.pages?.flatMap(page => page.result) || [], [images?.pages]);
 
     // Build tree hierarchy from flat data
     const treeData = useMemo(() => {
@@ -344,7 +344,7 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
             // Clear selection if no image is selected
             setSelectedItems(null);
         }
-    }, [currentImage, filteredTreeData]); // Removed selectedItems from dependencies to prevent infinite loops
+    }, [currentImage, filteredTreeData]); // eslint-disable-line react-hooks/exhaustive-deps -- selectedItems omitted to prevent infinite loops
 
     if (!images) {
         return (

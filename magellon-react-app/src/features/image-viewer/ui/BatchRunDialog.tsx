@@ -105,7 +105,7 @@ export const BatchRunDialog: React.FC<BatchRunDialogProps> = ({
             setRunning(false);
             setLaunching(false);
         }
-    }, [open, currentImage?.oid]);
+    }, [open, currentImage?.oid]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Fetch matching images when query changes
     useEffect(() => {

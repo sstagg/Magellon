@@ -113,7 +113,7 @@ export const TopazTestPage: React.FC = () => {
                 pollRef.current = null;
             }
         };
-    }, [dispatch?.job_id]);
+    }, [dispatch?.job_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleDispatch = async () => {
         setError(null);

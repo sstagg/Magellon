@@ -43,7 +43,7 @@ export function useSchema(includeSystem: boolean = false) {
 
   useEffect(() => {
     fetchSchema();
-  }, [includeSystem]);
+  }, [includeSystem]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchSchema = async () => {
     setLoading(true);

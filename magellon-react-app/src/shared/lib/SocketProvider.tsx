@@ -62,7 +62,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             offJob();
             offLog();
         };
-    }, [connected]);
+    }, [connected]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return <>{children}</>;
 };

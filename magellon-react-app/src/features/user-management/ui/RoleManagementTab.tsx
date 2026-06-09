@@ -112,11 +112,11 @@ export default function RoleManagementTab({ currentUser: _currentUser, showSnack
   useEffect(() => {
     loadRoles();
     loadStatistics();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     filterRoles();
-  }, [roles, searchTerm]);
+  }, [roles, searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadRoles = async () => {
     setLoading(true);

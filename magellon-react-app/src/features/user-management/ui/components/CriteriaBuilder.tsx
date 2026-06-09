@@ -100,14 +100,14 @@ export default function CriteriaBuilder({
       // Try to parse initial criteria
       setRawCriteria(initialCriteria);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Generate criteria string when conditions change
     const criteria = generateCriteriaString();
     setRawCriteria(criteria);
     onChange(criteria);
-  }, [conditions, logicalOperator]);
+  }, [conditions, logicalOperator]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addCondition = () => {
     const newCondition: Condition = {

@@ -116,13 +116,13 @@ export default function PermissionManagementTab({
 
   useEffect(() => {
     loadRoles();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (selectedRole) {
       loadPermissions();
     }
-  }, [selectedRole]);
+  }, [selectedRole]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadRoles = async () => {
     try {

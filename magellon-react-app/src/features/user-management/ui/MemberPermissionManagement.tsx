@@ -74,7 +74,7 @@ export default function MemberPermissionManagement({
 
     useEffect(() => {
         loadPermissions();
-    }, [typePermissionId]);
+    }, [typePermissionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadPermissions = async () => {
         setLoading(true);

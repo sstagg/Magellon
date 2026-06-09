@@ -346,7 +346,7 @@ const FilePathListField: React.FC<{
     const theme = useTheme();
     const [newPath, setNewPath] = useState('');
     const [isDragOver, setIsDragOver] = useState(false);
-    const paths = value || [];
+    const paths = useMemo(() => value || [], [value]);
     const exts = field.ui_file_ext || ['.mrc'];
 
     const addPath = useCallback((p: string) => {

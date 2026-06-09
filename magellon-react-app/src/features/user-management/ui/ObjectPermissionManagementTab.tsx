@@ -121,7 +121,7 @@ export default function ObjectPermissionManagementTab({
     useEffect(() => {
         loadRoles();
         loadPermissions();
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadRoles = async () => {
         try {

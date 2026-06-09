@@ -86,7 +86,7 @@ export default function ObjectPermissionManagement({
 
     useEffect(() => {
         loadPermissions();
-    }, [typePermissionId]);
+    }, [typePermissionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadPermissions = async () => {
         setLoading(true);

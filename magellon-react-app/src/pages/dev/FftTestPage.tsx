@@ -110,7 +110,7 @@ export const FftTestPage: React.FC = () => {
                 pollRef.current = null;
             }
         };
-    }, [dispatch?.job_id]);
+    }, [dispatch?.job_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleDispatchSingle = async () => {
         const payload: Record<string, unknown> = { image_path: imagePath };

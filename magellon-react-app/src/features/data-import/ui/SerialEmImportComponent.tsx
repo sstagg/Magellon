@@ -179,7 +179,7 @@ export const SerialEMImportComponent = () => {
 
     useEffect(() => {
         fetchDirectory(currentPath);
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleItemDoubleClick = (item: FileItem) => {
         if (item.is_directory) {

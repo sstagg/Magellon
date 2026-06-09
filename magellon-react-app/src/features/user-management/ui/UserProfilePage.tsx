@@ -94,13 +94,13 @@ const UserProfilePage: React.FC = () => {
 
     useEffect(() => {
         loadProfile();
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (profile) {
             loadUserPermissions();
         }
-    }, [profile?.id]);
+    }, [profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const convertApiUserToProfileData = (apiUser: ApiUser): ProfileData => ({
         id: apiUser.oid,

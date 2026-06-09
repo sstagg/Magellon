@@ -252,7 +252,7 @@ export function useParticleOperations({
             setHistoryIndex(0);
             setImageShape(null);
         }
-    }, [selectedParticlePicking?.oid, selectedImage?.oid, setSelectedParticlePicking, updateStats]);
+    }, [selectedParticlePicking?.oid, selectedImage?.oid, setSelectedParticlePicking, updateStats]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Sync the store's selectedParticlePicking when the user edits particles.
     // Skip when particles were just loaded from the IPP to avoid an
@@ -270,7 +270,7 @@ export function useParticleOperations({
             };
             handleIppUpdate(updatedIpp);
         }
-    }, [particles]);
+    }, [particles]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const addToHistory = (newParticles: Point[]) => {
         const newHistory = history.slice(0, historyIndex + 1);

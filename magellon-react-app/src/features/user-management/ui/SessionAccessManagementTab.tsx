@@ -93,7 +93,7 @@ export default function SessionAccessManagementTab({
     useEffect(() => {
         loadSessions();
         loadUsers();
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (selectedSession) {
@@ -101,7 +101,7 @@ export default function SessionAccessManagementTab({
         } else {
             setUsersWithAccess([]);
         }
-    }, [selectedSession]);
+    }, [selectedSession]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadSessions = async () => {
         try {

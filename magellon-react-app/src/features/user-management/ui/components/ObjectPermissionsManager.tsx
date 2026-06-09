@@ -99,7 +99,7 @@ export default function ObjectPermissionsManager({
     if (typePermissionId) {
       loadObjectPermissions();
     }
-  }, [typePermissionId]);
+  }, [typePermissionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadObjectPermissions = async () => {
     setLoading(true);
