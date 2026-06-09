@@ -1,4 +1,5 @@
 import React from 'react';
+import type { UserWithRoles } from './UserManagementTab.tsx';
 import {
     Box,
     Typography,
@@ -25,13 +26,13 @@ import {
 } from '@mui/icons-material';
 
 interface UserTableProps {
-    users: any[];
+    users: UserWithRoles[];
     page: number;
     rowsPerPage: number;
     onPageChange: (newPage: number) => void;
     onRowsPerPageChange: (newRowsPerPage: number) => void;
-    onOpenRoleDialog: (user: any) => void;
-    onOpenChangePasswordDialog: (user: any) => void;
+    onOpenRoleDialog: (user: UserWithRoles) => void;
+    onOpenChangePasswordDialog: (user: UserWithRoles) => void;
     onActivateUser: (userId: string) => void;
     onDeactivateUser: (userId: string) => void;
     onDeleteUser: (userId: string) => void;
@@ -67,7 +68,7 @@ export default function UserTable({
                         {users
                             .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                             .map((user) => (
-                                <TableRow key={user.id || user.oid} hover>
+                                <TableRow key={user.oid} hover>
                                     <TableCell>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                             <Avatar>{user.username?.charAt(0).toUpperCase()}</Avatar>
@@ -88,7 +89,7 @@ export default function UserTable({
                                                 />
                                             ) : user.roles && user.roles.length > 0 ? (
                                                 <>
-                                                    {user.roles.map((role: any) => (
+                                                    {user.roles.map((role) => (
                                                         <Chip
                                                             key={role.role_id}
                                                             label={role.role_name}
@@ -135,7 +136,7 @@ export default function UserTable({
                                         {user.active ? (
                                             <IconButton
                                                 size="small"
-                                                onClick={() => onDeactivateUser(user.id || user.oid)}
+                                                onClick={() => onDeactivateUser(user.oid)}
                                                 title="Deactivate User"
                                                 color="warning"
                                             >
@@ -144,7 +145,7 @@ export default function UserTable({
                                         ) : (
                                             <IconButton
                                                 size="small"
-                                                onClick={() => onActivateUser(user.id || user.oid)}
+                                                onClick={() => onActivateUser(user.oid)}
                                                 title="Activate User"
                                                 color="success"
                                             >
@@ -167,7 +168,7 @@ export default function UserTable({
                                         </IconButton>
                                         <IconButton
                                             size="small"
-                                            onClick={() => onDeleteUser(user.id || user.oid)}
+                                            onClick={() => onDeleteUser(user.oid)}
                                             title="Delete User"
                                             color="error"
                                         >

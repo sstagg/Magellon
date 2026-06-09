@@ -19,10 +19,11 @@ import {
 import { AdminPanelSettings, Security } from '@mui/icons-material';
 
 import { RoleAPI, UserRoleAPI } from '../api/rbacApi';
+import type { Role } from '../api/rbacApi';
 
 interface RoleAssignmentDialogProps {
   open: boolean;
-  user: any;
+  user: { oid: string; username?: string } | null;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -34,18 +35,18 @@ export default function RoleAssignmentDialog({
   onSuccess,
 }: RoleAssignmentDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [allRoles, setAllRoles] = useState<any[]>([]);
+  const [allRoles, setAllRoles] = useState<Role[]>([]);
   const [userRoles, setUserRoles] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open && user && (user.id || user.oid)) {
+    if (open && user && user.oid) {
       loadData();
     }
   }, [open, user]);
 
   const loadData = async () => {
-    const userId = user?.id || user?.oid;
+    const userId = user?.oid;
     if (!user || !userId) {
       console.error('User or user ID is undefined', user);
       return;
@@ -63,7 +64,7 @@ export default function RoleAssignmentDialog({
       console.log('Loading user roles for user ID:', userId);
       const currentRoles = await UserRoleAPI.getUserRoles(userId);
       console.log('User current roles:', currentRoles);
-      setUserRoles(new Set(currentRoles.map((r: any) => r.role_id)));
+      setUserRoles(new Set(currentRoles.map((r) => r.role_id)));
     } catch (error) {
       console.error('Failed to load roles:', error);
     } finally {
@@ -72,7 +73,7 @@ export default function RoleAssignmentDialog({
   };
 
   const handleToggleRole = async (roleId: string, isChecked: boolean) => {
-    const userId = user?.id || user?.oid;
+    const userId = user?.oid;
     if (!userId) {
       console.error('Cannot toggle role: user ID is undefined');
       return;

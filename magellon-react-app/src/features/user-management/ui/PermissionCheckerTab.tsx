@@ -31,7 +31,10 @@ import {
 } from '@mui/icons-material';
 
 import { userApiService } from '../../auth/api/userApi.ts';
+import type { ApiUser } from '../../auth/api/userApi.ts';
+import type { User } from '../../auth/model/AuthContext.tsx';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 import { settings } from '../../../shared/config/settings.ts';
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
@@ -47,7 +50,7 @@ interface PermissionCheckResult {
 }
 
 interface PermissionCheckerTabProps {
-    currentUser: any;
+    currentUser: User | null;
     showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
 }
 
@@ -55,7 +58,7 @@ export default function PermissionCheckerTab({
     currentUser: _currentUser,
     showSnackbar,
 }: PermissionCheckerTabProps) {
-    const [users, setUsers] = useState<any[]>([]);
+    const [users, setUsers] = useState<ApiUser[]>([]);
     const [checking, setChecking] = useState(false);
     const [result, setResult] = useState<PermissionCheckResult | null>(null);
 
@@ -74,8 +77,8 @@ export default function PermissionCheckerTab({
         try {
             const usersData = await userApiService.getUsers({ include_inactive: false });
             setUsers(usersData);
-        } catch (error: any) {
-            showSnackbar(`Failed to load users: ${  error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to load users: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         }
     };
 
@@ -97,8 +100,8 @@ export default function PermissionCheckerTab({
             });
 
             setResult(response.data);
-        } catch (error: any) {
-            showSnackbar(`Failed to check permission: ${  error.response?.data?.detail || error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to check permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         } finally {
             setChecking(false);
         }
@@ -119,7 +122,7 @@ export default function PermissionCheckerTab({
         }
     };
 
-    const selectedUser = users.find(u => (u.id || u.oid) === formData.user_id);
+    const selectedUser = users.find(u => u.oid === formData.user_id);
 
     return (
         <Box>
@@ -149,7 +152,7 @@ export default function PermissionCheckerTab({
                                     onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
                                 >
                                     {users.map((user) => (
-                                        <MenuItem key={user.id || user.oid} value={user.id || user.oid}>
+                                        <MenuItem key={user.oid} value={user.oid}>
                                             {user.username}
                                         </MenuItem>
                                     ))}

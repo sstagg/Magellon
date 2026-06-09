@@ -53,7 +53,7 @@ import CreateUserDialog from './CreateUserDialog.tsx';
 import UserTable from './UserTable.tsx';
 
 /** A user row enriched with its roles for the admin table. */
-type UserWithRoles = ApiUser & {
+export type UserWithRoles = ApiUser & {
     email?: string;
     roles: UserRole[];
     rolesLoadError: boolean;
