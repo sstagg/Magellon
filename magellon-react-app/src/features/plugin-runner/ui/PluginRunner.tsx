@@ -16,6 +16,7 @@ import {
     IconButton,
     Tooltip,
 } from '@mui/material';
+import type { ChipProps } from '@mui/material';
 import { ChevronDown, ChevronRight, Image as ImageIcon, Layers, Play, ZoomIn, ZoomOut, Maximize2, Move, X as XIcon } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import type {
@@ -33,6 +34,17 @@ import { ImagePickerDialog } from './ImagePickerDialog.tsx';
 import { ProgressTracker } from './ProgressTracker.tsx';
 import { useJobStore } from '../../../shared/lib/stores/useJobStore.ts';
 import { useSocket } from '../../../shared/lib/useSocket.ts';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
+
+/** A picker-backend preview result, as returned by /particle-picking/preview. */
+interface PreviewResult {
+    preview_id?: string;
+    num_particles?: number;
+    particles?: Array<{ x: number; y: number }>;
+    image_shape?: [number, number];
+    image_binning?: number;
+    target_pixel_size?: number;
+}
 import { settings } from '../../../shared/config/settings.ts';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import { useAuth } from '../../auth/model/AuthContext.tsx';
@@ -65,7 +77,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
     const usePreviewMode = (plugin.capabilities ?? []).includes('preview');
 
     const defaults = useMemo(() => buildDefaults(schema), [schema]);
-    const [values, setValues] = useState<Record<string, any>>({});
+    const [values, setValues] = useState<Record<string, unknown>>({});
     const [currentJobId, setCurrentJobId] = useState<string | null>(null);
     const [showRequest, setShowRequest] = useState(false);
     const [imagePickerOpen, setImagePickerOpen] = useState(false);
@@ -78,7 +90,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
 
     // Local preview state for plugins advertising the preview capability.
     const [previewRunning, setPreviewRunning] = useState(false);
-    const [previewResult, setPreviewResult] = useState<any | null>(null);
+    const [previewResult, setPreviewResult] = useState<PreviewResult | null>(null);
     const [previewRunError, setPreviewRunError] = useState<string | null>(null);
     const [retuning, setRetuning] = useState(false);
     const [previewStale, setPreviewStale] = useState(false);
@@ -92,9 +104,9 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
     // redoing the expensive FFT. Derived from the plugin's own schema metadata.
     const tunableKeys = useMemo<Set<string>>(() => {
         const out = new Set<string>();
-        const props = (schema as any)?.properties;
+        const props = (schema as { properties?: Record<string, { ui_tunable?: boolean }> })?.properties;
         if (props) {
-            for (const [key, raw] of Object.entries<any>(props)) {
+            for (const [key, raw] of Object.entries(props)) {
                 if (raw?.ui_tunable === true) out.add(key);
             }
         }
@@ -145,7 +157,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
         if (!templatePathsField) return;
         setValues((prev) => {
             const replaced = Array.from(new Set(paths));
-            const next: Record<string, any> = { ...prev, [templatePathsField]: replaced };
+            const next: Record<string, unknown> = { ...prev, [templatePathsField]: replaced };
             const apix = templatePixelSizeFor(plugin.plugin_id, paths);
             if (apix != null) next['template_pixel_size'] = apix;
             return next;
@@ -189,8 +201,8 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
             setCurrentJobId(job.job_id);
             useJobStore.getState().upsertJob(job);
             queryClient.invalidateQueries({ queryKey: ['plugin-jobs'] });
-        } catch (err: any) {
-            const detail = err?.response?.data?.detail;
+        } catch (err) {
+            const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
             const parsed = parseFieldErrors(detail);
             if (Object.keys(parsed).length > 0) setFieldErrors(parsed);
         }
@@ -209,15 +221,15 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
             const res = await api.post('/particle-picking/preview', payload);
             setPreviewResult(res.data);
             lastRetunedValuesRef.current = pickTunable(values, tunableKeys);
-        } catch (err: any) {
-            const detail = err?.response?.data?.detail;
+        } catch (err) {
+            const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
             const parsed = parseFieldErrors(detail);
             if (Object.keys(parsed).length > 0) {
                 setFieldErrors(parsed);
                 setPreviewRunError('Fix the highlighted field(s) and retry.');
             } else {
                 setPreviewRunError(
-                    typeof detail === 'string' ? detail : (err?.message || 'Preview failed'),
+                    typeof detail === 'string' ? detail : apiErrorMessage(err, 'Preview failed'),
                 );
             }
         } finally {
@@ -228,7 +240,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
     // Live retune: when a preview exists and only tunable fields change, re-apply
     // them via /retune without recomputing correlation maps. Any non-tunable
     // change marks the preview as stale so the user knows to re-run Preview.
-    const lastRetunedValuesRef = useRef<Record<string, any>>({});
+    const lastRetunedValuesRef = useRef<Record<string, unknown>>({});
     const retuneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
@@ -249,7 +261,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
         retuneTimerRef.current = setTimeout(async () => {
             setRetuning(true);
             try {
-                const retunePayload: Record<string, any> = {};
+                const retunePayload: Record<string, unknown> = {};
                 for (const k of tunableKeys) {
                     if (values[k] !== undefined && values[k] !== null) retunePayload[k] = values[k];
                 }
@@ -257,17 +269,17 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                     `/particle-picking/preview/${previewId}/retune`,
                     retunePayload,
                 );
-                setPreviewResult((prev: any) => prev ? {
+                setPreviewResult((prev) => prev ? {
                     ...prev,
                     particles: res.data.particles,
                     num_particles: res.data.num_particles,
                 } : prev);
                 lastRetunedValuesRef.current = pickTunable(values, tunableKeys);
-            } catch (err: any) {
+            } catch (err) {
                 // Retune failed — surface as an error but keep the existing preview.
-                const detail = err?.response?.data?.detail;
+                const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
                 setPreviewRunError(
-                    typeof detail === 'string' ? detail : (err?.message || 'Retune failed'),
+                    typeof detail === 'string' ? detail : apiErrorMessage(err, 'Retune failed'),
                 );
             } finally {
                 setRetuning(false);
@@ -292,7 +304,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
     }
 
     const templateCount = Array.isArray(values[templatePathsField ?? ''])
-        ? values[templatePathsField as string].length
+        ? (values[templatePathsField as string] as unknown[]).length
         : 0;
 
     const pickedName = pickedPath ? (pickedPath.split(/[\\/]/).pop() || pickedPath) : null;
@@ -640,7 +652,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
 function parseFieldErrors(detail: unknown): Record<string, string> {
     if (!Array.isArray(detail)) return {};
     const out: Record<string, string> = {};
-    for (const item of detail as any[]) {
+    for (const item of detail as Array<{ loc?: unknown; msg?: unknown }>) {
         if (!item?.loc || !item?.msg) continue;
         // FastAPI loc looks like ["body", "input", "threshold"] for wrapped
         // JobSubmitRequest bodies, or ["body", "threshold"] for direct
@@ -654,13 +666,13 @@ function parseFieldErrors(detail: unknown): Record<string, string> {
     return out;
 }
 
-function pickTunable(values: Record<string, any>, tunableKeys: Set<string>): Record<string, any> {
-    const out: Record<string, any> = {};
+function pickTunable(values: Record<string, unknown>, tunableKeys: Set<string>): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
     for (const k of tunableKeys) out[k] = values[k];
     return out;
 }
 
-function diffChangedKeys(next: Record<string, any>, prev: Record<string, any>): string[] {
+function diffChangedKeys(next: Record<string, unknown>, prev: Record<string, unknown>): string[] {
     const keys = new Set<string>([...Object.keys(next), ...Object.keys(prev)]);
     const changed: string[] = [];
     for (const k of keys) {
@@ -669,7 +681,7 @@ function diffChangedKeys(next: Record<string, any>, prev: Record<string, any>): 
     return changed;
 }
 
-function shallowEqual(a: any, b: any): boolean {
+function shallowEqual(a: unknown, b: unknown): boolean {
     if (a === b) return true;
     if (Array.isArray(a) && Array.isArray(b)) {
         if (a.length !== b.length) return false;
@@ -853,7 +865,7 @@ const ZoomablePreview: React.FC<ZoomablePreviewProps> = ({ src, overlay }) => {
 };
 
 interface ParticleOverlayProps {
-    result: any;
+    result: PreviewResult | null;
     diameterAngstrom?: number;
     imagePixelSize?: number;
 }
@@ -883,7 +895,7 @@ const ParticleOverlay: React.FC<ParticleOverlayProps> = ({ result, diameterAngst
                 pointerEvents: 'none',
             }}
         >
-            {particles.map((p: any, i: number) => (
+            {particles.map((p: { x: number; y: number }, i: number) => (
                 <circle
                     key={i}
                     cx={p.x}
@@ -902,7 +914,15 @@ const ParticleOverlay: React.FC<ParticleOverlayProps> = ({ result, diameterAngst
 // ---------------------------------------------------------------------------
 
 interface RunStatusBannerProps {
-    job: any;
+    job: {
+        job_id?: string;
+        status: string;
+        progress?: number;
+        error?: string;
+        started_at?: string;
+        finished_at?: string;
+        result?: { num_particles?: number };
+    };
 }
 
 const RunStatusBanner: React.FC<RunStatusBannerProps> = ({ job }) => {
@@ -950,7 +970,7 @@ const RunStatusBanner: React.FC<RunStatusBannerProps> = ({ job }) => {
                     flexWrap: 'wrap',
                     rowGap: 0.5
                 }}>
-                <Chip size="small" color={statusColor as any} label={job.status} sx={{ textTransform: 'capitalize' }} />
+                <Chip size="small" color={statusColor as ChipProps['color']} label={job.status} sx={{ textTransform: 'capitalize' }} />
                 {elapsedMs != null && (
                     <Typography
                         variant="caption"
@@ -999,35 +1019,38 @@ function formatDuration(ms: number): string {
 
 // ---------------------------------------------------------------------------
 
-function formatSubmitError(err: any): string {
-    const status = err?.response?.status;
-    const data = err?.response?.data;
+function formatSubmitError(err: unknown): string {
+    const e = err as { response?: { status?: number; data?: { detail?: unknown } }; message?: string };
+    const status = e?.response?.status;
+    const data = e?.response?.data;
     const detail = typeof data?.detail === 'string'
         ? data.detail
         : data?.detail
             ? JSON.stringify(data.detail, null, 2)
             : null;
     if (status && detail) return `HTTP ${status}: ${detail}`;
-    if (status) return `HTTP ${status}: ${err?.message ?? 'Request failed'}`;
-    if (err?.message === 'Network Error') {
+    if (status) return `HTTP ${status}: ${e?.message ?? 'Request failed'}`;
+    if (e?.message === 'Network Error') {
         return 'Network error — the server may have returned a response without CORS headers. Check the backend log for the real error.';
     }
-    return err?.message || 'Submission failed';
+    return e?.message || 'Submission failed';
 }
 
-function buildDefaults(schema: any): Record<string, any> {
-    if (!schema?.properties) return {};
-    const out: Record<string, any> = {};
-    for (const [key, prop] of Object.entries<any>(schema.properties)) {
+function buildDefaults(schema: unknown): Record<string, unknown> {
+    const props = (schema as { properties?: Record<string, { default?: unknown }> })?.properties;
+    if (!props) return {};
+    const out: Record<string, unknown> = {};
+    for (const [key, prop] of Object.entries(props)) {
         if (prop?.default !== undefined) out[key] = prop.default;
     }
     return out;
 }
 
 /** Pick the schema property most likely to hold a single image path. */
-function findImagePathField(schema: any): string | null {
-    if (!schema?.properties) return null;
-    const stringKeys = Object.entries<any>(schema.properties)
+function findImagePathField(schema: unknown): string | null {
+    const props = (schema as { properties?: Record<string, { type?: string }> })?.properties;
+    if (!props) return null;
+    const stringKeys = Object.entries(props)
         .filter(([, prop]) => prop?.type === 'string')
         .map(([key]) => key);
     const imagePath = stringKeys.find((k) => /image.*path|micrograph.*path/i.test(k));
@@ -1043,7 +1066,7 @@ function findImagePathField(schema: any): string | null {
 // Sandbox README so "pick test image + pick templates + run" just works.
 
 interface PluginPreset {
-    defaults?: Record<string, any>;
+    defaults?: Record<string, unknown>;
     imagePixelSizesByFilename?: Array<{ match: RegExp; apix: number }>;
     templatePixelSizesByFilename?: Array<{ match: RegExp; apix: number }>;
 }
@@ -1085,7 +1108,7 @@ function pluginPresetFor(pluginId: string): PluginPreset | undefined {
     return PLUGIN_PRESETS[key];
 }
 
-function pluginTestDefaultsFor(pluginId: string): Record<string, any> {
+function pluginTestDefaultsFor(pluginId: string): Record<string, unknown> {
     return pluginPresetFor(pluginId)?.defaults ?? {};
 }
 
@@ -1109,9 +1132,10 @@ function templatePixelSizeFor(pluginId: string, paths: string[]): number | null 
 }
 
 /** Pick the schema property most likely to hold a list of template paths. */
-function findTemplatePathsField(schema: any): string | null {
-    if (!schema?.properties) return null;
-    const arrayOfStringKeys = Object.entries<any>(schema.properties)
+function findTemplatePathsField(schema: unknown): string | null {
+    const props = (schema as { properties?: Record<string, { type?: string; items?: { type?: string } }> })?.properties;
+    if (!props) return null;
+    const arrayOfStringKeys = Object.entries(props)
         .filter(([, prop]) => prop?.type === 'array' && prop?.items?.type === 'string')
         .map(([key]) => key);
     const templateKey = arrayOfStringKeys.find((k) => /template/i.test(k));

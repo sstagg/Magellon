@@ -489,7 +489,7 @@ export function useParticleOperations({
 
         try {
             // Merge picker params as engine_opts so the plugin can model_validate them.
-            const engineOpts: Record<string, any> = { ...pickerParams };
+            const engineOpts: Record<string, unknown> = { ...pickerParams };
             delete engineOpts.image_path; // resolved server-side from image_id+session_name
 
             const body = {
