@@ -4,9 +4,10 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 import { settings } from '../../shared/config/settings.ts';
 import { useEffect, useState } from 'react';
 import getAxiosClient from '../../shared/api/AxiosClient.ts';
+import { apiErrorMessage } from '../../shared/api/apiError.ts';
 
 export default function ScalarApiDocs() {
-  const [spec, setSpec] = useState<any>(null);
+  const [spec, setSpec] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,9 +18,9 @@ export default function ScalarApiDocs() {
         const response = await axiosClient.get('/openapi.json');
         setSpec(response.data);
         setError(null);
-      } catch (err: any) {
+      } catch (err) {
         console.error('Failed to fetch OpenAPI spec:', err);
-        setError(err.message || 'Failed to load API documentation');
+        setError(apiErrorMessage(err, 'Failed to load API documentation'));
       } finally {
         setLoading(false);
       }

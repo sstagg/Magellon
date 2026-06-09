@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 
 /** Determines the display type, icon, and color for a JSON value. */
-export const getValueTypeInfo = (value: any): { type: string; icon: React.ReactNode; color: string } => {
+export const getValueTypeInfo = (value: unknown): { type: string; icon: React.ReactNode; color: string } => {
     if (value === null) return { type: 'null', icon: <Hash size={14} />, color: '#757575' };
     if (value === undefined) return { type: 'undefined', icon: <Hash size={14} />, color: '#757575' };
     if (typeof value === 'boolean') return { type: 'boolean', icon: <CheckCircle fontSize="small" />, color: '#4caf50' };
@@ -47,7 +47,7 @@ const JsonTreeViewer: React.FC<JsonTreeViewerProps> = ({ data, level = 0 }) => {
         setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
-    const renderValue = (key: string, value: any, path: string): React.ReactNode => {
+    const renderValue = (key: string, value: unknown, path: string): React.ReactNode => {
         const typeInfo = getValueTypeInfo(value);
         const isExpandable = typeof value === 'object' && value !== null;
         const isExpanded = expanded[path];
@@ -89,7 +89,7 @@ const JsonTreeViewer: React.FC<JsonTreeViewerProps> = ({ data, level = 0 }) => {
                         <Chip
                             label={typeInfo.type}
                             size="small"
-                            icon={typeInfo.icon as any}
+                            icon={typeInfo.icon as React.ReactElement}
                             sx={{
                                 height: 20,
                                 fontSize: '0.65rem',
@@ -135,7 +135,7 @@ const JsonTreeViewer: React.FC<JsonTreeViewerProps> = ({ data, level = 0 }) => {
 
                 {isExpandable && isExpanded && (
                     <Box sx={{ ml: 2, mt: 0.5 }}>
-                        {Object.entries(value).map(([k, v]) => renderValue(k, v, `${path}.${k}`))}
+                        {Object.entries(value as Record<string, unknown>).map(([k, v]) => renderValue(k, v, `${path}.${k}`))}
                     </Box>
                 )}
             </Box>
