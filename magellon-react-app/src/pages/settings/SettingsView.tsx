@@ -128,7 +128,7 @@ const SettingsView = () => {
         setTheme(event.target.value as 'dark' | 'light');
     };
 
-    const handleSettingChange = (key: string, value: any) => {
+    const handleSettingChange = (key: string, value: string | number | boolean) => {
         setSettings(prev => ({
             ...prev,
             [key]: value

@@ -78,7 +78,7 @@ export const ImageFilterDialog: React.FC<ImageFilterDialogProps> = ({
     });
 
     // Handler for input changes
-    const handleInputChange = (field: keyof ImageFilter, value: any) => {
+    const handleInputChange = (field: keyof ImageFilter, value: ImageFilter[keyof ImageFilter]) => {
         setFilter(prev => ({
             ...prev,
             [field]: value

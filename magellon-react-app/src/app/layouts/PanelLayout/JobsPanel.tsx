@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import type { ChipProps } from '@mui/material';
 import {
     Box,
     Typography,
@@ -160,7 +161,7 @@ export const JobsPanel: React.FC = () => {
                                 <Chip
                                     label={config.label}
                                     size="small"
-                                    color={config.color as any}
+                                    color={config.color as ChipProps['color']}
                                     variant="outlined"
                                     sx={{ height: 18, fontSize: '0.6rem', '& .MuiChip-label': { px: 0.5 } }}
                                 />

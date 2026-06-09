@@ -18,8 +18,15 @@ function shortType(t: string): string {
     return t.replace('magellon.step.', '');
 }
 
+interface StepLineData {
+    step?: string;
+    percent?: number;
+    message?: string;
+    error?: string;
+}
+
 function renderLine(ev: StepEvent): React.ReactNode {
-    const data: any = ev.data || {};
+    const data = (ev.data ?? {}) as StepLineData;
     if (ev.type === 'magellon.step.progress' && typeof data.percent === 'number') {
         return (
             <Box sx={{ flex: 1 }}>

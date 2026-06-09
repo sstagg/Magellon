@@ -105,7 +105,7 @@ interface HeaderStripProps {
  */
 const rmqMgmtUrl = (queueName: string): string => {
     const base =
-        ((window as any).__MAGELLON_CONFIG__?.RMQ_MGMT_URL as string | undefined) ??
+        (window as { __MAGELLON_CONFIG__?: { RMQ_MGMT_URL?: string } }).__MAGELLON_CONFIG__?.RMQ_MGMT_URL ??
         'http://localhost:15672';
     return `${base.replace(/\/$/, '')}/#/queues/%2F/${encodeURIComponent(queueName)}`;
 };

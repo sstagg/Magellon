@@ -52,6 +52,7 @@ import {
     type InstallMethodOption,
     type InstallResponse,
 } from '../api/installerApi.ts';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 
 interface UploadArchiveDialogProps {
     open: boolean;
@@ -161,10 +162,8 @@ export const UploadArchiveDialog: React.FC<UploadArchiveDialogProps> = ({
             setInstallResult(result);
             setPendingFile(null);
             onInstalled?.(result);
-        } catch (err: any) {
-            setInstallError(
-                err?.response?.data?.detail ?? err?.message ?? 'Install failed.',
-            );
+        } catch (err) {
+            setInstallError(apiErrorMessage(err, 'Install failed.'));
         }
     };
 

@@ -4,6 +4,7 @@ import { settings } from "../../../shared/config/settings.ts";
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
 import { AuthenticatedSvgImage } from './AuthenticatedSvgImage';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
@@ -81,8 +82,8 @@ export default function AtlasViewer({ name: _name, finalWidth, finalHeight, back
                 params: { sessionName }
             });
             onImageClick(response.data.result, 0);
-        } catch (error: any) {
-            console.error('Error fetching image details:', error.response?.data?.detail || error.message);
+        } catch (error) {
+            console.error('Error fetching image details:', apiErrorMessage(error, 'unknown error'));
         }
     };
 

@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import { ArrowUp, Upload } from 'lucide-react';
 import { useUpgradeMpn, type InstallResponse } from '../api/installerApi.ts';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 
 interface UpgradeMpnDialogProps {
     open: boolean;
@@ -75,8 +76,8 @@ export const UpgradeMpnDialog: React.FC<UpgradeMpnDialogProps> = ({
             });
             setResult(res);
             onUpgraded?.(res);
-        } catch (err: any) {
-            setError(err?.response?.data?.detail ?? err?.message ?? 'Upgrade failed.');
+        } catch (err) {
+            setError(apiErrorMessage(err, 'Upgrade failed.'));
         }
     };
 

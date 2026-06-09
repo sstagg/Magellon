@@ -37,14 +37,14 @@ const InfoItem: React.FC<{
     icon?: React.ReactNode;
     color?: string;
     loading?: boolean;
-    formatter?: (value: any) => string;
+    formatter?: (value: string | number) => string;
 }> = ({
           label,
           value,
           icon,
           color,
           loading = false,
-          formatter = (val) => val
+          formatter = (val) => String(val)
       }) => {
     const theme = useTheme();
 

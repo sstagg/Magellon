@@ -23,6 +23,7 @@ import {
 } from '@mui/icons-material';
 
 import { userApiService } from '../../auth/api/userApi.ts';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 
 interface ChangePasswordDialogProps {
   open: boolean;
@@ -123,8 +124,8 @@ export default function ChangePasswordDialog({
       }
       onSuccess();
       handleClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to change password');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Failed to change password'));
     } finally {
       setLoading(false);
     }

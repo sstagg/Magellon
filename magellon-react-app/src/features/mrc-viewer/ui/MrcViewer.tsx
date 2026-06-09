@@ -1,6 +1,7 @@
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, CircularProgress, Box, Typography } from "@mui/material";
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
+import { apiErrorMessage } from "../../../shared/api/apiError.ts";
 
 interface MrcViewerProps {
     open: boolean;
@@ -133,9 +134,9 @@ export const MrcViewer: React.FC<MrcViewerProps> = ({ open, onClose, fileUrl, fi
 
                 ctx.putImageData(imageData, 0, 0);
                 setCanvas(c);
-            } catch (err: any) {
+            } catch (err) {
                 console.error('Error loading MRC file:', err);
-                setError(err.message || 'Failed to parse MRC file');
+                setError(apiErrorMessage(err, 'Failed to parse MRC file'));
             } finally {
                 setIsLoading(false);
             }

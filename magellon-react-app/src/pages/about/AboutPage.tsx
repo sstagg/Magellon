@@ -25,6 +25,7 @@ import {
     Zoom,
     useMediaQuery
 } from '@mui/material';
+import type { ChipProps } from '@mui/material';
 
 import Grid from '@mui/material/Grid';
 
@@ -669,7 +670,7 @@ const AboutPage: React.FC = () => {
                                                     <Chip
                                                         label={feature.status}
                                                         size="small"
-                                                        color={getStatusColor(feature.status) as any}
+                                                        color={getStatusColor(feature.status) as ChipProps['color']}
                                                         variant="outlined"
                                                     />
                                                 </Box>

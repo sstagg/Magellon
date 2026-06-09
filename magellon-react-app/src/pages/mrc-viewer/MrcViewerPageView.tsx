@@ -23,6 +23,7 @@ import { Maximize2, Minimize2 } from 'lucide-react';
 import {settings} from "../../shared/config/settings.ts";
 import DirectoryTreeView from "../../shared/ui/DirectoryTreeView.tsx";
 import getAxiosClient from '../../shared/api/AxiosClient.ts';
+import { apiErrorMessage } from '../../shared/api/apiError.ts';
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
@@ -134,8 +135,8 @@ const MrcViewerPageView: React.FC<MRCViewerProps> = ({mrcFilePath = "C:\\Users\\
                     }
                 });
                 setImageData(response.data);
-            } catch (error: any) {
-                console.error('Error fetching images:', error.response?.data?.detail || error.message);
+            } catch (error) {
+                console.error('Error fetching images:', apiErrorMessage(error, 'unknown error'));
                 setImageData(null);
             }
         };
