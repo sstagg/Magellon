@@ -1,4 +1,5 @@
 import React from "react";
+import { apiErrorMessage } from "../../../shared/api/apiError.ts";
 import {
     Box,
     Button,
@@ -32,10 +33,18 @@ import {
 } from "lucide-react";
 import { Timeline } from "@mui/icons-material";
 
+/** Per-image CTF estimation results rendered by this panel. */
+export interface CtfData {
+    defocus1: number;
+    defocus2: number;
+    angleAstigmatism: number;
+    resolution: number;
+}
+
 export interface CTFAnalysisPanelProps {
-    ctfData: any;
+    ctfData: CtfData | null;
     isLoading: boolean;
-    error: any;
+    error: unknown;
     onRefresh: () => void;
     powerspecUrl: string | null;
     isPowerspecLoading: boolean;
@@ -129,7 +138,7 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                     <Typography variant="body2" sx={{
                         color: "text.secondary"
                     }}>
-                        {isCtfInfoError.message || 'Unable to fetch CTF analysis results'}
+                        {apiErrorMessage(isCtfInfoError, 'Unable to fetch CTF analysis results')}
                     </Typography>
                 </Alert>
             ) : ImageCtfData && ImageCtfData.defocus1 !== null ? (

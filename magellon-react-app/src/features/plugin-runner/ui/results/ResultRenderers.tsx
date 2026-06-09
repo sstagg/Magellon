@@ -15,9 +15,12 @@ import { TemplatePickerResultView } from './TemplatePickerResultView.tsx';
  * nothing is ever invisible.
  */
 
-export type ResultRendererProps = { result: any };
+// Each renderer narrows `result` to its own plugin output type. The registry
+// is heterogeneous, so its slot is typed with `never` — the only param type
+// assignable to every renderer — and the dynamic value is cast at render.
+type CategoryRenderer = React.FC<{ result: never }>;
 
-const _byCategory: Record<string, React.FC<ResultRendererProps>> = {
+const _byCategory: Record<string, CategoryRenderer> = {
     ctf: CtfResultView,
     motioncor: MotionCorResultView,
     particle_picking: TemplatePickerResultView,
@@ -27,18 +30,18 @@ function _normalizeCategoryKey(s: string | undefined | null): string {
     return (s ?? '').toLowerCase().replace(/[\s-]+/g, '_');
 }
 
-export const ResultRenderer: React.FC<{ pluginId: string; result: any }> = ({ pluginId, result }) => {
+export const ResultRenderer: React.FC<{ pluginId: string; result: unknown }> = ({ pluginId, result }) => {
     if (!result) return null;
     // plugin_id is "<category>/<name>" — pull the category prefix.
     // Normalize so "Particle Picking" / "particle-picking" /
     // "particle_picking" all resolve to the same key.
     const [rawCategory] = (pluginId ?? '').split('/', 1);
     const Renderer = _byCategory[_normalizeCategoryKey(rawCategory)];
-    if (Renderer) return <Renderer result={result} />;
+    if (Renderer) return <Renderer result={result as never} />;
     return <JsonFallback result={result} />;
 };
 
-const JsonFallback: React.FC<{ result: any }> = ({ result }) => (
+const JsonFallback: React.FC<{ result: unknown }> = ({ result }) => (
     <Box sx={{ mt: 2 }}>
         <Typography variant="subtitle2" sx={{ mb: 1 }}>Result</Typography>
         <Box

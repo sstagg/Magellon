@@ -22,6 +22,7 @@ import { useState, useEffect } from "react";
 import { settings } from "../../../shared/config/settings.ts";
 import Button from "@mui/material/Button";
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
+import { apiErrorMessage, toApiError } from '../../../shared/api/apiError.ts';
 import { useImportJobProgress } from "../lib/useImportJobProgress.ts";
 import { ImportProgressDialog } from "./ImportProgressDialog.tsx";
 
@@ -148,8 +149,8 @@ export const SerialEMImportComponent = () => {
             // its final state; useImportJobProgress will fetch /summary and
             // resolve to success/error.
             progress.start(response.data?.job_id ?? "");
-        } catch (err: any) {
-            progress.fail(err.response?.data?.detail || err.message || 'Import failed');
+        } catch (err) {
+            progress.fail(apiErrorMessage(err, 'Import failed'));
         }
     };
 
@@ -162,13 +163,14 @@ export const SerialEMImportComponent = () => {
             });
             setFiles(response.data);
             setCurrentPath(path);
-        } catch (err: any) {
-            if (err.response?.status === 401) {
+        } catch (err) {
+            const e = toApiError(err);
+            if (e.status === 401) {
                 setError('Please login to browse files');
-            } else if (err.response?.status === 403) {
+            } else if (e.status === 403) {
                 setError('You do not have permission to browse this directory');
             } else {
-                setError(err.response?.data?.detail || err.message || 'An error occurred');
+                setError(e.detail || e.message || 'An error occurred');
             }
         } finally {
             setLoading(false);
