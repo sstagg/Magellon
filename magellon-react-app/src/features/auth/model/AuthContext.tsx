@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { AuthenticationResponse } from '../api/userApi.ts';
 import { userApiService } from '../api/userApi.ts';
 
-interface User {
+export interface User {
     id: string;
     username: string;
     active: boolean;

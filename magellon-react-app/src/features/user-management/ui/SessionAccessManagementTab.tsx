@@ -42,6 +42,7 @@ import {
 
 import type { GrantSessionAccessRequest } from '../api/rbacApi';
 import { SessionAccessAPI } from '../api/rbacApi';
+import { apiErrorMessage, toApiError } from '../../../shared/api/apiError.ts';
 
 interface User {
     id: string;
@@ -106,10 +107,10 @@ export default function SessionAccessManagementTab({
         try {
             setLoading(true);
             const response = await SessionAccessAPI.getAllSessions();
-            setSessions(response || []);
-        } catch (error: any) {
+            setSessions((response as Session[]) || []);
+        } catch (error) {
             console.error('Failed to load sessions:', error);
-            showSnackbar(`Failed to load sessions: ${  error.message || 'Unknown error'}`, 'error');
+            showSnackbar(`Failed to load sessions: ${apiErrorMessage(error, 'Unknown error')}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -129,14 +130,14 @@ export default function SessionAccessManagementTab({
 
             const data = response.data;
             // Map to User interface format
-            const mappedUsers = data.map((user: any) => ({
+            const mappedUsers = (data as Array<{ oid: string; USERNAME: string }>).map((user) => ({
                 id: user.oid,
                 username: user.USERNAME,
             }));
             setUsers(mappedUsers);
-        } catch (error: any) {
+        } catch (error) {
             console.error('Failed to load users:', error);
-            showSnackbar(`Failed to load users: ${  error.message || 'Unknown error'}`, 'error');
+            showSnackbar(`Failed to load users: ${apiErrorMessage(error, 'Unknown error')}`, 'error');
         }
     };
 
@@ -150,11 +151,12 @@ export default function SessionAccessManagementTab({
             // - Session Access Tab creates: [session_id] = 'uuid'
             // - Object Permission Tab creates: [session_id] = 'uuid' OR [session_id] IN (...)
             // Both are stored in sys_sec_object_permission and appear here
-        } catch (error: any) {
+        } catch (error) {
             console.error('Failed to load session users:', error);
             // Don't show error if no users found (404 is expected for sessions without permissions)
-            if (error.response?.status !== 404) {
-                showSnackbar(`Failed to load session users: ${  error.message || 'Unknown error'}`, 'error');
+            const err = toApiError(error);
+            if (err.status !== 404) {
+                showSnackbar(`Failed to load session users: ${err.message || 'Unknown error'}`, 'error');
             }
             setUsersWithAccess([]);
         } finally {
@@ -234,10 +236,10 @@ export default function SessionAccessManagementTab({
             setWriteAccess(false);
             setDeleteAccess(false);
             setOpenGrantDialog(false);
-        } catch (error: any) {
+        } catch (error) {
             console.error('Failed to grant access:', error);
             showSnackbar(
-                `Failed to grant access: ${  error.response?.data?.detail || error.message || 'Unknown error'}`,
+                `Failed to grant access: ${apiErrorMessage(error, 'Unknown error')}`,
                 'error'
             );
         }
@@ -262,10 +264,10 @@ export default function SessionAccessManagementTab({
             } else {
                 showSnackbar(`Failed to revoke access: ${  response.message}`, 'error');
             }
-        } catch (error: any) {
+        } catch (error) {
             console.error('Failed to revoke access:', error);
             showSnackbar(
-                `Failed to revoke access: ${  error.response?.data?.detail || error.message || 'Unknown error'}`,
+                `Failed to revoke access: ${apiErrorMessage(error, 'Unknown error')}`,
                 'error'
             );
         }

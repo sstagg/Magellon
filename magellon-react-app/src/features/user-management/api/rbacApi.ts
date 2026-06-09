@@ -242,7 +242,7 @@ export class RoleAPI {
   /**
    * Get users in a role
    */
-  static async getRoleUsers(roleId: string): Promise<any> {
+  static async getRoleUsers(roleId: string): Promise<unknown> {
     const response = await apiClient.get(`/db/security/roles/${roleId}/users`);
     return response.data;
   }
@@ -268,7 +268,7 @@ export class RoleAPI {
   /**
    * Get role statistics
    */
-  static async getRoleStatistics(): Promise<any> {
+  static async getRoleStatistics(): Promise<unknown> {
     const response = await apiClient.get('/db/security/roles/stats/summary');
     return response.data;
   }
@@ -280,7 +280,7 @@ export class UserRoleAPI {
   /**
    * Assign a role to a user
    */
-  static async assignRole(data: AssignRoleRequest): Promise<any> {
+  static async assignRole(data: AssignRoleRequest): Promise<unknown> {
     const response = await apiClient.post('/db/security/user-roles/', {
       user_id: data.user_id,
       role_id: data.role_id,
@@ -306,7 +306,7 @@ export class UserRoleAPI {
   /**
    * Get role's users
    */
-  static async getRoleUsers(roleId: string): Promise<any> {
+  static async getRoleUsers(roleId: string): Promise<unknown> {
     const response = await apiClient.get(`/db/security/user-roles/role/${roleId}/users`);
     return response.data;
   }
@@ -314,7 +314,7 @@ export class UserRoleAPI {
   /**
    * Bulk assign role to multiple users
    */
-  static async bulkAssignRole(data: BulkRoleAssignmentRequest): Promise<any> {
+  static async bulkAssignRole(data: BulkRoleAssignmentRequest): Promise<unknown> {
     const response = await apiClient.post('/db/security/user-roles/bulk-assign', data);
     return response.data;
   }
@@ -322,7 +322,7 @@ export class UserRoleAPI {
   /**
    * Sync user roles (replace all roles with new list)
    */
-  static async syncUserRoles(userId: string, roleIds: string[]): Promise<any> {
+  static async syncUserRoles(userId: string, roleIds: string[]): Promise<unknown> {
     const response = await apiClient.put(`/db/security/user-roles/user/${userId}/sync-roles`, roleIds);
     return response.data;
   }
@@ -440,7 +440,7 @@ export class PermissionManagementAPI {
     return response.data;
   }
 
-  static async getActionRoles(actionId: string): Promise<any> {
+  static async getActionRoles(actionId: string): Promise<unknown> {
     const response = await apiClient.get(`/db/security/actions/action/${actionId}`);
     return response.data;
   }
@@ -487,7 +487,7 @@ export class PermissionManagementAPI {
     return response.data;
   }
 
-  static async getPathRoles(itemPath: string): Promise<any> {
+  static async getPathRoles(itemPath: string): Promise<unknown> {
     const response = await apiClient.get('/db/security/navigation/path', {
       params: { item_path: itemPath },
     });
@@ -549,7 +549,7 @@ export class PermissionManagementAPI {
     return response.data;
   }
 
-  static async getTypeRoles(targetType: string): Promise<any> {
+  static async getTypeRoles(targetType: string): Promise<unknown> {
     const response = await apiClient.get(`/db/security/types/type/${targetType}`);
     return response.data;
   }
@@ -703,7 +703,7 @@ export class SessionAccessAPI {
   /**
    * Get all sessions from the database (for admin selection)
    */
-  static async getAllSessions(): Promise<any> {
+  static async getAllSessions(): Promise<unknown> {
     const response = await apiClient.get('/db/msessions/', {
       params: { limit: 1000 } // Get first 1000 sessions
     });

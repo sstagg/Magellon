@@ -47,19 +47,38 @@ import {
 } from '@mui/icons-material';
 
 import { RoleAPI, UserRoleAPI } from '../api/rbacApi';
+import type { Role } from '../api/rbacApi';
+import type { User } from '../../auth/model/AuthContext.tsx';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 import PermissionAssignmentDialog from './PermissionAssignmentDialog';
 import RoleEditDialog from './RoleEditDialog';
 
+/** Aggregated role stats returned by the stats endpoint. */
+interface RoleStatistics {
+  total_roles?: number;
+  administrative_roles_count?: number;
+  roles_with_user_counts?: Array<{ role_id: string; user_count: number }>;
+}
+
+/** A user as returned in a role's user list. */
+interface RoleUser {
+  user_id?: string;
+  id?: string;
+  username?: string;
+  email?: string;
+  active?: boolean;
+}
+
 interface RoleManagementTabProps {
-  currentUser: any;
+  currentUser: User | null;
   showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
   isSuperUser?: boolean;
 }
 
 export default function RoleManagementTab({ currentUser: _currentUser, showSnackbar, isSuperUser: _isSuperUser = false }: RoleManagementTabProps) {
   const [loading, setLoading] = useState(false);
-  const [roles, setRoles] = useState<any[]>([]);
-  const [filteredRoles, setFilteredRoles] = useState<any[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [filteredRoles, setFilteredRoles] = useState<Role[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -70,7 +89,7 @@ export default function RoleManagementTab({ currentUser: _currentUser, showSnack
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
   const [usersDialogOpen, setUsersDialogOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<any>(null);
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -82,13 +101,13 @@ export default function RoleManagementTab({ currentUser: _currentUser, showSnack
 
   // Menu
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
-  const [menuRole, setMenuRole] = useState<any>(null);
+  const [menuRole, setMenuRole] = useState<Role | null>(null);
 
   // Statistics
-  const [statistics, setStatistics] = useState<any>(null);
+  const [statistics, setStatistics] = useState<RoleStatistics | null>(null);
 
   // Role users
-  const [roleUsers, setRoleUsers] = useState<any[]>([]);
+  const [roleUsers, setRoleUsers] = useState<RoleUser[]>([]);
 
   useEffect(() => {
     loadRoles();
@@ -104,9 +123,9 @@ export default function RoleManagementTab({ currentUser: _currentUser, showSnack
     try {
       const data = await RoleAPI.getRoles();
       setRoles(data);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to load roles:', error);
-      showSnackbar(`Failed to load roles: ${  error.message}`, 'error');
+      showSnackbar(`Failed to load roles: ${apiErrorMessage(error, 'unknown error')}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -115,7 +134,7 @@ export default function RoleManagementTab({ currentUser: _currentUser, showSnack
   const loadStatistics = async () => {
     try {
       const stats = await RoleAPI.getRoleStatistics();
-      setStatistics(stats);
+      setStatistics(stats as RoleStatistics);
     } catch (error) {
       console.error('Failed to load statistics:', error);
     }
@@ -141,8 +160,8 @@ export default function RoleManagementTab({ currentUser: _currentUser, showSnack
       resetForm();
       loadRoles();
       loadStatistics();
-    } catch (error: any) {
-      showSnackbar(`Failed to create role: ${  error.message}`, 'error');
+    } catch (error) {
+      showSnackbar(`Failed to create role: ${apiErrorMessage(error, 'unknown error')}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -158,33 +177,33 @@ export default function RoleManagementTab({ currentUser: _currentUser, showSnack
       setSelectedRole(null);
       loadRoles();
       loadStatistics();
-    } catch (error: any) {
-      showSnackbar(`Failed to delete role: ${  error.message}`, 'error');
+    } catch (error) {
+      showSnackbar(`Failed to delete role: ${apiErrorMessage(error, 'unknown error')}`, 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadRoleUsers = async (role: any) => {
+  const loadRoleUsers = async (role: Role) => {
     setLoading(true);
     try {
-      const response = await UserRoleAPI.getRoleUsers(role.oid);
+      const response = await UserRoleAPI.getRoleUsers(role.oid) as RoleUser[] | { users?: RoleUser[] };
       // Handle both array response and object with users property
       const users = Array.isArray(response) ? response : (response.users || []);
       setRoleUsers(users);
       setSelectedRole(role);
       setUsersDialogOpen(true);
-    } catch (error: any) {
-      showSnackbar(`Failed to load role users: ${  error.message}`, 'error');
+    } catch (error) {
+      showSnackbar(`Failed to load role users: ${apiErrorMessage(error, 'unknown error')}`, 'error');
       setRoleUsers([]); // Set to empty array on error
     } finally {
       setLoading(false);
     }
   };
 
-  const openEditDialog = (role: any) => {
+  const openEditDialog = (role: Role) => {
     console.log('Opening edit dialog for role:', role);
-    console.log('Role oid:', role.oid, 'Role Oid:', role.Oid);
+    console.log('Role oid:', role.oid);
     setSelectedRole(role);
     setFormData({
       name: role.name,
@@ -195,12 +214,12 @@ export default function RoleManagementTab({ currentUser: _currentUser, showSnack
     setEditDialogOpen(true);
   };
 
-  const openDeleteDialog = (role: any) => {
+  const openDeleteDialog = (role: Role) => {
     setSelectedRole(role);
     setDeleteDialogOpen(true);
   };
 
-  const openPermissionDialog = (role: any) => {
+  const openPermissionDialog = (role: Role) => {
     setSelectedRole(role);
     setPermissionDialogOpen(true);
   };
@@ -214,7 +233,7 @@ export default function RoleManagementTab({ currentUser: _currentUser, showSnack
     });
   };
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, role: any) => {
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, role: Role) => {
     setMenuAnchor(event.currentTarget);
     setMenuRole(role);
   };
@@ -294,7 +313,7 @@ export default function RoleManagementTab({ currentUser: _currentUser, showSnack
                   <Box>
                     <Typography variant="h4">
                       {statistics.roles_with_user_counts?.reduce(
-                        (sum: number, r: any) => sum + r.user_count,
+                        (sum, r) => sum + r.user_count,
                         0
                       ) || 0}
                     </Typography>
@@ -369,7 +388,7 @@ export default function RoleManagementTab({ currentUser: _currentUser, showSnack
                 ) : (
                   paginatedRoles.map((role) => {
                     const roleStats = statistics?.roles_with_user_counts?.find(
-                      (r: any) => r.role_id === role.oid
+                      (r) => r.role_id === role.oid
                     );
                     const userCount = roleStats?.user_count || 0;
 
@@ -607,7 +626,7 @@ export default function RoleManagementTab({ currentUser: _currentUser, showSnack
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {roleUsers.map((user: any) => (
+                  {roleUsers.map((user) => (
                     <TableRow key={user.user_id || user.id}>
                       <TableCell>{user.username}</TableCell>
                       <TableCell>{user.email || 'N/A'}</TableCell>
