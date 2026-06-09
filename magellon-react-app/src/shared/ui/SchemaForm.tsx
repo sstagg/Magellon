@@ -229,8 +229,8 @@ function resolveField(field: FieldSchema, defs: Record<string, FieldSchema>): Fi
 
 const SliderField: React.FC<{
     field: FieldSchema;
-    value: any;
-    onChange: (v: any) => void;
+    value: unknown;
+    onChange: (v: unknown) => void;
     disabled?: boolean;
 }> = ({ field, value, onChange, disabled }) => {
     const min = getMin(field) ?? 0;
@@ -247,7 +247,7 @@ const SliderField: React.FC<{
                 </Typography>
             </Tooltip>
             <Slider
-                value={value ?? field.default ?? min}
+                value={(value ?? field.default ?? min) as number}
                 onChange={(_, v) => onChange(v as number)}
                 min={min}
                 max={max}

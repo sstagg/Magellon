@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ParticlePickingDto } from '../../../entities/particle-picking/types.ts';
 import type ImageInfoDto from '../../../entities/image/types.ts';
 import { settings } from '../../../shared/config/settings.ts';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
 
 // API path for the particle-picking feature endpoints. Lifted from
@@ -75,7 +76,7 @@ interface UseParticleOperationsParams {
     particleClasses: ParticleClass[];
     setParticleClasses: React.Dispatch<React.SetStateAction<ParticleClass[]>>;
     /** All algorithm params as a flat dict (driven by schema) */
-    pickerParams: Record<string, any>;
+    pickerParams: Record<string, unknown>;
     showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
     /** Called after a successful run-and-save so the IPP dropdown refreshes. */
     onIppSaved?: (ippOid: string, ippName: string) => void;
@@ -347,7 +348,7 @@ export function useParticleOperations({
             return;
         }
 
-        const templatePaths = pickerParams.template_paths || [];
+        const templatePaths = (pickerParams.template_paths as string[] | undefined) || [];
         if (templatePaths.length === 0) {
             showSnackbar('No templates configured. Open Settings to add template files.', 'warning');
             return;
@@ -365,7 +366,7 @@ export function useParticleOperations({
         const hasDbImage = !!(selectedImage.oid && sessionName);
 
         try {
-            const picker_params: Record<string, any> = { ...pickerParams };
+            const picker_params: Record<string, unknown> = { ...pickerParams };
             delete picker_params.image_path;
             Object.keys(picker_params).forEach((k) => {
                 if (picker_params[k] === null || picker_params[k] === undefined) delete picker_params[k];
@@ -406,7 +407,7 @@ export function useParticleOperations({
             } else {
                 // No DB image — use the stateless sync endpoint and keep
                 // particles in local state only (e.g. the plugin test page).
-                const payload: Record<string, any> = { ...picker_params };
+                const payload: Record<string, unknown> = { ...picker_params };
                 // For the stateless path the caller is responsible for providing
                 // an image_path; preserve whatever was passed in pickerParams.
                 if (pickerParams.image_path) payload.image_path = pickerParams.image_path;
@@ -423,8 +424,8 @@ export function useParticleOperations({
                 if (Array.isArray(result.image_shape) && result.image_shape.length === 2) {
                     setImageShape([result.image_shape[0], result.image_shape[1]]);
                 }
-                const threshold = pickerParams.threshold ?? 0.4;
-                autoParticles = (result.particles || []).map((p: any, idx: number) => {
+                const threshold = Number(pickerParams.threshold ?? 0.4);
+                autoParticles = (result.particles || []).map((p: { x: number; y: number; score?: number; radius?: number }, idx: number) => {
                     const score = Number(p.score ?? 0);
                     const radius = Number(p.radius);
                     return {
@@ -453,9 +454,9 @@ export function useParticleOperations({
                 showSnackbar(`Auto-picking completed — ${autoParticles.length} particles detected`, 'success');
             }
 
-        } catch (err: any) {
+        } catch (err) {
             console.error('Auto-picking failed:', err);
-            showSnackbar(`Auto-picking failed: ${err.message}`, 'error');
+            showSnackbar(`Auto-picking failed: ${apiErrorMessage(err, 'unknown error')}`, 'error');
         } finally {
             setIsAutoPickingRunning(false);
         }
@@ -541,9 +542,9 @@ export function useParticleOperations({
             setTimeout(poll, 5000);
             return result;
 
-        } catch (err: any) {
+        } catch (err) {
             setIsAutoPickingRunning(false);
-            showSnackbar(`Dispatch failed: ${err.message}`, 'error');
+            showSnackbar(`Dispatch failed: ${apiErrorMessage(err, 'unknown error')}`, 'error');
             return null;
         }
     };
@@ -596,8 +597,8 @@ export function useParticleOperations({
 
             // Dismiss mask overlay after 2 s
             setTimeout(() => setSam2MaskPolygon([]), 2000);
-        } catch (err: any) {
-            showSnackbar(`SAM2 failed: ${err.message}`, 'error');
+        } catch (err) {
+            showSnackbar(`SAM2 failed: ${apiErrorMessage(err, 'unknown error')}`, 'error');
         } finally {
             setIsSam2Loading(false);
         }
