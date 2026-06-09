@@ -46,14 +46,25 @@ import {
 } from '@mui/icons-material';
 
 import { RoleAPI } from '../api/rbacApi';
+import type { Role, ActionPermission, NavigationPermission, TypePermission } from '../api/rbacApi';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import { settings } from '../../../shared/config/settings.ts';
+import { apiErrorMessage, toApiError } from '../../../shared/api/apiError.ts';
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
+/** Role as received here — tolerates both snake_case and PascalCase fields. */
+type EditableRole = Role & {
+    Oid?: string;
+    Name?: string;
+    IsAdministrative?: boolean;
+    CanEditModel?: boolean;
+    PermissionPolicy?: number;
+};
+
 interface RoleEditDialogProps {
     open: boolean;
-    role: any;
+    role: EditableRole;
     onClose: () => void;
     onSuccess: () => void;
     showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
@@ -99,16 +110,16 @@ export default function RoleEditDialog({
     });
 
     // Action Permissions - Initialize with empty arrays to prevent map errors
-    const [actionPermissions, setActionPermissions] = useState<any[]>([]);
+    const [actionPermissions, setActionPermissions] = useState<ActionPermission[]>([]);
     const [newActionId, setNewActionId] = useState('');
 
     // Navigation Permissions - Initialize with empty arrays to prevent map errors
-    const [navigationPermissions, setNavigationPermissions] = useState<any[]>([]);
+    const [navigationPermissions, setNavigationPermissions] = useState<NavigationPermission[]>([]);
     const [newNavPath, setNewNavPath] = useState('');
     const [newNavState, setNewNavState] = useState(1);
 
     // Type Permissions - Initialize with empty arrays to prevent map errors
-    const [typePermissions, setTypePermissions] = useState<any[]>([]);
+    const [typePermissions, setTypePermissions] = useState<TypePermission[]>([]);
     const [newTargetType, setNewTargetType] = useState('');
     const [typeOperations, setTypeOperations] = useState({
         read_state: 1,
@@ -191,8 +202,8 @@ export default function RoleEditDialog({
                 );
                 console.log('Action permissions loaded:', actionResponse.data);
                 setActionPermissions(Array.isArray(actionResponse.data) ? actionResponse.data : []);
-            } catch (err: any) {
-                console.warn('Failed to load action permissions:', err.response?.status);
+            } catch (err) {
+                console.warn('Failed to load action permissions:', toApiError(err).status);
                 setActionPermissions([]);
             }
 
@@ -202,8 +213,8 @@ export default function RoleEditDialog({
                     `/db/security/permissions/navigation/role/${encodeURIComponent(roleId)}`
                 );
                 setNavigationPermissions(Array.isArray(navResponse.data) ? navResponse.data : []);
-            } catch (err: any) {
-                console.warn('Failed to load navigation permissions:', err.response?.status);
+            } catch (err) {
+                console.warn('Failed to load navigation permissions:', toApiError(err).status);
                 setNavigationPermissions([]);
             }
 
@@ -213,13 +224,13 @@ export default function RoleEditDialog({
                     `/db/security/permissions/types/role/${encodeURIComponent(roleId)}`
                 );
                 setTypePermissions(Array.isArray(typeResponse.data) ? typeResponse.data : []);
-            } catch (err: any) {
-                console.warn('Failed to load type permissions:', err.response?.status);
+            } catch (err) {
+                console.warn('Failed to load type permissions:', toApiError(err).status);
                 setTypePermissions([]);
             }
-        } catch (error: any) {
+        } catch (error) {
             console.error('Failed to load role data:', error);
-            showSnackbar(`Failed to load role data: ${  error.message}`, 'error');
+            showSnackbar(`Failed to load role data: ${apiErrorMessage(error, 'unknown error')}`, 'error');
             // Set empty arrays to prevent map errors
             setActionPermissions([]);
             setNavigationPermissions([]);
@@ -239,7 +250,7 @@ export default function RoleEditDialog({
             });
             showSnackbar('Role updated successfully', 'success');
             onSuccess();
-        } catch (error: any) {
+        } catch (error) {
             showSnackbar(`Failed to update role: ${  error.message}`, 'error');
         } finally {
             setSaving(false);
@@ -263,8 +274,8 @@ export default function RoleEditDialog({
             showSnackbar('Action permission added successfully', 'success');
             setNewActionId('');
             loadRoleData();
-        } catch (error: any) {
-            showSnackbar(`Failed to add action permission: ${  error.response?.data?.detail || error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to add action permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         }
     };
 
@@ -276,8 +287,8 @@ export default function RoleEditDialog({
 
             showSnackbar('Action permission deleted successfully', 'success');
             loadRoleData();
-        } catch (error: any) {
-            showSnackbar(`Failed to delete action permission: ${  error.response?.data?.detail || error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to delete action permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         }
     };
 
@@ -300,8 +311,8 @@ export default function RoleEditDialog({
             setNewNavPath('');
             setNewNavState(1);
             loadRoleData();
-        } catch (error: any) {
-            showSnackbar(`Failed to add navigation permission: ${  error.response?.data?.detail || error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to add navigation permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         }
     };
 
@@ -313,8 +324,8 @@ export default function RoleEditDialog({
 
             showSnackbar('Navigation permission deleted successfully', 'success');
             loadRoleData();
-        } catch (error: any) {
-            showSnackbar(`Failed to delete navigation permission: ${  error.response?.data?.detail || error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to delete navigation permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         }
     };
 
@@ -343,8 +354,8 @@ export default function RoleEditDialog({
                 navigate_state: 1,
             });
             loadRoleData();
-        } catch (error: any) {
-            showSnackbar(`Failed to add type permission: ${  error.response?.data?.detail || error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to add type permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         }
     };
 
@@ -356,8 +367,8 @@ export default function RoleEditDialog({
 
             showSnackbar('Type permission deleted successfully', 'success');
             loadRoleData();
-        } catch (error: any) {
-            showSnackbar(`Failed to delete type permission: ${  error.response?.data?.detail || error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to delete type permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         }
     };
 
@@ -555,7 +566,7 @@ export default function RoleEditDialog({
                                                 </TableRow>
                                             ) : (
                                                 safeActionPermissions.map((perm) => (
-                                                    <TableRow key={perm.oid}>
+                                                    <TableRow key={perm.Oid}>
                                                         <TableCell>
                                                             <Chip label={perm.action_id} color="primary" size="small" />
                                                         </TableCell>
@@ -563,7 +574,7 @@ export default function RoleEditDialog({
                                                             <IconButton
                                                                 size="small"
                                                                 color="error"
-                                                                onClick={() => handleDeleteActionPermission(perm.oid)}
+                                                                onClick={() => handleDeleteActionPermission(perm.Oid)}
                                                             >
                                                                 <Delete />
                                                             </IconButton>
@@ -671,7 +682,7 @@ export default function RoleEditDialog({
                                                 </TableRow>
                                             ) : (
                                                 safeNavigationPermissions.map((perm) => (
-                                                    <TableRow key={perm.oid}>
+                                                    <TableRow key={perm.Oid}>
                                                         <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
                                                             {perm.item_path}
                                                         </TableCell>
@@ -682,7 +693,7 @@ export default function RoleEditDialog({
                                                             <IconButton
                                                                 size="small"
                                                                 color="error"
-                                                                onClick={() => handleDeleteNavigationPermission(perm.oid)}
+                                                                onClick={() => handleDeleteNavigationPermission(perm.Oid)}
                                                             >
                                                                 <Delete />
                                                             </IconButton>
@@ -865,7 +876,7 @@ export default function RoleEditDialog({
                                                 </TableRow>
                                             ) : (
                                                 safeTypePermissions.map((perm) => (
-                                                    <TableRow key={perm.oid}>
+                                                    <TableRow key={perm.Oid}>
                                                         <TableCell>
                                                             <Chip label={perm.target_type} color="info" size="small" />
                                                         </TableCell>
@@ -888,7 +899,7 @@ export default function RoleEditDialog({
                                                             <IconButton
                                                                 size="small"
                                                                 color="error"
-                                                                onClick={() => handleDeleteTypePermission(perm.oid)}
+                                                                onClick={() => handleDeleteTypePermission(perm.Oid)}
                                                             >
                                                                 <Delete />
                                                             </IconButton>
