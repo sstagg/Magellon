@@ -34,6 +34,15 @@ import {
 import type { ApiUser } from '../../auth/api/userApi.ts';
 import { userApiService } from '../../auth/api/userApi.ts';
 import { UserRoleAPI, PermissionAPI } from '../api/rbacApi';
+import type { UserRole } from '../api/rbacApi';
+
+/** Permission counts as rendered on the profile page. */
+interface UserPermissionsView {
+    actions?: unknown[];
+    navigation?: unknown[];
+    types?: unknown[];
+    is_admin?: boolean;
+}
 import ChangePasswordDialog from './ChangePasswordDialog';
 
 interface ProfileData {
@@ -70,8 +79,8 @@ const UserProfilePage: React.FC = () => {
     const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
 
     // User permissions and roles
-    const [userRoles, setUserRoles] = useState<any[]>([]);
-    const [userPermissions, setUserPermissions] = useState<any>(null);
+    const [userRoles, setUserRoles] = useState<UserRole[]>([]);
+    const [userPermissions, setUserPermissions] = useState<UserPermissionsView | null>(null);
     const [loadingPermissions, setLoadingPermissions] = useState(false);
 
     const [snackbar, setSnackbar] = useState({
@@ -173,7 +182,7 @@ const UserProfilePage: React.FC = () => {
             setUserRoles(Array.isArray(roles) ? roles : []);
 
             const permissions = await PermissionAPI.getUserPermissionsSummary(profile.id);
-            setUserPermissions(permissions);
+            setUserPermissions(permissions as unknown as UserPermissionsView);
         } catch (error) {
             console.error('Failed to load permissions:', error);
             setUserRoles([]);
@@ -505,7 +514,7 @@ const UserProfilePage: React.FC = () => {
                                                         userRoles.map((role, idx) => (
                                                             <Chip
                                                                 key={idx}
-                                                                label={role.name || role.role_name}
+                                                                label={role.role_name}
                                                                 color="primary"
                                                                 variant="outlined"
                                                                 size="small"

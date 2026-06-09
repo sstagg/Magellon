@@ -20,10 +20,11 @@ import {
 import { VpnKey, Navigation, DataObject, CheckCircle } from '@mui/icons-material';
 
 import { PermissionManagementAPI } from '../api/rbacApi';
+import type { Role, RolePermissionsSummary } from '../api/rbacApi';
 
 interface PermissionAssignmentDialogProps {
   open: boolean;
-  role: any;
+  role: Role;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -56,7 +57,7 @@ export default function PermissionAssignmentDialog({
 }: PermissionAssignmentDialogProps) {
   const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [permissions, setPermissions] = useState<any>(null);
+  const [permissions, setPermissions] = useState<RolePermissionsSummary | null>(null);
 
   useEffect(() => {
     if (open && role) {
@@ -143,7 +144,7 @@ export default function PermissionAssignmentDialog({
               <Divider sx={{ my: 2 }} />
               {permissions?.permissions.navigation && permissions.permissions.navigation.length > 0 ? (
                 <List dense>
-                  {permissions.permissions.navigation.map((nav: any, index: number) => (
+                  {permissions.permissions.navigation.map((nav, index: number) => (
                     <ListItem key={index}>
                       <CheckCircle
                         color={nav.allowed ? 'success' : 'error'}
@@ -177,7 +178,7 @@ export default function PermissionAssignmentDialog({
               <Divider sx={{ my: 2 }} />
               {permissions?.permissions.types && permissions.permissions.types.length > 0 ? (
                 <List>
-                  {permissions.permissions.types.map((type: any, index: number) => (
+                  {permissions.permissions.types.map((type, index: number) => (
                     <ListItem key={index}>
                       <Box sx={{ width: '100%' }}>
                         <Typography variant="subtitle2" gutterBottom>
