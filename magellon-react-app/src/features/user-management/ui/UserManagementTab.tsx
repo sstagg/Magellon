@@ -43,14 +43,37 @@ import {
 
 // FIXED: Use relative paths that match your project structure
 import { userApiService } from '../../auth/api/userApi.ts';
+import type { ApiUser } from '../../auth/api/userApi.ts';
 import { UserRoleAPI, PermissionAPI } from '../api/rbacApi';
+import type { UserRole, UserPermissionsSummary } from '../api/rbacApi';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 import RoleAssignmentDialog from './RoleAssignmentDialog';
 import ChangePasswordDialog from './ChangePasswordDialog';
 import CreateUserDialog from './CreateUserDialog.tsx';
 import UserTable from './UserTable.tsx';
 
+/** A user row enriched with its roles for the admin table. */
+type UserWithRoles = ApiUser & {
+    email?: string;
+    roles: UserRole[];
+    rolesLoadError: boolean;
+};
+
+/** The signed-in user's profile, as rendered in the non-admin self view. */
+interface ProfileUser {
+    id: string;
+    username?: string;
+    email?: string;
+    active?: boolean;
+    oid?: string;
+    created_date?: string;
+    last_password_change?: string;
+    access_failed_count?: number;
+    lockout_end?: string;
+}
+
 interface UserManagementTabProps {
-    currentUser: any;
+    currentUser: ProfileUser | null;
     isAdmin: boolean;
     onUpdate: () => void;
     showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
@@ -68,7 +91,7 @@ export default function UserManagementTab({
                                           }: UserManagementTabProps) {
     const [editMode, setEditMode] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [users, setUsers] = useState<any[]>([]);
+    const [users, setUsers] = useState<UserWithRoles[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [totalUsers, setTotalUsers] = useState(0);
@@ -85,18 +108,18 @@ export default function UserManagementTab({
     const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
 
     // Permissions
-    const [userPermissions, setUserPermissions] = useState<any>(null);
+    const [userPermissions, setUserPermissions] = useState<UserPermissionsSummary | null>(null);
 
     // Role assignment
     const [roleDialogOpen, setRoleDialogOpen] = useState(false);
-    const [selectedUser, setSelectedUser] = useState<any>(null);
+    const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
 
     // Create user dialog
     const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
 
     // Change password dialog (for admin changing other users' passwords)
     const [changePasswordDialogOpen, setChangePasswordDialogOpen] = useState(false);
-    const [userToChangePassword, setUserToChangePassword] = useState<any>(null);
+    const [userToChangePassword, setUserToChangePassword] = useState<UserWithRoles | null>(null);
 
     useEffect(() => {
         if (currentUser) {  // FIXED: Only load if currentUser exists
@@ -170,6 +193,7 @@ export default function UserManagementTab({
     };
 
     const handleSaveProfile = async () => {
+        if (!currentUser) return;
         setLoading(true);
         try {
             await userApiService.updateUser({
@@ -179,8 +203,8 @@ export default function UserManagementTab({
             showSnackbar('Profile updated successfully', 'success');
             setEditMode(false);
             onUpdate();
-        } catch (error: any) {
-            showSnackbar(`Failed to update profile: ${  error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to update profile: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -193,8 +217,8 @@ export default function UserManagementTab({
             showSnackbar('User created successfully', 'success');
             setCreateUserDialogOpen(false);
             loadUsers();
-        } catch (error: any) {
-            showSnackbar(`Failed to create user: ${  error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to create user: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -208,19 +232,19 @@ export default function UserManagementTab({
             await userApiService.deleteUser(userId);
             showSnackbar('User deleted successfully', 'success');
             loadUsers();
-        } catch (error: any) {
-            showSnackbar(`Failed to delete user: ${  error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to delete user: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         } finally {
             setLoading(false);
         }
     };
 
-    const openRoleDialog = (user: any) => {
+    const openRoleDialog = (user: UserWithRoles) => {
         setSelectedUser(user);
         setRoleDialogOpen(true);
     };
 
-    const openChangePasswordDialog = (user: any) => {
+    const openChangePasswordDialog = (user: UserWithRoles) => {
         setUserToChangePassword(user);
         setChangePasswordDialogOpen(true);
     };
@@ -231,8 +255,8 @@ export default function UserManagementTab({
             await userApiService.activateUser(userId);
             showSnackbar('User activated successfully', 'success');
             loadUsers();
-        } catch (error: any) {
-            showSnackbar(`Failed to activate user: ${  error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to activate user: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -244,8 +268,8 @@ export default function UserManagementTab({
             await userApiService.deactivateUser(userId);
             showSnackbar('User deactivated successfully', 'success');
             loadUsers();
-        } catch (error: any) {
-            showSnackbar(`Failed to deactivate user: ${  error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to deactivate user: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -342,7 +366,7 @@ export default function UserManagementTab({
                                         <AdminPanelSettings />
                                     </Avatar>
                                     <Box>
-                                        <Typography variant="h4">{users.filter(u => u.roles && u.roles.some((r: any) => r.is_administrative)).length}</Typography>
+                                        <Typography variant="h4">{users.filter(u => u.roles && u.roles.some((r) => r.is_administrative)).length}</Typography>
                                         <Typography variant="body2" sx={{
                                             color: "text.secondary"
                                         }}>Admin Users</Typography>
@@ -444,7 +468,7 @@ export default function UserManagementTab({
                 {userToChangePassword && (
                     <ChangePasswordDialog
                         open={changePasswordDialogOpen}
-                        userId={userToChangePassword.id || userToChangePassword.oid}
+                        userId={userToChangePassword.oid}
                         username={userToChangePassword.username}
                         isOwnPassword={false}
                         onClose={() => {
@@ -785,7 +809,7 @@ export default function UserManagementTab({
                                                 <Security fontSize="small" /> My Roles
                                             </Typography>
                                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                                {userPermissions?.roles?.map((role: any) => (
+                                                {userPermissions?.roles?.map((role) => (
                                                     <Chip
                                                         key={role.oid}
                                                         label={role.name}
@@ -837,10 +861,10 @@ export default function UserManagementTab({
                                                 <VpnKey fontSize="small" /> Action Permissions
                                             </Typography>
                                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                                {userPermissions?.action_permissions?.map((perm: any, index: number) => (
+                                                {userPermissions?.action_permissions?.map((perm, index: number) => (
                                                     <Chip
                                                         key={index}
-                                                        label={perm.action_id || perm}
+                                                        label={perm.action_id}
                                                         size="small"
                                                         variant="outlined"
                                                         color="info"
@@ -891,13 +915,13 @@ export default function UserManagementTab({
                                                 <Shield fontSize="small" /> Navigation Access
                                             </Typography>
                                             <List dense sx={{ p: 0 }}>
-                                                {userPermissions?.navigation_permissions?.map((perm: any, index: number) => (
+                                                {userPermissions?.navigation_permissions?.map((perm, index: number) => (
                                                     <ListItem key={index} sx={{ px: 0, py: 0.5 }}>
                                                         <ListItemIcon sx={{ minWidth: 32 }}>
                                                             <CheckCircle color="success" fontSize="small" />
                                                         </ListItemIcon>
                                                         <ListItemText
-                                                            primary={perm.path || perm.item_path || perm}
+                                                            primary={perm.item_path}
                                                             slotProps={{
                                                                 primary: {
                                                                     variant: 'body2',
