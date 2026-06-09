@@ -24,6 +24,7 @@ import { useState } from "react";
 import { Upload, Settings2, ChevronDown, Focus } from "lucide-react";
 import { settings } from "../../../shared/config/settings.ts";
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 import { useSessionNames } from "../../image-viewer/api/FetchUseSessionNames.ts";
 import type { SessionDto } from "../../../entities/image/types.ts";
 
@@ -158,9 +159,9 @@ export const CTFForm: React.FC<CTFFormProps> = ({
                 });
                 setJobStatus('success');
                 setSuccessMessage("CTF estimation task submitted successfully");
-            } catch (err: any) {
+            } catch (err) {
                 setJobStatus('error');
-                const errMsg = err.message || 'Failed to submit job';
+                const errMsg = apiErrorMessage(err, 'Failed to submit job');
                 setError(errMsg);
                 onError?.(errMsg);
             }
@@ -198,9 +199,9 @@ export const CTFForm: React.FC<CTFFormProps> = ({
             const taskId = response.data.task_id || 'N/A';
             setSuccessMessage(`CTF estimation task created successfully. Task ID: ${taskId}`);
             onSuccess?.(taskId, sessionName);
-        } catch (err: any) {
+        } catch (err) {
             setJobStatus('error');
-            const errMsg = err.response?.data?.detail || err.message || 'Failed to submit job';
+            const errMsg = apiErrorMessage(err, 'Failed to submit job');
             setError(errMsg);
             onError?.(errMsg);
         }

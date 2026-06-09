@@ -34,6 +34,7 @@ import {
     type InstallResponse,
 } from '../api/installerApi.ts';
 import { UpgradeMpnDialog } from './UpgradeMpnDialog.tsx';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 
 /**
  * Two responsibilities:
@@ -99,8 +100,8 @@ export const AdminInstalledPanel: React.FC = () => {
             const result = await installMpn.mutateAsync(pendingFile);
             setInstallResult(result);
             setPendingFile(null);
-        } catch (err: any) {
-            setInstallError(err?.response?.data?.detail ?? err?.message ?? 'Install failed.');
+        } catch (err) {
+            setInstallError(apiErrorMessage(err, 'Install failed.'));
         }
     };
 
@@ -110,10 +111,10 @@ export const AdminInstalledPanel: React.FC = () => {
         try {
             await uninstall.mutateAsync(pluginId);
             setActionMessage({ severity: 'success', text: `Uninstalled ${pluginId}` });
-        } catch (err: any) {
+        } catch (err) {
             setActionMessage({
                 severity: 'error',
-                text: err?.response?.data?.detail ?? err?.message ?? 'Uninstall failed.',
+                text: apiErrorMessage(err, 'Uninstall failed.'),
             });
         } finally {
             setPendingUninstall(null);

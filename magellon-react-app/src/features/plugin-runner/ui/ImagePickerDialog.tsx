@@ -59,6 +59,7 @@ import {
     X as XIcon,
 } from 'lucide-react';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
+import { apiErrorMessage, toApiError } from '../../../shared/api/apiError.ts';
 import { settings } from '../../../shared/config/settings.ts';
 
 const IMAGE_EXTS = [
@@ -207,8 +208,8 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
             setSelected([]);
             try { localStorage.setItem(effectiveKey, canonical); } catch { /* noop */ }
             onPathChange?.(canonical);
-        } catch (err: any) {
-            setError(err.response?.data?.detail || err.message || 'Failed to browse');
+        } catch (err) {
+            setError(apiErrorMessage(err, 'Failed to browse'));
         } finally {
             setLoading(false);
         }
@@ -282,9 +283,10 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
                 },
             });
             await fetchDir(currentPath);
-        } catch (err: any) {
-            const status = err.response?.status;
-            const detail = err.response?.data?.detail || err.message || 'Upload failed';
+        } catch (err) {
+            const e = toApiError(err);
+            const status = e.status;
+            const detail = e.detail || e.message || 'Upload failed';
             if (status === 409) {
                 // Surface the conflict so the operator can decide.
                 setUploadConflict({ files, message: detail });

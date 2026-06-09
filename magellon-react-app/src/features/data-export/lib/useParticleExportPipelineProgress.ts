@@ -34,8 +34,13 @@ export type ParticlePipelineSummary = {
     stage_key?: string | null;
     stages: ParticlePipelineStage[];
     child_jobs: ParticlePipelineChildJob[];
-    settings: Record<string, any>;
-    result?: Record<string, any> | null;
+    settings: { session_name?: string | null; [key: string]: unknown };
+    result?: {
+        particle_stack_artifact_id?: string;
+        class_averages_artifact_id?: string;
+        output_root?: string;
+        [key: string]: unknown;
+    } | null;
     error?: string | null;
     created_at?: string | null;
     started_at?: string | null;

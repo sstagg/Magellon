@@ -29,6 +29,7 @@ import {
     getJobStatus
 } from '../api/PtolemyDetectionService.ts';
 import { useSocket } from '../../../shared/lib/useSocket.ts';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 
 interface ImageDetectionToolbarProps {
     selectedImage: ImageInfoDto;
@@ -127,7 +128,7 @@ export const ImageDetectionToolbar: React.FC<ImageDetectionToolbarProps> = ({
     // Stable socket.io listener — fires as soon as CoreService's
     // TaskOutputProcessor emits import_progress after writing the result.
     useEffect(() => {
-        const off = on('import_progress', (data: any) => {
+        const off = on<{ job_id?: string; event?: string; status?: string }>('import_progress', (data) => {
             const active = activeJobRef.current;
             if (!active || data?.job_id !== active.jobId) return;
             if (data?.event !== 'task_complete') return;
@@ -229,10 +230,10 @@ export const ImageDetectionToolbar: React.FC<ImageDetectionToolbarProps> = ({
                 // HTTP poll as fallback
                 startFallbackPoll(jobId, imageId);
             }
-        } catch (error: any) {
+        } catch (error) {
             setSnackbar({
                 open: true,
-                message: error?.response?.data?.detail || error?.message || `${MODE_LABEL[mode]} failed`,
+                message: apiErrorMessage(error, `${MODE_LABEL[mode]} failed`),
                 severity: 'error',
             });
         } finally {
