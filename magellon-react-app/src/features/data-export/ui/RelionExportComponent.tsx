@@ -27,6 +27,7 @@ import { settings } from "../../../shared/config/settings.ts";
 import Button from "@mui/material/Button";
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 import { Play, RefreshCcw } from "lucide-react";
 import { useParticleExportPipelineProgress } from "../lib/useParticleExportPipelineProgress.ts";
 import { ParticleExportPipelineProgressDialog } from "./ParticleExportPipelineProgressDialog.tsx";
@@ -88,7 +89,7 @@ const PARTICLE_CLASS_OPTIONS = [
 export const RelionExportComponent = () => {
     const [exportStatus, setExportStatus] = useState<ExportStatus>('idle');
     const [exportError, setExportError] = useState<string | null>(null);
-    const [exportResult, setExportResult] = useState<any>(null);
+    const [exportResult, setExportResult] = useState<unknown>(null);
     const [sessions, setSessions] = useState<SessionDto[]>([]);
     const [loadingSessions, setLoadingSessions] = useState(false);
 
@@ -133,8 +134,8 @@ export const RelionExportComponent = () => {
         try {
             const response = await apiClient.get('/web/sessions');
             setSessions(response.data);
-        } catch (err: any) {
-            console.error('Failed to fetch sessions:', err.response?.data?.detail || err.message);
+        } catch (err) {
+            console.error('Failed to fetch sessions:', apiErrorMessage(err, 'unknown error'));
         } finally {
             setLoadingSessions(false);
         }
@@ -163,9 +164,9 @@ export const RelionExportComponent = () => {
                     ? prev.picking_run_name
                     : (response.data[0]?.name ?? ''),
             }));
-        } catch (err: any) {
+        } catch (err) {
             setPickingRuns([]);
-            setPipelineError(err.response?.data?.detail || err.message || 'Failed to load particle-picking runs');
+            setPipelineError(apiErrorMessage(err, 'Failed to load particle-picking runs'));
         } finally {
             setLoadingPickingRuns(false);
         }
@@ -200,7 +201,7 @@ export const RelionExportComponent = () => {
     };
 
     // Handle form field changes
-    const handleInputChange = (field: keyof RelionExportRequest, value: any) => {
+    const handleInputChange = (field: keyof RelionExportRequest, value: RelionExportRequest[keyof RelionExportRequest]) => {
         setFormData({
             ...formData,
             [field]: value
@@ -232,13 +233,13 @@ export const RelionExportComponent = () => {
             const response = await apiClient.post('/export/generate-relion-starfile', formData);
             setExportResult(response.data);
             setExportStatus('success');
-        } catch (err: any) {
+        } catch (err) {
             setExportStatus('error');
-            setExportError(err.response?.data?.detail || err.message || 'Export failed');
+            setExportError(apiErrorMessage(err, 'Export failed'));
         }
     };
 
-    const handlePipelineChange = (field: keyof PipelineFormData, value: any) => {
+    const handlePipelineChange = (field: keyof PipelineFormData, value: PipelineFormData[keyof PipelineFormData]) => {
         setPipelineForm((prev) => ({
             ...prev,
             [field]: value,
@@ -283,8 +284,8 @@ export const RelionExportComponent = () => {
             };
             const response = await apiClient.post('/export/particle-pipeline/start', payload);
             pipelineProgress.start(response.data.job_id);
-        } catch (err: any) {
-            const message = err.response?.data?.detail || err.message || 'Particle export pipeline failed to start';
+        } catch (err) {
+            const message = apiErrorMessage(err, 'Particle export pipeline failed to start');
             setPipelineError(message);
             pipelineProgress.fail(message);
         }

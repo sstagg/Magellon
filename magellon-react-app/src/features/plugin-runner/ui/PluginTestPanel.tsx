@@ -36,6 +36,7 @@ import {
     Tooltip,
     Typography,
 } from '@mui/material';
+import type { ChipProps } from '@mui/material';
 import {
     Activity,
     ArrowDownLeft,
@@ -92,17 +93,18 @@ const formatError = (err: unknown, fallback: string): string => {
         const detail = r.response?.data?.detail;
         if (typeof detail === 'string') return detail;
         if (Array.isArray(detail)) {
-            return detail.map((d: any) => d?.msg || JSON.stringify(d)).join('\n');
+            return detail.map((d) => (d as { msg?: string })?.msg || JSON.stringify(d)).join('\n');
         }
         if (typeof r.message === 'string') return r.message;
     }
     return fallback;
 };
 
-const buildDefaults = (schema: any): Record<string, unknown> => {
-    if (!schema?.properties) return {};
+const buildDefaults = (schema: unknown): Record<string, unknown> => {
+    const props = (schema as { properties?: Record<string, { default?: unknown }> })?.properties;
+    if (!props) return {};
     const out: Record<string, unknown> = {};
-    for (const [key, prop] of Object.entries<any>(schema.properties)) {
+    for (const [key, prop] of Object.entries(props)) {
         if (prop?.default !== undefined) out[key] = prop.default;
     }
     return out;
@@ -141,7 +143,7 @@ const EnvelopeCard: React.FC<{ frame: EnvelopeFrame }> = ({ frame }) => {
                 <Chip
                     size="small"
                     icon={arrow}
-                    color={tone as any}
+                    color={tone as ChipProps['color']}
                     variant="outlined"
                     label={isOut ? 'OUT' : 'IN'}
                 />
@@ -283,7 +285,7 @@ export const PluginTestPanel: React.FC<PluginTestPanelProps> = ({
     useEffect(() => {
         if (!socket || !currentJobId) return;
         emit('join_job_room', { job_id: currentJobId });
-        const off = on('plugin_test_envelope', (frame: any) => {
+        const off = on<Record<string, unknown>>('plugin_test_envelope', (frame) => {
             setEnvelopes((prev) => [
                 ...prev,
                 { ...frame, seenAt: Date.now() } as EnvelopeFrame,
@@ -424,7 +426,7 @@ export const PluginTestPanel: React.FC<PluginTestPanelProps> = ({
                 )}
                 {inputSchema && (
                     <SchemaForm
-                        schema={inputSchema as any}
+                        schema={inputSchema as React.ComponentProps<typeof SchemaForm>['schema']}
                         values={values}
                         onChange={setValues}
                         disabled={!runEnabled || isBusy}
@@ -526,7 +528,7 @@ export const PluginTestPanel: React.FC<PluginTestPanelProps> = ({
                         </Box>
                         {outputSchema && (
                             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 1 }}>
-                                Output schema: {(outputSchema as any)?.title ?? 'available via /schema/output'}
+                                Output schema: {(outputSchema as { title?: string })?.title ?? 'available via /schema/output'}
                             </Typography>
                         )}
                     </CardContent>

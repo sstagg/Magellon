@@ -67,14 +67,14 @@ interface FieldSchema {
     title?: string;
     description?: string;
     type?: string;
-    default?: any;
+    default?: unknown;
     minimum?: number;
     maximum?: number;
     exclusiveMinimum?: number;
     exclusiveMaximum?: number;
-    enum?: any[];
-    items?: any;
-    anyOf?: any[];
+    enum?: unknown[];
+    items?: FieldSchema;
+    anyOf?: FieldSchema[];
     $ref?: string;
     units?: string;
     // UI extensions — rendering
@@ -87,11 +87,11 @@ interface FieldSchema {
     ui_advanced?: boolean;
     ui_placeholder?: string;
     ui_help?: string;
-    ui_depends_on?: Record<string, any>;
+    ui_depends_on?: Record<string, unknown>;
     ui_required_message?: string;
     ui_hidden?: boolean;
     ui_file_ext?: string[];
-    ui_options?: any[];
+    ui_options?: unknown[];
     ui_tunable?: boolean;
 }
 
@@ -115,12 +115,12 @@ interface SchemaFormProps {
     schema: {
         properties?: Record<string, FieldSchema>;
         required?: string[];
-        $defs?: Record<string, any>;
-        definitions?: Record<string, any>;
-        [key: string]: any;
+        $defs?: Record<string, FieldSchema>;
+        definitions?: Record<string, FieldSchema>;
+        [key: string]: unknown;
     };
-    values: Record<string, any>;
-    onChange: (values: Record<string, any>) => void;
+    values: Record<string, unknown>;
+    onChange: (values: Record<string, unknown>) => void;
     /** Groups to expand by default (all expanded if not specified) */
     defaultExpanded?: string[];
     /** If true, hide groups marked ui_advanced unless user expands them */
@@ -171,7 +171,7 @@ function looksLikeFilePathField(key: string, field: FieldSchema): 'single' | 'li
 function resolveType(field: FieldSchema): string {
     if (field.type) return field.type;
     if (field.anyOf) {
-        const nonNull = field.anyOf.find((t: any) => t.type !== 'null');
+        const nonNull = field.anyOf.find((t) => t.type !== 'null');
         return nonNull?.type || 'string';
     }
     return 'string';
@@ -206,7 +206,7 @@ function humanize(key: string): string {
  * both so downstream renderers see a flat field shape with a usable
  * ``type``.
  */
-function resolveField(field: FieldSchema, defs: Record<string, any>): FieldSchema {
+function resolveField(field: FieldSchema, defs: Record<string, FieldSchema>): FieldSchema {
     if (field?.$ref && typeof field.$ref === 'string') {
         const name = field.$ref.split('/').pop();
         if (name && defs[name]) {
@@ -214,7 +214,7 @@ function resolveField(field: FieldSchema, defs: Record<string, any>): FieldSchem
         }
     }
     if (Array.isArray(field?.anyOf)) {
-        const nonNull = field.anyOf.filter((v: any) => v?.type !== 'null');
+        const nonNull = field.anyOf.filter((v) => v?.type !== 'null');
         if (nonNull.length === 1) {
             const inner = resolveField(nonNull[0], defs);
             return { ...inner, ...field, anyOf: undefined, type: inner.type ?? field.type };
@@ -263,8 +263,8 @@ const SliderField: React.FC<{
 const NumberField: React.FC<{
     field: FieldSchema;
     name: string;
-    value: any;
-    onChange: (v: any) => void;
+    value: unknown;
+    onChange: (v: unknown) => void;
     disabled?: boolean;
     error?: string;
     required?: boolean;
@@ -306,8 +306,8 @@ const NumberField: React.FC<{
 const SelectField: React.FC<{
     field: FieldSchema;
     name: string;
-    value: any;
-    onChange: (v: any) => void;
+    value: unknown;
+    onChange: (v: unknown) => void;
     disabled?: boolean;
     error?: string;
     required?: boolean;
@@ -326,8 +326,8 @@ const SelectField: React.FC<{
             disabled={disabled}
             required={required}
         >
-            {options.map((opt: any) => (
-                <MenuItem key={String(opt)} value={opt}>
+            {options.map((opt) => (
+                <MenuItem key={String(opt)} value={opt as string | number}>
                     {String(opt)}
                 </MenuItem>
             ))}
@@ -463,8 +463,8 @@ const FilePathListField: React.FC<{
 const JsonField: React.FC<{
     label: string;
     help?: string;
-    value: any;
-    onChange: (v: any) => void;
+    value: unknown;
+    onChange: (v: unknown) => void;
     disabled?: boolean;
     required?: boolean;
     error?: string;
@@ -511,7 +511,7 @@ const JsonField: React.FC<{
             size="small"
             fullWidth
             slotProps={{
-                htmlInput: { 'data-json-field': label, style: { fontFamily: 'monospace' } } as any,
+                htmlInput: { 'data-json-field': label, style: { fontFamily: 'monospace' } } as React.InputHTMLAttributes<HTMLInputElement>,
             }}
         />
     );
@@ -572,7 +572,7 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({
         );
     }
 
-    const handleFieldChange = (key: string, value: any) => {
+    const handleFieldChange = (key: string, value: unknown) => {
         onChange({ ...values, [key]: value });
     };
 
@@ -586,14 +586,14 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({
         kind: 'single' | 'list',
         key: string,
         field: FieldSchema,
-        currentValue: any,
+        currentValue: unknown,
     ) => {
         if (!onBrowseFile) return null;
         const handleClick = () => {
             onBrowseFile({
                 fieldKey: key,
                 fieldTitle: field.title || humanize(key),
-                current: currentValue ?? null,
+                current: (currentValue as string | string[] | null) ?? null,
                 multiple: kind === 'list',
                 allowedExts: field.ui_file_ext,
                 onPick: (picked) => handleFieldChange(key, picked),
@@ -680,7 +680,7 @@ export const SchemaForm: React.FC<SchemaFormProps> = ({
                         <FilePathListField
                             key={key}
                             field={field}
-                            value={val || []}
+                            value={(val as string[] | undefined) || []}
                             onChange={(v) => handleFieldChange(key, v)}
                             disabled={disabled}
                             browseButton={browseButton('list', key, field, val)}
