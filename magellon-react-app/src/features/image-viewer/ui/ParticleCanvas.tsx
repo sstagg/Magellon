@@ -114,7 +114,7 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
         const scaleY = miniH / height;
 
         const img = new Image();
-        img.onload = () => {
+        img.addEventListener('load', () => {
             ctx.clearRect(0, 0, MINI_W, miniH);
             ctx.drawImage(img, 0, 0, MINI_W, miniH);
 
@@ -138,7 +138,7 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
             ctx.strokeStyle = '#2196f3';
             ctx.lineWidth = 1.5;
             ctx.strokeRect(vx, vy, vw, vh);
-        };
+        });
         img.src = authenticatedImageUrl;
     }, [pan, zoom, particles, authenticatedImageUrl, width, height, particleClasses]);
 

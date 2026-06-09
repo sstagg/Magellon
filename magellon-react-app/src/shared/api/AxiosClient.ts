@@ -83,7 +83,7 @@ export function createAxiosClient(baseUrl: string): AxiosInstance {
                             window.location.href = '/en/account/login';
                         }
 
-                        return Promise.reject(refreshError);
+                        throw refreshError;
                     }
                 } else {
                     // No token - redirect to login

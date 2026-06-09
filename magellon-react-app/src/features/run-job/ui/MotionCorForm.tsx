@@ -166,7 +166,7 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
                 }));
             });
 
-            ws.onmessage = (event) => {
+            ws.addEventListener('message', (event) => {
                 try {
                     const message = JSON.parse(event.data);
                     console.log('WebSocket message received:', message);
@@ -256,9 +256,9 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
                     console.error('Error processing WebSocket message:', err);
                     console.error('Raw event data:', event.data);
                 }
-            };
+            });
 
-            ws.onerror = (event) => {
+            ws.addEventListener('error', (event) => {
                 console.error('WebSocket error:', event);
                 setProcessingState(prev => ({
                     ...prev,
@@ -267,7 +267,7 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
                 }));
                 setError('WebSocket connection failed');
                 setJobStatus('error');
-            };
+            });
 
             ws.addEventListener('close', () => {
                 console.log('WebSocket disconnected');

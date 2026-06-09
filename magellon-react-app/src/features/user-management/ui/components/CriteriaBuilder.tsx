@@ -188,8 +188,8 @@ export default function CriteriaBuilder({
   const fetchFieldOptions = async (fieldName: string) => {
     if (!entity || !fieldName) return;
 
-    const field = entity.fields.find((f) => f.name === fieldName);
-    if (!field) return;
+    const fieldExists = entity.fields.some((f) => f.name === fieldName);
+    if (!fieldExists) return;
 
     // Don't fetch for function-only fields or if already loaded
     if (fieldOptions[fieldName]) return;

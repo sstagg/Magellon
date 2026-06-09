@@ -407,7 +407,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                 throw new Error(err.detail || `${res.status}`);
             }
             const data = await res.json();
-            const nextParams = { ...pickerParams, ...(data.engine_opts || {}) };
+            const nextParams = { ...pickerParams, ...data.engine_opts };
             onPickerParamsChange(nextParams);
             setTrainedModel(data);
             setPreviewId(data.preview_id || null);

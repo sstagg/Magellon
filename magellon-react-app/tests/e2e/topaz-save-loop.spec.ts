@@ -161,7 +161,7 @@ test('Save current image must not loop', async ({ page, context }) => {
   );
   const looped = matches.length > 0;
   if (looped) {
-    console.log('[LOOP DETECTED]\n' + matches.slice(0, 5).join('\n'));
+    console.log(`[LOOP DETECTED]\n${matches.slice(0, 5).join('\n')}`);
   }
   expect(looped, 'must not produce a Maximum update depth loop').toBeFalsy();
 });
