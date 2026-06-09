@@ -37,6 +37,7 @@ import {
 import axios from 'axios';
 import CriteriaBuilder from './CriteriaBuilder';
 import { useSchema } from '../../hooks/useSchema';
+import { toApiError } from '../../../../shared/api/apiError.ts';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -107,7 +108,7 @@ export default function ObjectPermissionsManager({
         `/db/security/permissions/objects/type/${typePermissionId}`
       );
       setObjectPermissions(response.data);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to load object permissions:', error);
       showSnackbar('Failed to load object permissions', 'error');
     } finally {
@@ -175,10 +176,10 @@ export default function ObjectPermissionsManager({
 
       handleCloseDialog();
       loadObjectPermissions();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to save object permission:', error);
       showSnackbar(
-        error.response?.data?.detail || 'Failed to save object permission',
+        toApiError(error).detail || 'Failed to save object permission',
         'error'
       );
     }
@@ -193,7 +194,7 @@ export default function ObjectPermissionsManager({
       await apiClient.delete(`/db/security/permissions/objects/${permissionId}`);
       showSnackbar('Object permission deleted successfully', 'success');
       loadObjectPermissions();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to delete object permission:', error);
       showSnackbar('Failed to delete object permission', 'error');
     }

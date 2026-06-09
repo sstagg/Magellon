@@ -35,6 +35,7 @@ import {
     Cancel,
 } from '@mui/icons-material';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 import { settings } from '../../../shared/config/settings.ts';
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
@@ -82,8 +83,8 @@ export default function MemberPermissionManagement({
                 `/db/security/permissions/members/type/${typePermissionId}`
             );
             setPermissions(response.data);
-        } catch (error: any) {
-            showSnackbar(`Failed to load member permissions: ${  error.response?.data?.detail || error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to load member permissions: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -137,8 +138,8 @@ export default function MemberPermissionManagement({
 
             setDialogOpen(false);
             loadPermissions();
-        } catch (error: any) {
-            showSnackbar(`Failed to save member permission: ${  error.response?.data?.detail || error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to save member permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         }
     };
 
@@ -151,8 +152,8 @@ export default function MemberPermissionManagement({
             );
             showSnackbar('Member permission deleted successfully', 'success');
             loadPermissions();
-        } catch (error: any) {
-            showSnackbar(`Failed to delete member permission: ${  error.response?.data?.detail || error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to delete member permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         }
     };
 

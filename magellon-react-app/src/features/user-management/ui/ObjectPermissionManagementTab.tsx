@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 import { settings } from '../../../shared/config/settings.ts';
 import {
     Box,
@@ -126,9 +127,9 @@ export default function ObjectPermissionManagementTab({
         try {
             const response = await apiClient.get('/db/security/roles/');
             setRoles(response.data || []);
-        } catch (error: any) {
+        } catch (error) {
             console.error('Failed to load roles:', error);
-            showSnackbar(`Failed to load roles: ${  error.message || 'Unknown error'}`, 'error');
+            showSnackbar(`Failed to load roles: ${apiErrorMessage(error, 'Unknown error')}`, 'error');
         }
     };
 
@@ -138,9 +139,9 @@ export default function ObjectPermissionManagementTab({
             // TODO: Implement backend endpoint to list all object permissions
             // For now, show empty state
             setPermissions([]);
-        } catch (error: any) {
+        } catch (error) {
             console.error('Failed to load permissions:', error);
-            showSnackbar(`Failed to load permissions: ${  error.message || 'Unknown error'}`, 'error');
+            showSnackbar(`Failed to load permissions: ${apiErrorMessage(error, 'Unknown error')}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -182,10 +183,10 @@ export default function ObjectPermissionManagementTab({
             setDeleteState(false);
             setNavigateState(true);
             loadPermissions();
-        } catch (error: any) {
+        } catch (error) {
             console.error('Failed to create permission:', error);
             showSnackbar(
-                `Failed to create permission: ${  error.response?.data?.detail || error.message || 'Unknown error'}`,
+                `Failed to create permission: ${apiErrorMessage(error, 'Unknown error')}`,
                 'error'
             );
         }

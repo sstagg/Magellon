@@ -37,6 +37,7 @@ import {
     Code,
 } from '@mui/icons-material';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 import { settings } from '../../../shared/config/settings.ts';
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
@@ -94,8 +95,8 @@ export default function ObjectPermissionManagement({
                 `/db/security/permissions/objects/type/${typePermissionId}`
             );
             setPermissions(response.data);
-        } catch (error: any) {
-            showSnackbar(`Failed to load object permissions: ${  error.response?.data?.detail || error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to load object permissions: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         } finally {
             setLoading(false);
         }
@@ -157,8 +158,8 @@ export default function ObjectPermissionManagement({
 
             setDialogOpen(false);
             loadPermissions();
-        } catch (error: any) {
-            showSnackbar(`Failed to save object permission: ${  error.response?.data?.detail || error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to save object permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         }
     };
 
@@ -171,8 +172,8 @@ export default function ObjectPermissionManagement({
             );
             showSnackbar('Object permission deleted successfully', 'success');
             loadPermissions();
-        } catch (error: any) {
-            showSnackbar(`Failed to delete object permission: ${  error.response?.data?.detail || error.message}`, 'error');
+        } catch (error) {
+            showSnackbar(`Failed to delete object permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
         }
     };
 
