@@ -39,6 +39,7 @@ import { ParticleHelpDialog } from './ParticleHelpDialog.tsx';
 import { BatchRunDialog } from './BatchRunDialog.tsx';
 import { useSidePanelStore } from '../../../shared/lib/stores/useBottomPanelStore.ts';
 import { useSettingsPanelSlot } from '../../../shared/lib/stores/useSettingsPanelSlot.ts';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -104,7 +105,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
 
     // Algorithm parameters — single dict driven by schema. Defaults tuned so a
     // default "Run" completes in seconds, not minutes, on a typical micrograph.
-    const [pickerParams, setPickerParams] = useState<Record<string, any>>({
+    const [pickerParams, setPickerParams] = useState<Record<string, unknown>>({
         template_paths: [],
         image_pixel_size: 1.0,
         template_pixel_size: 2.646,
@@ -118,7 +119,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
 
     // Auto-fill image_pixel_size from the selected image's metadata when known.
     useEffect(() => {
-        const apix = (selectedImage as any)?.pixelSize;
+        const apix = (selectedImage as { pixelSize?: number })?.pixelSize;
         if (typeof apix === 'number' && apix > 0) {
             setPickerParams((prev) =>
                 prev.image_pixel_size && prev.image_pixel_size !== 1.0
@@ -327,8 +328,8 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
             link.setAttribute('download', `${safeName}.coco.json`);
             link.click();
             showSnackbar(`Exported ${coco.annotations?.length ?? 0} particles as COCO`, 'success');
-        } catch (err: any) {
-            showSnackbar(`COCO export failed: ${err.message}`, 'error');
+        } catch (err) {
+            showSnackbar(`COCO export failed: ${apiErrorMessage(err, 'unknown error')}`, 'error');
         }
     };
 

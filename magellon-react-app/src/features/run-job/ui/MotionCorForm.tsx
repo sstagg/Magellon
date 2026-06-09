@@ -19,6 +19,7 @@ import { useState, useEffect, useRef } from "react";
 import { Beaker, Upload, FileImage, Settings2, ChevronDown, Zap } from "lucide-react";
 import { settings } from "../../../shared/config/settings.ts";
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 import { MrcViewer } from "../../mrc-viewer/ui/MrcViewer.tsx";
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
@@ -91,7 +92,7 @@ interface ProcessingState {
     statusMessage: string;
     isConnected: boolean;
     wsError: string | null;
-    resultData?: any; // Store the full result data from the server
+    resultData?: { output_files?: Array<{ path: string }> }; // Store the full result data from the server
 }
 
 export const MotionCorForm: React.FC<MotionCorFormProps> = ({
@@ -392,9 +393,9 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
                 });
                 setJobStatus('success');
                 setSuccessMessage("Motion correction task submitted successfully");
-            } catch (err: any) {
+            } catch (err) {
                 setJobStatus('error');
-                const errMsg = err.message || 'Failed to submit job';
+                const errMsg = apiErrorMessage(err, 'Failed to submit job');
                 setError(errMsg);
                 onError?.(errMsg);
             }
@@ -448,9 +449,9 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
 
             // Connect to WebSocket for real-time updates
             connectWebSocket(taskId);
-        } catch (err: any) {
+        } catch (err) {
             setJobStatus('error');
-            const errMsg = err.response?.data?.detail || err.message || 'Failed to submit job';
+            const errMsg = apiErrorMessage(err, 'Failed to submit job');
             setError(errMsg);
             onError?.(errMsg);
             setProcessingState(prev => ({
@@ -529,8 +530,8 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
                                 </Typography>
                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                     {processingState.resultData.output_files
-                                        .filter((file: any) => file.path && (file.path.endsWith('_DW.mrc') || file.path.endsWith('_DWS.mrc')))
-                                        .map((file: any, idx: number) => {
+                                        .filter((file) => file.path && (file.path.endsWith('_DW.mrc') || file.path.endsWith('_DWS.mrc')))
+                                        .map((file, idx: number) => {
                                             const filename = file.path.split('/').pop();
                                             // ✅ FIXED: Use the file path directly with query parameter
                                             const downloadUrl = `${settings.ConfigData.SERVER_API_URL}/web/download-file?path=${encodeURIComponent(file.path)}`;

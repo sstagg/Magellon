@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import { settings } from '../../../shared/config/settings.ts';
 import { useSocket } from '../../../shared/lib/useSocket.ts';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 import type ImageInfoDto from '../../../entities/image/types.ts';
 import { TEMPLATE_PICKER_PATH } from '../lib/useParticleOperations.ts';
 
@@ -56,7 +57,7 @@ interface BatchRunDialogProps {
     onClose: () => void;
     sessionName: string;
     currentImage: ImageInfoDto | null;
-    pickerParams: Record<string, any>;
+    pickerParams: Record<string, unknown>;
     onComplete?: (result: { succeeded: number; failed: number; total: number }) => void;
 }
 
@@ -149,7 +150,13 @@ export const BatchRunDialog: React.FC<BatchRunDialogProps> = ({
     useEffect(() => {
         if (!jobId) return;
 
-        const offJob = on('job_update', (envelope: any) => {
+        const offJob = on<{
+            job_id?: string;
+            progress?: number;
+            status?: string;
+            error?: string;
+            result?: { total?: number; succeeded?: number; failed?: number; items?: BatchItemResult[] };
+        }>('job_update', (envelope) => {
             if (envelope?.job_id !== jobId) return;
             if (typeof envelope.progress === 'number') setProgress(envelope.progress);
             if (envelope.status === 'completed') {
@@ -175,7 +182,7 @@ export const BatchRunDialog: React.FC<BatchRunDialogProps> = ({
             }
         });
 
-        const offLog = on('log_entry', (entry: any) => {
+        const offLog = on<{ source?: string; message?: string }>('log_entry', (entry) => {
             if (entry?.source !== 'batch-picking') return;
             if (entry?.message) setProgressMessage(entry.message);
         });
@@ -247,8 +254,8 @@ export const BatchRunDialog: React.FC<BatchRunDialogProps> = ({
             const data = await res.json();
             setJobId(data.job_id || data.jobId || null);
             setRunning(true);
-        } catch (err: any) {
-            setRunError(err.message || 'Failed to launch batch');
+        } catch (err) {
+            setRunError(apiErrorMessage(err, 'Failed to launch batch'));
         } finally {
             setLaunching(false);
         }
