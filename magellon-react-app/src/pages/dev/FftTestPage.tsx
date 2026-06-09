@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { Folder, X } from 'lucide-react';
 import getAxiosClient from '../../shared/api/AxiosClient.ts';
+import { apiErrorMessage } from '../../shared/api/apiError.ts';
 import { settings } from '../../shared/config/settings.ts';
 import { useJobStepEvents } from '../../shared/lib/useJobStepEvents.ts';
 import { ImagePickerDialog } from '../../features/plugin-runner/ui/ImagePickerDialog.tsx';
@@ -160,8 +161,8 @@ export const FftTestPage: React.FC = () => {
             } else {
                 await handleDispatchSingle();
             }
-        } catch (e: any) {
-            setError(e?.response?.data?.detail || e?.message || 'Dispatch failed');
+        } catch (e) {
+            setError(apiErrorMessage(e, 'Dispatch failed'));
             setDispatch(null);
         } finally {
             setBusy(false);
@@ -174,8 +175,8 @@ export const FftTestPage: React.FC = () => {
         setError(null);
         try {
             await client.delete(`/plugins/jobs/${dispatch.job_id}`);
-        } catch (e: any) {
-            setError(e?.response?.data?.detail || e?.message || 'Cancel failed');
+        } catch (e) {
+            setError(apiErrorMessage(e, 'Cancel failed'));
         } finally {
             setCancelling(false);
         }

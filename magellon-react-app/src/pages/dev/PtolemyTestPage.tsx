@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { Folder } from 'lucide-react';
 import getAxiosClient from '../../shared/api/AxiosClient.ts';
+import { apiErrorMessage } from '../../shared/api/apiError.ts';
 import { settings } from '../../shared/config/settings.ts';
 import { useJobStepEvents } from '../../shared/lib/useJobStepEvents.ts';
 import { ImagePickerDialog } from '../../features/plugin-runner/ui/ImagePickerDialog.tsx';
@@ -133,8 +134,8 @@ export const PtolemyTestPage: React.FC = () => {
                     queueName: res.data.queue_name,
                 },
             });
-        } catch (e: any) {
-            setError(e?.response?.data?.detail || e?.message || 'Dispatch failed');
+        } catch (e) {
+            setError(apiErrorMessage(e, 'Dispatch failed'));
             setDispatch(null);
         } finally {
             setBusy(false);
@@ -147,8 +148,8 @@ export const PtolemyTestPage: React.FC = () => {
         setError(null);
         try {
             await client.delete(`/plugins/jobs/${dispatch.job_id}`);
-        } catch (e: any) {
-            setError(e?.response?.data?.detail || e?.message || 'Cancel failed');
+        } catch (e) {
+            setError(apiErrorMessage(e, 'Cancel failed'));
         } finally {
             setCancelling(false);
         }
@@ -171,10 +172,11 @@ export const PtolemyTestPage: React.FC = () => {
     // inline so the operator gets closure without digging through DB rows.
     const completedMessage = React.useMemo(() => {
         const completed = [...stepEvents].reverse().find(
-            (e) => (e?.data as any)?.kind === 'completed' || (e?.data as any)?.phase === 'completed',
+            (e) => (e?.data as { kind?: string; phase?: string })?.kind === 'completed'
+                || (e?.data as { kind?: string; phase?: string })?.phase === 'completed',
         );
         if (!completed) return null;
-        const d: any = completed.data;
+        const d = completed.data as { message?: string; result_summary?: string };
         return d.message || d.result_summary || null;
     }, [stepEvents]);
 
