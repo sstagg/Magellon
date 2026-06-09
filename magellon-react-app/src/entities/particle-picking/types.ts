@@ -5,7 +5,7 @@ export interface ParticlePickingDto {
     name?: string | null;
     data?: string | null;
     temp?: string | null;
-    data_json?: any | null; // Assuming Json is a type alias for any
+    data_json?: unknown; // arbitrary JSON payload
     status?: number | null;
     type?: number | null;
 }

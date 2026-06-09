@@ -1,6 +1,7 @@
 // api/imageApi.js
 
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
+import { toApiError } from '../../../shared/api/apiError.ts';
 import {settings} from '../../../shared/config/settings.ts'
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
@@ -23,13 +24,14 @@ export const fetchImagesPage = async (
         });
 
         return response.data;
-    } catch (error: any) {
+    } catch (error) {
         // Handle 401/403 errors with better messages
-        if (error.response?.status === 401) {
+        const err = toApiError(error);
+        if (err.status === 401) {
             throw new Error('Please login to view images');
-        } else if (error.response?.status === 403) {
+        } else if (err.status === 403) {
             throw new Error('You do not have permission to view images');
         }
-        throw new Error(error.response?.data?.detail || error.response?.data || 'Failed to load images');
+        throw new Error(err.detail || 'Failed to load images');
     }
 };

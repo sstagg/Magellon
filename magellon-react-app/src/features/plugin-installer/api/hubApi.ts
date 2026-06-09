@@ -52,7 +52,7 @@ const QK_HUB_INDEX = ['hub', 'index'] as const;
 
 /** Configured hub root URL — used to prepend relative archive URLs. */
 export const hubUrl = (): string => {
-    const raw = (settings.ConfigData as any).HUB_URL ?? 'https://demo.magellon.org';
+    const raw = (settings.ConfigData as { HUB_URL?: string }).HUB_URL ?? 'https://demo.magellon.org';
     return raw.replace(/\/$/, ''); // no trailing slash so concat is clean
 };
 

@@ -5,6 +5,12 @@ import { useJobStore } from '../../shared/lib/stores/useJobStore.ts';
 import type { LogEntry } from '../../shared/lib/stores/useLogStore.ts';
 import { useLogStore } from '../../shared/lib/stores/useLogStore.ts';
 
+/** Raw job-update envelope from the backend, with legacy field fallbacks. */
+type JobUpdatePayload = Partial<Job> & {
+    id?: string;
+    num_particles?: number;
+};
+
 /**
  * Global Socket.IO listener that routes events to Zustand stores.
  * Mount this once near the app root (inside PanelTemplate or App).
@@ -20,7 +26,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     useEffect(() => {
         if (!connected) return;
 
-        const offJob = on('job_update', (data: any) => {
+        const offJob = on<JobUpdatePayload>('job_update', (data) => {
             // Backend envelope is already the shape we store. Keep a small
             // fallback so legacy {id, type} payloads don't silently drop.
             const job: Job = {

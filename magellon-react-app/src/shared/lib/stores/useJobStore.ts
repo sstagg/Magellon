@@ -12,8 +12,8 @@ export interface Job {
     started_at?: string;
     ended_at?: string;
     error?: string;
-    settings?: any;
-    result?: any;
+    settings?: Record<string, unknown>;
+    result?: Record<string, unknown>;
 }
 
 interface JobStore {

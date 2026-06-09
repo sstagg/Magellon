@@ -44,7 +44,7 @@ export interface MetadataDto {
     oid: string;
     name: string;
     data: string;
-    data_json?: Record<string, any>;  // Optional, as it may not always be present
+    data_json?: Record<string, unknown>;  // Optional, as it may not always be present
 }
 
 // Type for the Category DTO
