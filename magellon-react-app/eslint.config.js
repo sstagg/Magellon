@@ -144,7 +144,7 @@ export default [
   },
   {
     files: [
-      'tests/**/*.{ts,tsx}',
+      'tests/**/*.{ts,tsx,js,cjs,mjs}',
       'tests-examples/**/*.{ts,tsx}',
       '**/__tests__/**/*.{ts,tsx}',
       '**/*.test.{ts,tsx}',

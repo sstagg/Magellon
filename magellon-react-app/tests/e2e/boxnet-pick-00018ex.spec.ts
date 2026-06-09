@@ -123,7 +123,7 @@ test('boxnet-picker runs end-to-end on 00018ex from the image viewer', async ({ 
   let lastPollError = '';
   for (let attempt = 0; attempt < 90 && !ipp; attempt++) {
     await page.waitForTimeout(3000);
-    let list: any = null;
+    let list: any;
     try {
       const response = await fetch(
         `${BACKEND}/web/particle-pickings?img_name=${IMAGE_NAME}&_=${Date.now()}`,
