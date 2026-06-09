@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import type { DatabaseSchema } from '../types/databaseSchema';
+import { toApiError } from '../../../shared/api/apiError.ts';
 
 const SCHEMA_CACHE_KEY = 'magellon_schema_cache';
 const SCHEMA_CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
@@ -81,9 +82,9 @@ export function useSchema(includeSystem: boolean = false) {
       saveToCache(schemaData);
 
       setSchema(schemaData);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to fetch schema:', err);
-      setError(err.response?.data?.detail || 'Failed to fetch database schema');
+      setError(toApiError(err).detail || 'Failed to fetch database schema');
     } finally {
       setLoading(false);
     }
@@ -103,9 +104,9 @@ export function useSchema(includeSystem: boolean = false) {
       saveToCache(schemaData);
       setSchema(schemaData);
       setError(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to refresh schema:', err);
-      setError(err.response?.data?.detail || 'Failed to refresh schema');
+      setError(toApiError(err).detail || 'Failed to refresh schema');
     } finally {
       setLoading(false);
     }

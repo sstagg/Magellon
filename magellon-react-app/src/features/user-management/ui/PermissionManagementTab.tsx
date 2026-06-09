@@ -42,11 +42,15 @@ import {
 } from '@mui/icons-material';
 
 import { RoleAPI, PermissionManagementAPI } from '../api/rbacApi';
+import type { Role, ActionPermission, NavigationPermission, TypePermission } from '../api/rbacApi';
+import type { EntitySchema } from '../types/databaseSchema';
+import type { User } from '../../auth/model/AuthContext.tsx';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 import ObjectPermissionsManager from './components/ObjectPermissionsManager';
 import { useSchema } from '../hooks/useSchema';
 
 interface PermissionManagementTabProps {
-  currentUser: any;
+  currentUser: User | null;
   showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
   isSuperUser?: boolean;
 }
@@ -79,20 +83,20 @@ export default function PermissionManagementTab({
   const { schema, loading: schemaLoading } = useSchema(false);
   const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [roles, setRoles] = useState<any[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [selectedRole, setSelectedRole] = useState<string>('');
 
   // Action Permissions
-  const [actionPermissions, setActionPermissions] = useState<any[]>([]);
+  const [actionPermissions, setActionPermissions] = useState<ActionPermission[]>([]);
   const [newAction, setNewAction] = useState('');
 
   // Navigation Permissions
-  const [navigationPermissions, setNavigationPermissions] = useState<any[]>([]);
+  const [navigationPermissions, setNavigationPermissions] = useState<NavigationPermission[]>([]);
   const [newNavPath, setNewNavPath] = useState('');
   const [navAllowed, setNavAllowed] = useState(true);
 
   // Type Permissions
-  const [typePermissions, setTypePermissions] = useState<any[]>([]);
+  const [typePermissions, setTypePermissions] = useState<TypePermission[]>([]);
   const [newType, setNewType] = useState('');
   const [typeStates, setTypeStates] = useState({
     read: false,
@@ -127,7 +131,7 @@ export default function PermissionManagementTab({
       if (data.length > 0 && !selectedRole) {
         setSelectedRole(data[0].oid);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to load roles:', error);
       showSnackbar('Failed to load roles', 'error');
     }
@@ -147,7 +151,7 @@ export default function PermissionManagementTab({
       setActionPermissions(actions);
       setNavigationPermissions(navigation);
       setTypePermissions(types);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to load permissions:', error);
       showSnackbar('Failed to load permissions', 'error');
     } finally {
@@ -168,8 +172,8 @@ export default function PermissionManagementTab({
       showSnackbar('Action permission added', 'success');
       setNewAction('');
       loadPermissions();
-    } catch (error: any) {
-      showSnackbar(`Failed to add action permission: ${  error.message}`, 'error');
+    } catch (error) {
+      showSnackbar(`Failed to add action permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -181,8 +185,8 @@ export default function PermissionManagementTab({
       await PermissionManagementAPI.deleteActionPermission(permissionId);
       showSnackbar('Action permission deleted', 'success');
       loadPermissions();
-    } catch (error: any) {
-      showSnackbar(`Failed to delete action permission: ${  error.message}`, 'error');
+    } catch (error) {
+      showSnackbar(`Failed to delete action permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -202,8 +206,8 @@ export default function PermissionManagementTab({
       showSnackbar('Navigation permission added', 'success');
       setNewNavPath('');
       loadPermissions();
-    } catch (error: any) {
-      showSnackbar(`Failed to add navigation permission: ${  error.message}`, 'error');
+    } catch (error) {
+      showSnackbar(`Failed to add navigation permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -215,8 +219,8 @@ export default function PermissionManagementTab({
       await PermissionManagementAPI.deleteNavigationPermission(permissionId);
       showSnackbar('Navigation permission deleted', 'success');
       loadPermissions();
-    } catch (error: any) {
-      showSnackbar(`Failed to delete navigation permission: ${  error.message}`, 'error');
+    } catch (error) {
+      showSnackbar(`Failed to delete navigation permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -231,8 +235,8 @@ export default function PermissionManagementTab({
       );
       showSnackbar('Navigation permission updated', 'success');
       loadPermissions();
-    } catch (error: any) {
-      showSnackbar(`Failed to update navigation permission: ${  error.message}`, 'error');
+    } catch (error) {
+      showSnackbar(`Failed to update navigation permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -263,8 +267,8 @@ export default function PermissionManagementTab({
         navigate: false,
       });
       loadPermissions();
-    } catch (error: any) {
-      showSnackbar(`Failed to add type permission: ${  error.message}`, 'error');
+    } catch (error) {
+      showSnackbar(`Failed to add type permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -276,8 +280,8 @@ export default function PermissionManagementTab({
       await PermissionManagementAPI.deleteTypePermission(permissionId);
       showSnackbar('Type permission deleted', 'success');
       loadPermissions();
-    } catch (error: any) {
-      showSnackbar(`Failed to delete type permission: ${  error.message}`, 'error');
+    } catch (error) {
+      showSnackbar(`Failed to delete type permission: ${apiErrorMessage(error, 'unknown error')}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -297,8 +301,8 @@ export default function PermissionManagementTab({
       setQuickActionDialogOpen(false);
       setNewType('');
       loadPermissions();
-    } catch (error: any) {
-      showSnackbar(`Failed to grant access: ${  error.message}`, 'error');
+    } catch (error) {
+      showSnackbar(`Failed to grant access: ${apiErrorMessage(error, 'unknown error')}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -418,9 +422,9 @@ export default function PermissionManagementTab({
               <List>
                 {actionPermissions.map((perm) => (
                   <ListItem
-                    key={perm.oid}
+                    key={perm.Oid}
                     secondaryAction={
-                      <IconButton edge="end" onClick={() => handleDeleteAction(perm.oid)}>
+                      <IconButton edge="end" onClick={() => handleDeleteAction(perm.Oid)}>
                         <Delete />
                       </IconButton>
                     }
@@ -490,15 +494,15 @@ export default function PermissionManagementTab({
               <List>
                 {navigationPermissions.map((perm) => (
                   <ListItem
-                    key={perm.oid}
+                    key={perm.Oid}
                     secondaryAction={
                       <>
                         <Switch
                           checked={perm.navigate_state === 1}
-                          onChange={() => handleToggleNavigation(perm.oid, perm.navigate_state)}
+                          onChange={() => handleToggleNavigation(perm.Oid, perm.navigate_state)}
                           disabled={loading}
                         />
-                        <IconButton edge="end" onClick={() => handleDeleteNavigation(perm.oid)}>
+                        <IconButton edge="end" onClick={() => handleDeleteNavigation(perm.Oid)}>
                           <Delete />
                         </IconButton>
                       </>
@@ -579,9 +583,9 @@ export default function PermissionManagementTab({
               fullWidth
               size="small"
               options={schema?.entities ? Object.values(schema.entities) : []}
-              getOptionLabel={(option: any) => option.caption || option.name}
-              value={schema?.entities ? Object.values(schema.entities).find((e: any) => e.name === newType) || null : null}
-              onChange={(_, newValue: any) => setNewType(newValue?.name || '')}
+              getOptionLabel={(option: EntitySchema) => option.caption || option.name}
+              value={schema?.entities ? Object.values(schema.entities).find((e) => e.name === newType) || null : null}
+              onChange={(_, newValue) => setNewType(newValue?.name || '')}
               loading={schemaLoading}
               renderInput={(params) => (
                 <TextField
@@ -590,7 +594,7 @@ export default function PermissionManagementTab({
                   helperText="Choose an entity to grant permissions for"
                 />
               )}
-              renderOption={(props, option: any) => (
+              renderOption={(props, option: EntitySchema) => (
                 <li {...props} key={option.name}>
                   <Box>
                     <Typography variant="body2">{option.caption}</Typography>
@@ -719,7 +723,7 @@ export default function PermissionManagementTab({
               <List>
                 {typePermissions.map((perm) => (
                   <ListItem
-                    key={perm.oid}
+                    key={perm.Oid}
                     secondaryAction={
                       <Box sx={{ display: 'flex', gap: 1 }}>
                         <Button
@@ -739,7 +743,7 @@ export default function PermissionManagementTab({
                         >
                           Object Perms
                         </Button>
-                        <IconButton edge="end" onClick={() => handleDeleteType(perm.oid)}>
+                        <IconButton edge="end" onClick={() => handleDeleteType(perm.Oid)}>
                           <Delete />
                         </IconButton>
                       </Box>
@@ -806,9 +810,9 @@ export default function PermissionManagementTab({
           <Autocomplete
             fullWidth
             options={schema?.entities ? Object.values(schema.entities) : []}
-            getOptionLabel={(option: any) => option.caption || option.name}
-            value={schema?.entities ? Object.values(schema.entities).find((e: any) => e.name === newType) || null : null}
-            onChange={(_, newValue: any) => setNewType(newValue?.name || '')}
+            getOptionLabel={(option: EntitySchema) => option.caption || option.name}
+            value={schema?.entities ? Object.values(schema.entities).find((e) => e.name === newType) || null : null}
+            onChange={(_, newValue) => setNewType(newValue?.name || '')}
             loading={schemaLoading}
             renderInput={(params) => (
               <TextField
@@ -817,7 +821,7 @@ export default function PermissionManagementTab({
                 placeholder="Select entity (e.g., msession, image)"
               />
             )}
-            renderOption={(props, option: any) => (
+            renderOption={(props, option: EntitySchema) => (
               <li {...props} key={option.name}>
                 <Box>
                   <Typography variant="body2">{option.caption}</Typography>

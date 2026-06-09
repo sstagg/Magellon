@@ -145,7 +145,7 @@ export interface DatabaseSchema {
 export interface CriteriaCondition {
   field: string;
   operator: string;
-  value: any;
+  value: string | number | boolean | string[] | null;
   valueType?: 'literal' | 'function' | 'reference';
 }
 
