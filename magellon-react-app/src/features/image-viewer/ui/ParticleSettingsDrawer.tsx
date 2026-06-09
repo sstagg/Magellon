@@ -32,6 +32,7 @@ import {
 import { SchemaForm, type BrowseFileRequest } from '../../../shared/ui/SchemaForm.tsx';
 import { ImagePickerDialog } from '../../plugin-runner/ui/ImagePickerDialog.tsx';
 import { settings as appSettings } from '../../../shared/config/settings.ts';
+import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 import type { PickDispatchResponse, Point} from '../lib/useParticleOperations.ts';
 import { confidenceFromScore, TEMPLATE_PICKER_PATH } from '../lib/useParticleOperations.ts';
 import { useJobStepEvents } from '../../../shared/lib/useJobStepEvents.ts';
@@ -54,10 +55,27 @@ interface BackendInfo {
 
 export type DrawerState = 'configure' | 'previewing' | 'preview' | 'running' | 'dispatched' | 'results';
 
+/** The JSON-schema shape consumed by the embedded SchemaForm. */
+type ParamSchema = React.ComponentProps<typeof SchemaForm>['schema'];
+
+/** A single particle as returned by a picker backend. */
+interface BackendPick {
+    x: number;
+    y: number;
+    score?: number;
+    radius?: number;
+}
+
+/** Session model returned by the train endpoint. */
+interface TrainedModel {
+    engine_opts?: Record<string, unknown>;
+    preview_id?: string | null;
+}
+
 export interface ParticleSettingsDrawerProps {
     open: boolean;
-    pickerParams: Record<string, any>;
-    onPickerParamsChange: (params: Record<string, any>) => void;
+    pickerParams: Record<string, unknown>;
+    onPickerParamsChange: (params: Record<string, unknown>) => void;
     onRun: () => void;
     /** Dispatch a picking task via RMQ for the given backend and IPP name. */
     onDispatch: (targetBackend: string, ippName: string) => Promise<PickDispatchResponse | null>;
@@ -85,16 +103,28 @@ export interface ParticleSettingsDrawerProps {
 // Validation
 // ---------------------------------------------------------------------------
 
-function validateParams(schema: any, params: Record<string, any>, imageName: string | null): string[] {
-    if (!schema?.properties) return [];
+function validateParams(schema: unknown, params: Record<string, unknown>, imageName: string | null): string[] {
+    const s = schema as {
+        properties?: Record<string, {
+            title?: string;
+            ui_hidden?: boolean;
+            ui_required_message?: string;
+            minItems?: number;
+            minimum?: number;
+            maximum?: number;
+            exclusiveMinimum?: number;
+        }>;
+        required?: string[];
+    } | null;
+    if (!s?.properties) return [];
     const errors: string[] = [];
-    const required = new Set<string>(schema.required || []);
+    const required = new Set<string>(s.required || []);
 
     if (!imageName) {
         errors.push('No image selected — select a micrograph first.');
     }
 
-    for (const [key, field] of Object.entries<any>(schema.properties)) {
+    for (const [key, field] of Object.entries(s.properties)) {
         if (field.ui_hidden) continue;
         const value = params[key];
         const label = field.title || key;
@@ -122,10 +152,11 @@ function validateParams(schema: any, params: Record<string, any>, imageName: str
     return errors;
 }
 
-function schemaDefaults(schema: any): Record<string, any> {
-    if (!schema?.properties) return {};
-    const defaults: Record<string, any> = {};
-    for (const [key, field] of Object.entries<any>(schema.properties)) {
+function schemaDefaults(schema: unknown): Record<string, unknown> {
+    const props = (schema as { properties?: Record<string, { default?: unknown }> })?.properties;
+    if (!props) return {};
+    const defaults: Record<string, unknown> = {};
+    for (const [key, field] of Object.entries(props)) {
         if (field?.default !== undefined) defaults[key] = field.default;
     }
     return defaults;
@@ -139,7 +170,7 @@ function schemaDefaults(schema: any): Record<string, any> {
 const API_URL = appSettings.ConfigData.SERVER_API_URL;
 
 function pointFromBackendPick(
-    p: any,
+    p: BackendPick,
     idPrefix: string,
     idx: number,
     threshold: number,
@@ -180,7 +211,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     currentParticles = [],
 }) => {
     const theme = useTheme();
-    const [schema, setSchema] = useState<any>(null);
+    const [schema, setSchema] = useState<ParamSchema | null>(null);
     const [schemaLoading, setSchemaLoading] = useState(false);
     const [schemaError, setSchemaError] = useState<string | null>(null);
     const [runtimeError, setRuntimeError] = useState<string | null>(null);
@@ -192,7 +223,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     const [retuning, setRetuning] = useState(false);
     const [dispatchJobId, setDispatchJobId] = useState<string | null>(null);
     const [training, setTraining] = useState(false);
-    const [trainedModel, setTrainedModel] = useState<any | null>(null);
+    const [trainedModel, setTrainedModel] = useState<TrainedModel | null>(null);
     // Remember the ippName we dispatched with so we can detect when the
     // RMQ poll lands a matching IPP in the store and flip drawerState to
     // 'results' (mirrors what the sync onRun path does).
@@ -210,11 +241,11 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     const { events: dispatchEvents, connected: socketConnected } = useJobStepEvents(dispatchJobId);
     const latestDispatchEvent = dispatchEvents[dispatchEvents.length - 1];
     const latestProgressEvent = [...dispatchEvents].reverse().find((e) => e.type === 'magellon.step.progress');
-    const dispatchPercent = (latestProgressEvent?.data as any)?.percent;
+    const dispatchPercent = (latestProgressEvent?.data as { percent?: number })?.percent;
     const dispatchMessage =
-        (latestDispatchEvent?.data as any)?.message ||
-        (latestProgressEvent?.data as any)?.message ||
-        (latestDispatchEvent?.data as any)?.error ||
+        (latestDispatchEvent?.data as { message?: string })?.message ||
+        (latestProgressEvent?.data as { message?: string })?.message ||
+        (latestDispatchEvent?.data as { error?: string })?.error ||
         'Task queued';
     const dispatchCompleted = dispatchEvents.some((e) => e.type === 'magellon.step.completed');
     const dispatchFailed = dispatchEvents.some((e) => e.type === 'magellon.step.failed');
@@ -337,7 +368,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
         setDrawerState('previewing');
 
         try {
-            const payload: Record<string, any> = {
+            const payload: Record<string, unknown> = {
                 ...pickerParams,
                 image_path: imageName,
                 backend: selectedBackend,
@@ -358,15 +389,15 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
             setPreviewCount(data.num_particles);
             setScoreMapPng(data.score_map_png_base64 || null);
 
-            const threshold = pickerParams.threshold ?? (isTopazBackend ? -3.0 : 0.4);
-            const pts: Point[] = (data.particles || []).map((p: any, i: number) =>
+            const threshold = Number(pickerParams.threshold ?? (isTopazBackend ? -3.0 : 0.4));
+            const pts: Point[] = (data.particles || []).map((p: BackendPick, i: number) =>
                 pointFromBackendPick(p, 'preview', i, threshold, isTopazBackend)
             );
             onPreviewParticles(pts);
             setDrawerState('preview');
-        } catch (err: any) {
+        } catch (err) {
             setDrawerState('configure');
-            setRuntimeError(`Preview failed: ${err.message}`);
+            setRuntimeError(`Preview failed: ${apiErrorMessage(err, 'unknown error')}`);
         }
     }, [isValid, pickerParams, imageName, selectedBackend, sessionName, onPreviewParticles]);
 
@@ -414,14 +445,14 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
             setPreviewCount(data.num_particles || 0);
             setScoreMapPng(null);
             const threshold = data.engine_opts?.threshold ?? -3.0;
-            const pts: Point[] = (data.particles || []).map((p: any, i: number) =>
+            const pts: Point[] = (data.particles || []).map((p: BackendPick, i: number) =>
                 pointFromBackendPick(p, 'trained', i, threshold, true)
             );
             onPreviewParticles(pts);
             setDrawerState('preview');
-        } catch (err: any) {
+        } catch (err) {
             setDrawerState('configure');
-            setRuntimeError(`Training failed: ${err.message}`);
+            setRuntimeError(`Training failed: ${apiErrorMessage(err, 'unknown error')}`);
         } finally {
             setTraining(false);
         }
@@ -438,7 +469,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     ]);
 
     // --- Retune (debounced) ---
-    const handleRetune = useCallback((newParams: Record<string, any>) => {
+    const handleRetune = useCallback((newParams: Record<string, unknown>) => {
         onPickerParamsChange(newParams);
         if (!previewId) return;
 
@@ -464,8 +495,8 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                 if (res.ok) {
                     const data = await res.json();
                     setPreviewCount(data.num_particles);
-                    const threshold = newParams.threshold ?? (isTopazBackend ? -3.0 : 0.4);
-                    const pts: Point[] = (data.particles || []).map((p: any, i: number) =>
+                    const threshold = Number(newParams.threshold ?? (isTopazBackend ? -3.0 : 0.4));
+                    const pts: Point[] = (data.particles || []).map((p: BackendPick, i: number) =>
                         pointFromBackendPick(p, 'retune', i, threshold, isTopazBackend)
                     );
                     onPreviewParticles(pts);
