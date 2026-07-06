@@ -62,5 +62,19 @@ def test_ready_uses_background_registry_when_present(monkeypatch):
 
     resp = TestClient(app).get("/health/ready")
 
-    assert resp.status_code == 200
+    assert resp.status_code == 503
     assert resp.json()["checks"]["rmq_step_event_forwarder"]["error"] == "failed to bind"
+
+
+def test_ready_ignores_disabled_background_services(monkeypatch):
+    monkeypatch.setattr(ctl, "_check_database", lambda: (True, {"status": "ok"}))
+    monkeypatch.setattr(ctl, "_check_bus", lambda: (True, {"status": "ok"}))
+    monkeypatch.setenv("MAGELLON_RMQ_STEP_EVENTS_FORWARDER", "0")
+    monkeypatch.setenv("MAGELLON_STEP_EVENTS_FORWARDER", "0")
+    monkeypatch.setenv("MAGELLON_PLUGIN_LIVENESS_LISTENER", "0")
+    monkeypatch.setenv("MAGELLON_OPERATIONAL_EVENT_LOGGER", "0")
+
+    resp = _client().get("/health/ready")
+
+    assert resp.status_code == 200
+    assert resp.json()["checks"]["rmq_step_event_forwarder"]["status"] == "disabled"

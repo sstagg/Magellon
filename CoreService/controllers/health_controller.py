@@ -49,6 +49,10 @@ def _state_service(request: Request, attr: str, enabled_env: str, default_enable
     return {"status": "ok", "type": type(service).__name__}
 
 
+def _check_status_ok(check: Dict[str, Any]) -> bool:
+    return check.get("status") in {"ok", "disabled"}
+
+
 @health_router.get("/live", include_in_schema=False)
 def live() -> Dict[str, Any]:
     return {"status": "ok", "service": "magellon-core", "checked_at": time.time()}
@@ -75,7 +79,7 @@ def ready(request: Request) -> JSONResponse:
         ),
     }
 
-    ok = db_ok and bus_ok
+    ok = db_ok and bus_ok and all(_check_status_ok(check) for check in checks.values())
     return JSONResponse(
         status_code=200 if ok else 503,
         content={
