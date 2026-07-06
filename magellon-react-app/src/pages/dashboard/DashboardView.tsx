@@ -48,8 +48,66 @@ import { useImageViewerStore } from '../../features/image-viewer/model/imageView
 
 const DRAWER_WIDTH = 240;
 
+type DashboardIcon = React.ReactElement<{ size?: number; color?: string }>;
+
+interface MetricChartProps {
+    data: number[];
+    color: string;
+    height?: number;
+}
+
+interface StatCardProps {
+    title: string;
+    value: string;
+    subtitle?: string;
+    icon: DashboardIcon;
+    color: string;
+    chartData?: number[];
+}
+
+interface QuickActionCardProps {
+    title: string;
+    icon: DashboardIcon;
+    color: string;
+    onClick: () => void;
+    featured?: boolean;
+}
+
+type ActivityStatus = "default" | "success" | "warning" | "error" | "info";
+
+interface ActivityItemProps {
+    icon: DashboardIcon;
+    text: string;
+    time: string;
+    status?: ActivityStatus;
+}
+
+type RecentlyViewedType = "image" | "session" | "project";
+
+interface RecentlyViewedItemProps {
+    name: string;
+    type: RecentlyViewedType;
+    time: string;
+    onClick: () => void;
+}
+
+type ProjectStatus = "completed" | "in-progress" | "paused";
+
+interface ProjectCardProps {
+    name: string;
+    progress: number;
+    status: ProjectStatus;
+    lastUpdated: string;
+    onClick: () => void;
+}
+
+interface SystemResource {
+    name: string;
+    usage: number;
+}
+
 // Custom chart component for the metrics card
-const MetricChart = ({ data, color, height = 40 }) => {
+const MetricChart = ({ data, color, height = 40 }: MetricChartProps) => {
     const maxValue = Math.max(...data);
 
     return (
@@ -81,7 +139,7 @@ const MetricChart = ({ data, color, height = 40 }) => {
 };
 
 // Dashboard stat card component with sparkline chart
-const StatCard = ({ title, value, subtitle, icon, color, chartData = [] }) => {
+const StatCard = ({ title, value, subtitle, icon, color, chartData = [] }: StatCardProps) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const isTablet = useMediaQuery(theme.breakpoints.down('md'));
@@ -177,7 +235,7 @@ const StatCard = ({ title, value, subtitle, icon, color, chartData = [] }) => {
 };
 
 // Quick action card component
-const QuickActionCard = ({ title, icon, color, onClick, featured = false }) => {
+const QuickActionCard = ({ title, icon, color, onClick, featured = false }: QuickActionCardProps) => {
     const theme = useTheme();
 
     return (
@@ -233,7 +291,7 @@ const QuickActionCard = ({ title, icon, color, onClick, featured = false }) => {
 };
 
 // Activity item component
-const ActivityItem = ({ icon, text, time, status = "default" }) => {
+const ActivityItem = ({ icon, text, time, status = "default" }: ActivityItemProps) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -304,7 +362,7 @@ const ActivityItem = ({ icon, text, time, status = "default" }) => {
 };
 
 // Recently viewed item component
-const RecentlyViewedItem = ({ name, type, time, onClick }) => {
+const RecentlyViewedItem = ({ name, type, time, onClick }: RecentlyViewedItemProps) => {
     const theme = useTheme();
 
     const getIcon = () => {
@@ -370,7 +428,7 @@ const RecentlyViewedItem = ({ name, type, time, onClick }) => {
 };
 
 // Project card component
-const ProjectCard = ({ name, progress, status, lastUpdated, onClick }) => {
+const ProjectCard = ({ name, progress, status, lastUpdated, onClick }: ProjectCardProps) => {
     const theme = useTheme();
 
     const getStatusColor = () => {
@@ -490,7 +548,7 @@ const DashboardView = () => {
     const leftMargin = isDrawerOpen ? DRAWER_WIDTH : 0;
 
     // State for demo data
-    const [stats, _setStats] = useState([
+    const [stats, _setStats] = useState<StatCardProps[]>([
         {
             title: "Total Projects",
             value: "14",
@@ -526,7 +584,7 @@ const DashboardView = () => {
     ]);
 
     // Mock activity data
-    const activities = [
+    const activities: ActivityItemProps[] = [
         {
             icon: <CheckCircle />,
             text: "Job #421 (2D Classification) completed",
@@ -560,7 +618,7 @@ const DashboardView = () => {
     ];
 
     // Mock projects data
-    const projects = [
+    const projects: Omit<ProjectCardProps, "onClick">[] = [
         {
             name: "COVID-19 Spike Protein",
             progress: 85,
@@ -582,7 +640,7 @@ const DashboardView = () => {
     ];
 
     // Mock recently viewed data
-    const recentlyViewed = [
+    const recentlyViewed: Omit<RecentlyViewedItemProps, "onClick">[] = [
         {
             name: "24may21_Sample459-01_00039gr",
             type: "image",
@@ -601,7 +659,7 @@ const DashboardView = () => {
     ];
 
     // System resource usage
-    const systemResources = [
+    const systemResources: SystemResource[] = [
         { name: "CPU", usage: 24 },
         { name: "Memory", usage: 42 },
         { name: "Storage", usage: 68 },
@@ -614,7 +672,7 @@ const DashboardView = () => {
     };
 
     // Navigate to pages
-    const navigateTo = (path) => {
+    const navigateTo = (path: string) => {
         navigate(`/en/panel/${path}`);
     };
 
