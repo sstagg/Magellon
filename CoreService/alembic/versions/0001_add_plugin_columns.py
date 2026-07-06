@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 
 revision: str = "0001_add_plugin_columns"
-down_revision: Union[str, None] = None
+down_revision: Union[str, None] = "0000_baseline_schema"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

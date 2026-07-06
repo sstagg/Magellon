@@ -12,6 +12,9 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Runtime config must load before the bundle: module-scope code
+         (socket URL, API clients) reads it synchronously. -->
+    <script src="/config.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

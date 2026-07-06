@@ -110,17 +110,20 @@ export function createAxiosClient(baseUrl: string): AxiosInstance {
     return AxiosClient;
 }
 
-// Create a private variable to hold the AxiosClient instance
-let instance: AxiosInstance | null = null;
+// One client per baseUrl. The old single-instance cache ignored the
+// baseUrl argument after the first call, so whichever module happened
+// to load first decided the base URL for all ~43 call sites — callers
+// asking for the /web API could silently get the root API and vice
+// versa, depending on import order.
+const instances = new Map<string, AxiosInstance>();
 
-// Create a function to create or retrieve the AxiosClient instance
 function getAxiosClient(baseUrl: string): AxiosInstance {
-    if (!instance) {
-        // If the instance doesn't exist, create it
-        instance = createAxiosClient(baseUrl);
-        // Add request interceptors or other configurations here
+    let client = instances.get(baseUrl);
+    if (!client) {
+        client = createAxiosClient(baseUrl);
+        instances.set(baseUrl, client);
     }
-    return instance;
+    return client;
 }
 
 export default getAxiosClient;

@@ -145,6 +145,19 @@ jobs:
             echo "::error::requires_db suite skipped entirely — MySQL service misconfigured" >&2
             exit 1
           }
+      - name: Migrations build a schema from empty (alembic owns the baseline)
+        working-directory: CoreService
+        env:
+          MAGELLON_DB_NAME: magellon_migrate
+        run: |
+          mysql -h 127.0.0.1 -uroot -pmagellon_ci -e "CREATE DATABASE magellon_migrate"
+          alembic upgrade head
+          # Re-run must be a no-op; spot-check the chain's oldest and newest tables.
+          alembic upgrade head
+          mysql -h 127.0.0.1 -uroot -pmagellon_ci -N -e "
+            SELECT COUNT(*) FROM information_schema.tables
+            WHERE table_schema='magellon_migrate'
+              AND table_name IN ('image','artifact','pipeline_run','plugin_state');" | grep -q "^4$"
 
   react-quality:
     runs-on: ubuntu-latest

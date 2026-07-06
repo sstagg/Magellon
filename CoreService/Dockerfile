@@ -34,7 +34,6 @@ COPY CoreService/models ./models
 COPY CoreService/repositories ./repositories
 COPY CoreService/services ./services
 COPY CoreService/templates ./templates
-COPY CoreService/tests ./tests
 COPY CoreService/configs ./configs
 COPY CoreService/core ./core
 COPY CoreService/static ./static
@@ -47,12 +46,15 @@ COPY CoreService/configs/app_settings_prod.yaml ./configs/app_settings_prod.yaml
 COPY CoreService/logger_config.py ./logger_config.py
 COPY CoreService/config.py ./config.py
 COPY CoreService/database.py ./database.py
-COPY CoreService/test_main.http ./
 
 COPY CoreService/alembic ./alembic
 COPY CoreService/alembic.ini ./alembic.ini
 COPY CoreService/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
+
+# Run as a non-root user; port 8000 (unprivileged) — compose maps it.
+RUN useradd --create-home --uid 10001 magellon  && mkdir -p /app/CoreService/data /magellon /gpfs  && chown -R magellon:magellon /app /magellon /gpfs
+USER magellon
 
 VOLUME /magellon
 VOLUME ./configs
@@ -63,5 +65,5 @@ ENV DATA_DIR=/app/CoreService/data \
     APP_MODULE=main:app \
     APP_ENV=production
 
-EXPOSE 80
+EXPOSE 8000
 CMD ["./entrypoint.sh"]

@@ -29,6 +29,17 @@ Use this before promoting CoreService, magellon-sdk based plugins, and the React
 - Treat `/admin/*`, `/web/ops/*`, `/db/security/*`, and `/configs` as administrator-only surfaces.
 - Confirm request logs include `X-Request-ID`, method, path, status, and duration without request bodies or secret values.
 
+## Database Migrations
+
+- Fresh environments: `alembic upgrade head` builds the full schema from an empty database (baseline migration `0000_baseline_schema` + chain). No manual dump loading required; the container entrypoint runs this automatically.
+- Existing environments (schema loaded from the dump before 2026-07): adopt with `alembic stamp <revision>` matching the database's actual state, then upgrade. The baseline migration refuses to run against a database that already has the base schema.
+- The Docker init dump (`Docker/services/mysql/init/magellon01db.sql`) still seeds dev stacks with data; migrations are the source of truth for schema.
+
+## Container Notes
+
+- CoreService listens on port **8000** inside the container (non-root user cannot bind 80); compose maps `MAGELLON_BACKEND_PORT` to it. The image runs as user `magellon` and no longer ships the test suite.
+- The React image reads `API_URL` (and optional `WEB_API_URL`) **at container start** and generates `/config.js`; retargeting the backend requires only an env change and restart, not a rebuild.
+
 ## Message Bus And Background Services
 
 - Confirm RabbitMQ/NATS URLs and credentials point at the intended environment.
