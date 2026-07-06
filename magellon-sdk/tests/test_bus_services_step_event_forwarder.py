@@ -221,6 +221,7 @@ def test_forwarder_handle_schedules_downstream_via_run_coroutine_threadsafe():
     mock_schedule.assert_called_once()
     _coro_arg, loop_arg = mock_schedule.call_args.args
     assert loop_arg is loop
+    _coro_arg.close()
 
 
 def test_forwarder_handle_downstream_failure_does_not_break_persistence():

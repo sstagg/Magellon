@@ -137,11 +137,11 @@ class StepEventForwarder:
         # Fire-and-forget: a slow Socket.IO emit must not stall the
         # consumer thread, and downstream failure is non-fatal.
         if self.downstream is not None and self.loop is not None:
+            coroutine = self.downstream(envelope)
             try:
-                asyncio.run_coroutine_threadsafe(
-                    self.downstream(envelope), self.loop
-                )
+                asyncio.run_coroutine_threadsafe(coroutine, self.loop)
             except Exception:
+                coroutine.close()
                 logger.exception(
                     "StepEventForwarder: failed to schedule downstream "
                     "for event %s — non-fatal, persistence unaffected",
