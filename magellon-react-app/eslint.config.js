@@ -66,11 +66,26 @@ export default [
       'boundaries/dependencies': ['warn', {
         default: 'disallow',
         rules: [
-          { from: 'app',      allow: ['app', 'pages', 'features', 'entities', 'shared'] },
-          { from: 'pages',    allow: ['pages', 'features', 'entities', 'shared'] },
-          { from: 'features', allow: ['features', 'entities', 'shared'] },
-          { from: 'entities', allow: ['entities', 'shared'] },
-          { from: 'shared',   allow: ['shared'] },
+          {
+            from: { type: 'app' },
+            allow: { to: { type: ['app', 'pages', 'features', 'entities', 'shared'] } },
+          },
+          {
+            from: { type: 'pages' },
+            allow: { to: { type: ['pages', 'features', 'entities', 'shared'] } },
+          },
+          {
+            from: { type: 'features' },
+            allow: { to: { type: ['features', 'entities', 'shared'] } },
+          },
+          {
+            from: { type: 'entities' },
+            allow: { to: { type: ['entities', 'shared'] } },
+          },
+          {
+            from: { type: 'shared' },
+            allow: { to: { type: 'shared' } },
+          },
         ],
       }],
 
