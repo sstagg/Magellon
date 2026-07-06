@@ -23,8 +23,9 @@ export default defineConfig({
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
-    // baseURL: 'http://127.0.0.1:3000',
+    /* Base URL so specs can `page.goto('/')`. Matches the dev-stack
+     * frontend; override per environment. */
+    baseURL: process.env.MAGELLON_E2E_FRONTEND ?? 'http://localhost:8080',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -34,19 +35,19 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: ['**/tests/e2e/**'],
+      testIgnore: ['**/tests/e2e/**', '**/tests/diagnostics/**'],
       use: { ...devices['Desktop Chrome'] },
     },
 
     {
       name: 'firefox',
-      testIgnore: ['**/tests/e2e/**'],
+      testIgnore: ['**/tests/e2e/**', '**/tests/diagnostics/**'],
       use: { ...devices['Desktop Firefox'] },
     },
 
     {
       name: 'webkit',
-      testIgnore: ['**/tests/e2e/**'],
+      testIgnore: ['**/tests/e2e/**', '**/tests/diagnostics/**'],
       use: { ...devices['Desktop Safari'] },
     },
 

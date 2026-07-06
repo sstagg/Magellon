@@ -149,6 +149,9 @@ export default [
       // -------------------------------------------------------------------
       'no-undef': 'off',           // TS handles this
       'no-console': 'off',         // dev-time debug logging is heavily used here; reinstate per-feature if needed
+      // Ratchet against god components: ceiling starts above today's
+      // worst offender and lowers as files get decomposed. Target: 500.
+      'max-lines': ['error', { max: 1200, skipBlankLines: true, skipComments: true }],
       'no-debugger': 'error',
       'eqeqeq': ['warn', 'smart'],
       'no-var': 'error',

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
 import { settings } from '../config/settings.ts';
@@ -7,6 +7,7 @@ const SOCKET_URL = settings.ConfigData.SERVER_API_URL;
 
 let sharedSocket: Socket | null = null;
 let refCount = 0;
+let teardownTimer: ReturnType<typeof setTimeout> | null = null;
 
 function getSocket(): Socket {
     if (!sharedSocket) {
@@ -25,49 +26,76 @@ function getSocket(): Socket {
 
 export function useSocket() {
     const [connected, setConnected] = useState(false);
-    const socketRef = useRef<Socket | null>(null);
+    // State (not a ref): the first render must re-render once the socket
+    // exists, and consumers reading `sid` need a value that updates when
+    // the connection (re)establishes. The previous ref-based version
+    // returned null/undefined on first render and never notified.
+    const [socket, setSocket] = useState<Socket | null>(null);
+    const [sid, setSid] = useState<string | undefined>(undefined);
 
     useEffect(() => {
-        const socket = getSocket();
-        socketRef.current = socket;
+        const s = getSocket();
+        setSocket(s);
         refCount++;
+        if (teardownTimer) {
+            clearTimeout(teardownTimer);
+            teardownTimer = null;
+        }
 
-        const onConnect = () => setConnected(true);
-        const onDisconnect = () => setConnected(false);
-
-        socket.on('connect', onConnect);
-        socket.on('disconnect', onDisconnect);
-
-        if (socket.connected) {
+        const onConnect = () => {
             setConnected(true);
+            setSid(s.id);
+        };
+        const onDisconnect = () => {
+            setConnected(false);
+            setSid(undefined);
+        };
+
+        s.on('connect', onConnect);
+        s.on('disconnect', onDisconnect);
+
+        if (s.connected) {
+            setConnected(true);
+            setSid(s.id);
         }
 
         return () => {
-            socket.off('connect', onConnect);
-            socket.off('disconnect', onDisconnect);
+            s.off('connect', onConnect);
+            s.off('disconnect', onDisconnect);
             refCount--;
-            if (refCount <= 0 && sharedSocket) {
-                sharedSocket.disconnect();
-                sharedSocket = null;
+            if (refCount <= 0) {
                 refCount = 0;
+                // Delay teardown: route transitions briefly unmount every
+                // consumer, and dropping the socket there would silently
+                // lose server-side room membership. Only disconnect if
+                // nobody remounts within the grace window.
+                if (teardownTimer) clearTimeout(teardownTimer);
+                teardownTimer = setTimeout(() => {
+                    if (refCount <= 0 && sharedSocket) {
+                        sharedSocket.disconnect();
+                        sharedSocket = null;
+                    }
+                    teardownTimer = null;
+                }, 5000);
             }
         };
     }, []);
 
     const on = useCallback(<T = unknown>(event: string, handler: (data: T) => void) => {
-        socketRef.current?.on(event, handler as (data: unknown) => void);
-        return () => { socketRef.current?.off(event, handler as (data: unknown) => void); };
+        const s = getSocket();
+        s.on(event, handler as (data: unknown) => void);
+        return () => { s.off(event, handler as (data: unknown) => void); };
     }, []);
 
     const emit = useCallback((event: string, data?: unknown) => {
-        socketRef.current?.emit(event, data);
+        getSocket().emit(event, data);
     }, []);
 
     return {
-        socket: socketRef.current,
+        socket,
         connected,
         on,
         emit,
-        sid: socketRef.current?.id,
+        sid,
     };
 }

@@ -1,10 +1,5 @@
 {
   "SERVER_API_URL": "http://127.0.0.1:8000",
   "SERVER_WEB_API_URL": "http://127.0.0.1:8000/web",
-  "HUB_URL": "https://demo.magellon.org",
-  "apiBaseUrl": "https://jsonplaceholder.typicode.com/",
-  "apiEndpoints": {
-    "blogs": "posts",
-    "searchBlogs": "admin/_search/blogs"
-  }
+  "HUB_URL": "https://demo.magellon.org"
 }

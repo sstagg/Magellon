@@ -2,7 +2,6 @@ import {Button, Checkbox, FormControl, FormControlLabel, Box, InputAdornment, Te
 
 import React, {useState} from "react";
 import {useForm} from "react-hook-form";
-import {useTranslation} from "react-i18next";
 import {Cached, CalendarMonthOutlined, AttachFile} from "@mui/icons-material";
 import Grid from '@mui/material/Grid';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
@@ -53,7 +52,6 @@ export const LeginonImportComponent = () => {
         mode: 'onChange',
         defaultValues
     });
-    const { t } = useTranslation(['leginon-import', 'global'], { useSuspense: false });
 
     const [defectsFile, setDefectsFile] = useState<File | null>(null);
     const [gainsFile, setGainsFile] = useState<File | null>(null);
@@ -115,17 +113,17 @@ export const LeginonImportComponent = () => {
             <Grid container spacing={2}>
                 <Grid size={12}>
                     <Typography variant="h6">
-                        {t('leginon-importer.app.title', { ns: 'leginon-import' })}
+                        {'Leginon Import Tool'}
                     </Typography>
                     <Typography variant="body2" color="textSecondary">
-                        {t('leginon-importer.app.description', { ns: 'leginon-import' })}
+                        {'Welcome to the Leginon Import Tool. Use this tool to import your sessions to Magellon.'}
                     </Typography>
                 </Grid>
 
                 <Grid size={12}>
                     <FormControl fullWidth>
                         <TextField
-                            label={t('leginon-importer.form.magellonProjectName', { ns: 'leginon-import' })}
+                            label={"Magellon Project Name"}
                             variant="filled"
                             margin="dense"
                             {...register('magellon_project_name', { required: 'Project name is required' })}
@@ -138,7 +136,7 @@ export const LeginonImportComponent = () => {
                 <Grid size={6}>
                     <FormControl fullWidth>
                         <TextField
-                            label={t('leginon-importer.form.magellonSessionName', { ns: 'leginon-import' })}
+                            label={"Magellon Session Name"}
                             variant="filled"
                             margin="dense"
                             {...register('magellon_session_name')}
@@ -157,7 +155,7 @@ export const LeginonImportComponent = () => {
                 <Grid size={6}>
                     <FormControl fullWidth>
                         <TextField
-                            label={t('leginon-importer.form.sessionName', { ns: 'leginon-import' })}
+                            label={"Session Name"}
                             variant="filled"
                             margin="dense"
                             {...register('session_name')}
@@ -168,7 +166,7 @@ export const LeginonImportComponent = () => {
                 <Grid size={12}>
                     <FormControl fullWidth>
                         <TextField
-                            label={t('leginon-importer.form.cameraDirectory', { ns: 'leginon-import' })}
+                            label={"Camera Directory"}
                             variant="filled"
                             margin="dense"
                             {...register('camera_directory')}
@@ -179,7 +177,7 @@ export const LeginonImportComponent = () => {
                 <Grid size={6}>
                     <FormControl fullWidth>
                         <TextField
-                            label={t('leginon-importer.form.retries', { ns: 'leginon-import' })}
+                            label={"Retries"}
                             variant="filled"
                             margin="dense"
                             type="number"
@@ -204,7 +202,7 @@ export const LeginonImportComponent = () => {
                                 color="primary"
                             />
                         }
-                        label={t('leginon-importer.form.ifDoSubtasks', { ns: 'leginon-import' })}
+                        label={"If Do Subtasks"}
                     />
                 </Grid>
 
@@ -216,14 +214,14 @@ export const LeginonImportComponent = () => {
                                 color="primary"
                             />
                         }
-                        label={t('leginon-importer.form.copyImages', { ns: 'leginon-import' })}
+                        label={"Copy Images"}
                     />
                 </Grid>
 
                 <Grid size={9}>
                     <FormControl fullWidth>
                         <TextField
-                            label={t('leginon-importer.form.leginonMysqlHost', { ns: 'leginon-import' })}
+                            label={"Leginon MySQL Host"}
                             variant="filled"
                             margin="dense"
                             {...register('leginon_mysql_host')}
@@ -234,7 +232,7 @@ export const LeginonImportComponent = () => {
                 <Grid size={3}>
                     <FormControl fullWidth>
                         <TextField
-                            label={t('leginon-importer.form.leginonMysqlPort', { ns: 'leginon-import' })}
+                            label={"Leginon MySQL Port"}
                             variant="filled"
                             margin="dense"
                             type="number"
@@ -246,7 +244,7 @@ export const LeginonImportComponent = () => {
                 <Grid size={12}>
                     <FormControl fullWidth>
                         <TextField
-                            label={t('leginon-importer.form.leginonMysqlDb', { ns: 'leginon-import' })}
+                            label={"Leginon MySQL Database"}
                             variant="filled"
                             margin="dense"
                             {...register('leginon_mysql_db')}
@@ -257,7 +255,7 @@ export const LeginonImportComponent = () => {
                 <Grid size={6}>
                     <FormControl fullWidth>
                         <TextField
-                            label={t('leginon-importer.form.leginonMysqlUser', { ns: 'leginon-import' })}
+                            label={"Leginon MySQL User"}
                             variant="filled"
                             margin="dense"
                             {...register('leginon_mysql_user')}
@@ -268,7 +266,7 @@ export const LeginonImportComponent = () => {
                 <Grid size={6}>
                     <FormControl fullWidth>
                         <TextField
-                            label={t('leginon-importer.form.leginonMysqlPass', { ns: 'leginon-import' })}
+                            label={"Leginon MySQL Password"}
                             variant="filled"
                             margin="dense"
                             type="password"
@@ -422,8 +420,8 @@ export const LeginonImportComponent = () => {
                         sx={{ mr: 2 }}
                     >
                         {isSubmitting
-                            ? t('global.loading', { ns: 'global' })
-                            : t('entity.action.import', { ns: 'global' })}
+                            ? 'Loading...'
+                            : 'Import'}
                     </Button>
                 </Grid>
             </Grid>

@@ -1,195 +1,39 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
     Box,
     Typography,
     CircularProgress,
     Chip,
-    Button,
     Alert,
-    AlertTitle,
-    Collapse,
     LinearProgress,
     IconButton,
-    MenuItem,
-    Select,
-    FormControl,
     alpha,
     useTheme,
 } from '@mui/material';
-import {
-    Visibility as PreviewIcon,
-    PlayArrow as RunIcon,
-    ErrorOutlined as ErrorIcon,
-    CheckCircle as ValidIcon,
-    ArrowBack as BackIcon,
-    Check as AcceptIcon,
-    Close as DiscardIcon,
-    Tune as TuneIcon,
-    Layers as BatchIcon,
-    Send as DispatchIcon,
-    School as TrainIcon,
-} from '@mui/icons-material';
+import { ArrowBack as BackIcon } from '@mui/icons-material';
 import { SchemaForm, type BrowseFileRequest } from '../../../shared/ui/SchemaForm.tsx';
 import { ImagePickerDialog } from '../../plugin-runner/ui/ImagePickerDialog.tsx';
-import { settings as appSettings } from '../../../shared/config/settings.ts';
-import { apiErrorMessage } from '../../../shared/api/apiError.ts';
-import type { PickDispatchResponse, Point} from '../lib/useParticleOperations.ts';
-import { confidenceFromScore, TEMPLATE_PICKER_PATH } from '../lib/useParticleOperations.ts';
-import { useJobStepEvents } from '../../../shared/lib/useJobStepEvents.ts';
+import { API_URL, validateParams } from '../model/particleSettingsCore.ts';
+import type { ParticleSettingsDrawerProps, TrainedModel } from '../model/particleSettingsTypes.ts';
+import { useParticleBackends } from '../model/useParticleBackends.ts';
+import { usePickerSchema } from '../model/usePickerSchema.ts';
+import { useDispatchProgress } from '../model/useDispatchProgress.ts';
+import { useDrawerRunState } from '../model/useDrawerRunState.ts';
+import { usePickerPreview } from '../model/usePickerPreview.ts';
+import { BackendSelector } from './particle-settings/BackendSelector.tsx';
+import { ConfigureActions } from './particle-settings/ConfigureActions.tsx';
+import { PreviewActions } from './particle-settings/PreviewActions.tsx';
+import { ResultsActions } from './particle-settings/ResultsActions.tsx';
+import { DispatchStatus } from './particle-settings/DispatchStatus.tsx';
+import { ValidationErrorsAlert } from './particle-settings/ValidationErrorsAlert.tsx';
+import { PreviewTunePanel } from './particle-settings/PreviewTunePanel.tsx';
 
-interface BackendInfo {
-    backend_id: string;
-    plugin_id: string;
-    label: string;
-    capabilities: string[];
-    has_preview: boolean;
-    has_sync: boolean;
-    http_endpoint: string | null;
-    status: string;
-    enabled: boolean;
-}
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export type DrawerState = 'configure' | 'previewing' | 'preview' | 'running' | 'dispatched' | 'results';
-
-/** The JSON-schema shape consumed by the embedded SchemaForm. */
-type ParamSchema = React.ComponentProps<typeof SchemaForm>['schema'];
-
-/** A single particle as returned by a picker backend. */
-interface BackendPick {
-    x: number;
-    y: number;
-    score?: number;
-    radius?: number;
-}
-
-/** Session model returned by the train endpoint. */
-interface TrainedModel {
-    engine_opts?: Record<string, unknown>;
-    preview_id?: string | null;
-}
-
-export interface ParticleSettingsDrawerProps {
-    open: boolean;
-    pickerParams: Record<string, unknown>;
-    onPickerParamsChange: (params: Record<string, unknown>) => void;
-    onRun: () => void;
-    /** Dispatch a picking task via RMQ for the given backend and IPP name. */
-    onDispatch: (targetBackend: string, ippName: string) => Promise<PickDispatchResponse | null>;
-    /** Opens the batch-run modal so the user can pick the cohort of images. */
-    onRunBatch?: () => void;
-    isRunning: boolean;
-    onPreviewParticles: (particles: Point[]) => void;
-    onAcceptParticles: () => void;
-    onDiscardParticles: () => void;
-    imageName: string | null;
-    /** Session of the selected image — lets the backend resolve the MRC path. */
-    sessionName?: string;
-    autoPickingProgress: number;
-    resultCount: number | null;
-    /** Optional IPP name for the run — used as the RMQ task label. */
-    ippName?: string;
-    /** Current count of particles loaded on the canvas. Used to populate
-     *  the dispatch-flow results card. */
-    currentParticleCount?: number;
-    /** Current canvas particles, used as session-local Topaz annotations. */
-    currentParticles?: Point[];
-}
-
-// ---------------------------------------------------------------------------
-// Validation
-// ---------------------------------------------------------------------------
-
-function validateParams(schema: unknown, params: Record<string, unknown>, imageName: string | null): string[] {
-    const s = schema as {
-        properties?: Record<string, {
-            title?: string;
-            ui_hidden?: boolean;
-            ui_required_message?: string;
-            minItems?: number;
-            minimum?: number;
-            maximum?: number;
-            exclusiveMinimum?: number;
-        }>;
-        required?: string[];
-    } | null;
-    if (!s?.properties) return [];
-    const errors: string[] = [];
-    const required = new Set<string>(s.required || []);
-
-    if (!imageName) {
-        errors.push('No image selected — select a micrograph first.');
-    }
-
-    for (const [key, field] of Object.entries(s.properties)) {
-        if (field.ui_hidden) continue;
-        const value = params[key];
-        const label = field.title || key;
-
-        if (required.has(key)) {
-            if (value === undefined || value === null || value === '') {
-                errors.push(field.ui_required_message || `${label} is required.`);
-                continue;
-            }
-            if (Array.isArray(value) && field.minItems && value.length < field.minItems) {
-                errors.push(field.ui_required_message || `${label} needs at least ${field.minItems} item(s).`);
-                continue;
-            }
-        }
-
-        if (value !== null && value !== undefined && typeof value === 'number') {
-            if (field.minimum !== undefined && value < field.minimum)
-                errors.push(`${label} must be at least ${field.minimum}.`);
-            if (field.maximum !== undefined && value > field.maximum)
-                errors.push(`${label} must be at most ${field.maximum}.`);
-            if (field.exclusiveMinimum !== undefined && value <= field.exclusiveMinimum)
-                errors.push(`${label} must be greater than ${field.exclusiveMinimum}.`);
-        }
-    }
-    return errors;
-}
-
-function schemaDefaults(schema: unknown): Record<string, unknown> {
-    const props = (schema as { properties?: Record<string, { default?: unknown }> })?.properties;
-    if (!props) return {};
-    const defaults: Record<string, unknown> = {};
-    for (const [key, field] of Object.entries(props)) {
-        if (field?.default !== undefined) defaults[key] = field.default;
-    }
-    return defaults;
-}
+export type { DrawerState, ParticleSettingsDrawerProps } from '../model/particleSettingsTypes.ts';
 
 // ---------------------------------------------------------------------------
 // Component — renders as a plain Box (no Drawer), meant to be placed
 // inside the SidePanelArea alongside JobsPanel / LogsPanel.
 // ---------------------------------------------------------------------------
-
-const API_URL = appSettings.ConfigData.SERVER_API_URL;
-
-function pointFromBackendPick(
-    p: BackendPick,
-    idPrefix: string,
-    idx: number,
-    threshold: number,
-    isTopaz: boolean,
-): Point {
-    const score = Number(p.score ?? 0);
-    const radius = Number(p.radius);
-    return {
-        x: p.x,
-        y: p.y,
-        id: `${idPrefix}-${Date.now()}-${idx}`,
-        type: 'auto',
-        confidence: confidenceFromScore(score, isTopaz),
-        score,
-        radius: Number.isFinite(radius) && radius > 0 ? radius : undefined,
-        class: score >= threshold ? '1' : '4',
-        timestamp: Date.now(),
-    };
-}
 
 export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     open,
@@ -211,44 +55,36 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     currentParticles = [],
 }) => {
     const theme = useTheme();
-    const [schema, setSchema] = useState<ParamSchema | null>(null);
-    const [schemaLoading, setSchemaLoading] = useState(false);
-    const [schemaError, setSchemaError] = useState<string | null>(null);
     const [runtimeError, setRuntimeError] = useState<string | null>(null);
     const [showErrors, setShowErrors] = useState(false);
-    const [drawerState, setDrawerState] = useState<DrawerState>('configure');
-    const [previewId, setPreviewId] = useState<string | null>(null);
-    const [previewCount, setPreviewCount] = useState(0);
-    const [scoreMapPng, setScoreMapPng] = useState<string | null>(null);
-    const [retuning, setRetuning] = useState(false);
-    const [dispatchJobId, setDispatchJobId] = useState<string | null>(null);
-    const [training, setTraining] = useState(false);
     const [trainedModel, setTrainedModel] = useState<TrainedModel | null>(null);
-    // Remember the ippName we dispatched with so we can detect when the
-    // RMQ poll lands a matching IPP in the store and flip drawerState to
-    // 'results' (mirrors what the sync onRun path does).
-    const [dispatchedIppName, setDispatchedIppName] = useState<string | null>(null);
+
+    const { drawerState, setDrawerState, setDispatchedIppName } = useDrawerRunState({
+        isRunning,
+        resultCount,
+        ippName,
+    });
 
     // Backend selection
-    const [backends, setBackends] = useState<BackendInfo[]>([]);
-    const [selectedBackend, setSelectedBackend] = useState<string>('topaz-particle-picking');
-    const [backendsLoading, setBackendsLoading] = useState(false);
+    const {
+        backends,
+        backendsLoading,
+        selectedBackend,
+        setSelectedBackend,
+        backendEnabled,
+        canPreview,
+        isTopazBackend,
+    } = useParticleBackends(open);
 
-    const activeBackend = backends.find(b => b.backend_id === selectedBackend);
-    const backendEnabled = activeBackend?.enabled !== false;
-    const canPreview = (activeBackend?.has_preview ?? (selectedBackend === 'template-picker')) && backendEnabled;
-    const isTopazBackend = selectedBackend.replace('_', '-').toLowerCase().includes('topaz');
-    const { events: dispatchEvents, connected: socketConnected } = useJobStepEvents(dispatchJobId);
-    const latestDispatchEvent = dispatchEvents[dispatchEvents.length - 1];
-    const latestProgressEvent = [...dispatchEvents].reverse().find((e) => e.type === 'magellon.step.progress');
-    const dispatchPercent = (latestProgressEvent?.data as { percent?: number })?.percent;
-    const dispatchMessage =
-        (latestDispatchEvent?.data as { message?: string })?.message ||
-        (latestProgressEvent?.data as { message?: string })?.message ||
-        (latestDispatchEvent?.data as { error?: string })?.error ||
-        'Task queued';
-    const dispatchCompleted = dispatchEvents.some((e) => e.type === 'magellon.step.completed');
-    const dispatchFailed = dispatchEvents.some((e) => e.type === 'magellon.step.failed');
+    const {
+        setDispatchJobId,
+        socketConnected,
+        dispatchPercent,
+        dispatchMessage,
+        dispatchCompleted,
+        dispatchFailed,
+    } = useDispatchProgress();
+
     const manualTrainingParticles = useMemo(
         () => currentParticles.filter((p) => p.type === 'manual'),
         [currentParticles],
@@ -263,96 +99,13 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
         (req: BrowseFileRequest) => setPickerRequest(req),
         [],
     );
-    const retuneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Sync external running state. We must distinguish "just entered
-    // dispatched" (isRunning still false because dispatchPick hasn't
-    // toggled it yet) from "dispatched and now done" (isRunning went
-    // true→false). The dispatch flow only fires the results/configure
-    // transition on the second of those — gated by a wasRunning ref.
-    const wasRunningRef = useRef(false);
-    useEffect(() => {
-        const wasRunning = wasRunningRef.current;
-        wasRunningRef.current = isRunning;
-        if (isRunning && drawerState !== 'running' && drawerState !== 'dispatched') {
-            setDrawerState('running');
-            return;
-        }
-        if (!isRunning && drawerState === 'running') {
-            setDrawerState(resultCount !== null ? 'results' : 'configure');
-            return;
-        }
-        if (!isRunning && wasRunning && drawerState === 'dispatched') {
-            if (dispatchedIppName && ippName === dispatchedIppName) {
-                setDrawerState('results');
-                setDispatchedIppName(null);
-            } else {
-                setDrawerState('configure');
-                setDispatchedIppName(null);
-            }
-        }
-    }, [isRunning, resultCount, ippName, dispatchedIppName]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Load live backends. ``cache: 'no-store'`` because the answer
-    // changes whenever a plugin process restarts (capabilities,
-    // http_endpoint, etc.); a browser-level GET cache would freeze
-    // ``canPreview`` to whatever the panel saw on first open and the
-    // side panel would keep showing the "no-save preview" alert long
-    // after the backend recovered.
-    useEffect(() => {
-        if (!open) return;
-        setBackendsLoading(true);
-        fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/backends`, { cache: 'no-store' })
-            .then((res) => res.ok ? res.json() : Promise.resolve([]))
-            .then((data: BackendInfo[]) => {
-                // Topaz always sorts to the top; otherwise preserve server order.
-                const isTopaz = (id: string) => id === 'topaz-particle-picking' || id === 'topaz';
-                const sorted = [...data].sort((a, b) => {
-                    if (isTopaz(a.backend_id)) return -1;
-                    if (isTopaz(b.backend_id)) return 1;
-                    return 0;
-                });
-                setBackends(sorted);
-                // Auto-select topaz if live; else first available; else keep current.
-                const topazLive = sorted.find(b => isTopaz(b.backend_id));
-                if (topazLive) {
-                    setSelectedBackend(topazLive.backend_id);
-                } else if (sorted.length > 0 && !sorted.some(b => b.backend_id === selectedBackend)) {
-                    setSelectedBackend(sorted[0].backend_id);
-                }
-            })
-            .catch(() => { /* backends endpoint optional — fall back to template-picker */ })
-            .finally(() => setBackendsLoading(false));
-    }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Fetch schema (re-fetch when backend changes)
-    useEffect(() => {
-        if (!open) return;
-        setSchema(null);
-        setSchemaLoading(true);
-        setTrainedModel(null);
-        const url = `${API_URL}${TEMPLATE_PICKER_PATH}/schema/input?backend=${encodeURIComponent(selectedBackend)}`;
-        fetch(url)
-            .then((res) => { if (!res.ok) throw new Error(`${res.status}`); return res.json(); })
-            .then((data) => {
-                setSchema(data);
-                setSchemaError(null);
-                const defaults = schemaDefaults(data);
-                if (selectedBackend.replace('_', '-').toLowerCase().includes('topaz')) {
-                    onPickerParamsChange({
-                        ...defaults,
-                        model: defaults.model ?? 'resnet16',
-                        threshold: defaults.threshold ?? -3.0,
-                        radius: defaults.radius ?? 14,
-                        scale: defaults.scale ?? 8,
-                    });
-                } else {
-                    onPickerParamsChange(defaults);
-                }
-            })
-            .catch((err) => setSchemaError(`Could not load: ${err.message}`))
-            .finally(() => setSchemaLoading(false));
-    }, [open, selectedBackend]); // eslint-disable-line react-hooks/exhaustive-deps
+    const { schema, schemaLoading, schemaError, resetSchema } = usePickerSchema({
+        open,
+        selectedBackend,
+        onPickerParamsChange,
+        setTrainedModel,
+    });
 
     const validationErrors = useMemo(
         () => (schema ? validateParams(schema, pickerParams, imageName) : []),
@@ -360,160 +113,37 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
     );
     const isValid = validationErrors.length === 0;
 
-    // --- Preview ---
-    const handlePreview = useCallback(async () => {
-        if (!isValid) { setShowErrors(true); return; }
-        setShowErrors(false);
-        setRuntimeError(null);
-        setDrawerState('previewing');
-
-        try {
-            const payload: Record<string, unknown> = {
-                ...pickerParams,
-                image_path: imageName,
-                backend: selectedBackend,
-                session_name: sessionName,
-            };
-            Object.keys(payload).forEach(k => { if (payload[k] === null || payload[k] === undefined) delete payload[k]; });
-
-            const res = await fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({ detail: res.statusText }));
-                throw new Error(err.detail || `${res.status}`);
-            }
-            const data = await res.json();
-            setPreviewId(data.preview_id);
-            setPreviewCount(data.num_particles);
-            setScoreMapPng(data.score_map_png_base64 || null);
-
-            const threshold = Number(pickerParams.threshold ?? (isTopazBackend ? -3.0 : 0.4));
-            const pts: Point[] = (data.particles || []).map((p: BackendPick, i: number) =>
-                pointFromBackendPick(p, 'preview', i, threshold, isTopazBackend)
-            );
-            onPreviewParticles(pts);
-            setDrawerState('preview');
-        } catch (err) {
-            setDrawerState('configure');
-            setRuntimeError(`Preview failed: ${apiErrorMessage(err, 'unknown error')}`);
-        }
-    }, [isValid, pickerParams, imageName, selectedBackend, sessionName, onPreviewParticles]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    const handleTrainSession = useCallback(async () => {
-        if (!isTopazBackend || !imageName || !sessionName) return;
-        if (!isValid) { setShowErrors(true); return; }
-        if (manualTrainingParticles.length === 0) {
-            setRuntimeError('Topaz training needs at least one manual annotation.');
-            return;
-        }
-        setShowErrors(false);
-        setRuntimeError(null);
-        setTraining(true);
-        setDrawerState('previewing');
-        try {
-            const token = localStorage.getItem('access_token');
-            const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-            const payload = {
-                backend: selectedBackend,
-                image_path: imageName,
-                session_name: sessionName,
-                annotations: manualTrainingParticles.map((p) => ({
-                    x: p.x,
-                    y: p.y,
-                    radius: p.radius,
-                    class: p.class ?? '1',
-                    type: p.type,
-                })),
-                picker_params: pickerParams,
-            };
-            const res = await fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/topaz/session-models`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...authHeader },
-                body: JSON.stringify(payload),
-            });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({ detail: res.statusText }));
-                throw new Error(err.detail || `${res.status}`);
-            }
-            const data = await res.json();
-            const nextParams = { ...pickerParams, ...data.engine_opts };
-            onPickerParamsChange(nextParams);
-            setTrainedModel(data);
-            setPreviewId(data.preview_id || null);
-            setPreviewCount(data.num_particles || 0);
-            setScoreMapPng(null);
-            const threshold = data.engine_opts?.threshold ?? -3.0;
-            const pts: Point[] = (data.particles || []).map((p: BackendPick, i: number) =>
-                pointFromBackendPick(p, 'trained', i, threshold, true)
-            );
-            onPreviewParticles(pts);
-            setDrawerState('preview');
-        } catch (err) {
-            setDrawerState('configure');
-            setRuntimeError(`Training failed: ${apiErrorMessage(err, 'unknown error')}`);
-        } finally {
-            setTraining(false);
-        }
-    }, [
-        imageName,
-        isTopazBackend,
+    const {
+        previewCount,
+        scoreMapPng,
+        retuning,
+        training,
+        handlePreview,
+        handleTrainSession,
+        handleRetune,
+        clearPreview,
+        clearScoreMap,
+    } = usePickerPreview({
         isValid,
-        manualTrainingParticles,
-        onPickerParamsChange,
-        onPreviewParticles,
         pickerParams,
-        selectedBackend,
+        imageName,
         sessionName,
-    ]);
-
-    // --- Retune (debounced) ---
-    const handleRetune = useCallback((newParams: Record<string, unknown>) => {
-        onPickerParamsChange(newParams);
-        if (!previewId) return;
-
-        if (retuneTimer.current) clearTimeout(retuneTimer.current);
-        retuneTimer.current = setTimeout(async () => {
-            setRetuning(true);
-            try {
-                const retuneUrl = `${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}/retune`
-                    + `?backend=${encodeURIComponent(selectedBackend)}`;
-                const res = await fetch(retuneUrl, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        threshold: newParams.threshold ?? 0.4,
-                        radius: newParams.radius ?? newParams.min_distance ?? null,
-                        max_threshold: newParams.max_threshold ?? null,
-                        max_peaks: newParams.max_peaks ?? 500,
-                        overlap_multiplier: newParams.overlap_multiplier ?? 1.0,
-                        max_blob_size_multiplier: newParams.max_blob_size_multiplier ?? 1.0,
-                        min_blob_roundness: newParams.min_blob_roundness ?? 0.0,
-                        peak_position: newParams.peak_position ?? 'maximum',
-                    }),
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setPreviewCount(data.num_particles);
-                    const threshold = Number(newParams.threshold ?? (isTopazBackend ? -3.0 : 0.4));
-                    const pts: Point[] = (data.particles || []).map((p: BackendPick, i: number) =>
-                        pointFromBackendPick(p, 'retune', i, threshold, isTopazBackend)
-                    );
-                    onPreviewParticles(pts);
-                }
-            } catch { /* ignore */ }
-            setRetuning(false);
-        }, 300);
-    }, [previewId, selectedBackend, isTopazBackend, onPreviewParticles, onPickerParamsChange]);
+        selectedBackend,
+        isTopazBackend,
+        manualTrainingParticles,
+        onPreviewParticles,
+        onPickerParamsChange,
+        setTrainedModel,
+        setDrawerState,
+        setShowErrors,
+        setRuntimeError,
+    });
 
     // --- Run (RMQ dispatch) ---
     const handleRun = async () => {
         if (!isValid) { setShowErrors(true); return; }
         setShowErrors(false);
-        if (previewId) {
-            fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}?backend=${encodeURIComponent(selectedBackend)}`, { method: 'DELETE' }).catch(() => {});
-            setPreviewId(null);
-        }
+        clearPreview();
         const name = ippName || `Auto-pick ${new Date().toISOString().slice(0, 16)}`;
         setDispatchedIppName(name);
         setDrawerState('dispatched');
@@ -528,21 +158,15 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
 
     // --- Accept / Discard ---
     const handleAccept = () => {
-        if (previewId) {
-            fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}?backend=${encodeURIComponent(selectedBackend)}`, { method: 'DELETE' }).catch(() => {});
-            setPreviewId(null);
-        }
-        setScoreMapPng(null);
+        clearPreview();
+        clearScoreMap();
         onAcceptParticles();
         setDrawerState('configure');
     };
 
     const handleDiscard = () => {
-        if (previewId) {
-            fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}?backend=${encodeURIComponent(selectedBackend)}`, { method: 'DELETE' }).catch(() => {});
-            setPreviewId(null);
-        }
-        setScoreMapPng(null);
+        clearPreview();
+        clearScoreMap();
         onDiscardParticles();
         setDrawerState('configure');
     };
@@ -587,151 +211,49 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
 
                 {/* Backend selector — shown in configure state */}
                 {drawerState === 'configure' && (
-                    <FormControl fullWidth size="small" sx={{ mb: 0.75 }}>
-                        <Select
-                            value={selectedBackend}
-                            onChange={(e) => {
-                                setSelectedBackend(e.target.value);
-                                setSchema(null); // will re-fetch for new backend
-                            }}
-                            displayEmpty
-                            sx={{ fontSize: '0.75rem', height: 28 }}
-                        >
-                            {backends.length === 0 && (
-                                <MenuItem value="topaz-particle-picking" sx={{ fontSize: '0.75rem' }}>
-                                    topaz-particle-picking
-                                </MenuItem>
-                            )}
-                            {backends.map(b => (
-                                <MenuItem key={b.backend_id} value={b.backend_id} sx={{ fontSize: '0.75rem' }}>
-                                    {b.label}
-                                    {b.has_preview && <Chip label="preview" size="small" sx={{ ml: 1, fontSize: '0.6rem', height: 16 }} />}
-                                </MenuItem>
-                            ))}
-                            {backendsLoading && (
-                                <MenuItem disabled sx={{ fontSize: '0.75rem' }}>
-                                    <CircularProgress size={12} sx={{ mr: 1 }} /> Loading…
-                                </MenuItem>
-                            )}
-                        </Select>
-                    </FormControl>
+                    <BackendSelector
+                        backends={backends}
+                        selectedBackend={selectedBackend}
+                        backendsLoading={backendsLoading}
+                        onSelect={(backendId) => {
+                            setSelectedBackend(backendId);
+                            resetSchema(); // will re-fetch for new backend
+                        }}
+                    />
                 )}
 
                 {/* CONFIGURE: Preview + Run + Run Batch */}
                 {drawerState === 'configure' && (
-                    <>
-                        {!canPreview && (
-                            <Alert
-                                severity={!backendEnabled ? 'warning' : 'info'}
-                                sx={{ mb: 0.75, py: 0.25, '& .MuiAlert-message': { fontSize: '0.7rem' } }}
-                            >
-                                {!backendEnabled
-                                    ? 'This backend is disabled by the operator. Enable it in the Plugin Registry before using preview or dispatch.'
-                                    : isTopazBackend
-                                        ? 'Topaz currently runs as a queued job and saves an IPP record when it finishes. No-save preview is not available for this backend yet.'
-                                        : 'This backend does not advertise no-save preview; running will save an IPP record.'}
-                            </Alert>
-                        )}
-                        {canPreview && (
-                            <Button
-                                variant="outlined" size="small" fullWidth
-                                startIcon={<PreviewIcon sx={{ fontSize: 14 }} />} onClick={handlePreview}
-                                sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.5, mb: 0.75 }}
-                            >
-                                Preview &amp; tune (no save)
-                            </Button>
-                        )}
-                        {isTopazBackend && canPreview && (
-                            <Button
-                                variant="outlined" size="small" fullWidth
-                                startIcon={training ? <CircularProgress size={14} /> : <TrainIcon sx={{ fontSize: 14 }} />}
-                                onClick={handleTrainSession}
-                                disabled={training || manualTrainingParticles.length === 0}
-                                sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.5, mb: 0.75 }}
-                            >
-                                Train session ({manualTrainingParticles.length})
-                            </Button>
-                        )}
-                        {trainedModel && drawerState === 'configure' && (
-                            <Chip
-                                label={`session model ${Math.round(Number(trainedModel.engine_opts?.threshold ?? -3) * 100) / 100}`}
-                                size="small"
-                                variant="outlined"
-                                sx={{ mb: 0.75, height: 20, fontSize: '0.62rem' }}
-                            />
-                        )}
-                        <Box sx={{ display: 'flex', gap: 0.75 }}>
-                            <Button
-                                variant="contained" size="small" fullWidth
-                                startIcon={<DispatchIcon sx={{ fontSize: 14 }} />} onClick={handleRun}
-                                sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.5 }}
-                            >
-                                {canPreview ? 'Save current image' : 'Run and save image'}
-                            </Button>
-                            {onRunBatch && (
-                                <Button
-                                    variant="outlined" size="small" fullWidth
-                                    startIcon={<BatchIcon sx={{ fontSize: 14 }} />}
-                                    onClick={() => {
-                                        if (!isValid) { setShowErrors(true); return; }
-                                        setShowErrors(false);
-                                        onRunBatch();
-                                    }}
-                                    sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.5 }}
-                                >
-                                    Run batch…
-                                </Button>
-                            )}
-                        </Box>
-                        <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            {isValid ? (
-                                <><ValidIcon sx={{ fontSize: 12, color: 'success.main' }} /><Typography
-                                    variant="caption"
-                                    sx={{
-                                        color: "success.main",
-                                        fontSize: '0.7rem'
-                                    }}>Ready</Typography></>
-                            ) : (
-                                <><ErrorIcon sx={{ fontSize: 12, color: 'warning.main' }} />
-                                <Typography
-                                    variant="caption"
-                                    onClick={() => setShowErrors(!showErrors)}
-                                    sx={{
-                                        color: "warning.main",
-                                        cursor: 'pointer',
-                                        textDecoration: 'underline',
-                                        fontSize: '0.7rem'
-                                    }}>
-                                    {validationErrors.length} issue{validationErrors.length !== 1 ? 's' : ''}
-                                </Typography></>
-                            )}
-                        </Box>
-                    </>
+                    <ConfigureActions
+                        canPreview={canPreview}
+                        backendEnabled={backendEnabled}
+                        isTopazBackend={isTopazBackend}
+                        training={training}
+                        manualTrainingCount={manualTrainingParticles.length}
+                        trainedModel={trainedModel}
+                        isValid={isValid}
+                        validationErrorCount={validationErrors.length}
+                        onToggleErrors={() => setShowErrors(!showErrors)}
+                        onPreview={handlePreview}
+                        onTrainSession={handleTrainSession}
+                        onRun={handleRun}
+                        onRunBatch={onRunBatch ? () => {
+                            if (!isValid) { setShowErrors(true); return; }
+                            setShowErrors(false);
+                            onRunBatch();
+                        } : undefined}
+                    />
                 )}
 
                 {/* PREVIEW: pick count + actions */}
                 {drawerState === 'preview' && (
-                    <>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <TuneIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                            <Typography variant="caption"><strong>{previewCount}</strong> particles</Typography>
-                            {retuning && <CircularProgress size={12} />}
-                        </Box>
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                            <Button variant="outlined" size="small" color="error" startIcon={<DiscardIcon sx={{ fontSize: 12 }} />}
-                                onClick={handleDiscard} sx={{ textTransform: 'none', fontSize: '0.7rem', py: 0.25, flex: 1 }}>
-                                Discard
-                            </Button>
-                            <Button variant="outlined" size="small" startIcon={<RunIcon sx={{ fontSize: 12 }} />}
-                                onClick={handleRun} sx={{ textTransform: 'none', fontSize: '0.7rem', py: 0.25, flex: 1 }}>
-                                Run
-                            </Button>
-                            <Button variant="contained" size="small" startIcon={<AcceptIcon sx={{ fontSize: 12 }} />}
-                                onClick={handleAccept} sx={{ textTransform: 'none', fontSize: '0.7rem', py: 0.25, flex: 1 }}>
-                                Accept
-                            </Button>
-                        </Box>
-                    </>
+                    <PreviewActions
+                        previewCount={previewCount}
+                        retuning={retuning}
+                        onDiscard={handleDiscard}
+                        onRun={handleRun}
+                        onAccept={handleAccept}
+                    />
                 )}
 
                 {/* RUNNING — indeterminate: the sync endpoint doesn't stream
@@ -754,57 +276,24 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
 
                 {/* DISPATCHED — task sent to RMQ, polling for result */}
                 {drawerState === 'dispatched' && (
-                    <Box sx={{ mt: 0.5 }}>
-                        <LinearProgress
-                            variant={typeof dispatchPercent === 'number' ? 'determinate' : 'indeterminate'}
-                            value={typeof dispatchPercent === 'number' ? dispatchPercent : undefined}
-                            color={dispatchFailed ? 'error' : dispatchCompleted ? 'success' : 'primary'}
-                            sx={{ height: 4, borderRadius: 1 }}
-                        />
-                        <Typography
-                            variant="caption"
-                            sx={{
-                                color: "text.secondary",
-                                mt: 0.5,
-                                display: 'block',
-                                fontSize: '0.7rem'
-                            }}>
-                            {dispatchFailed
-                                ? `Failed: ${dispatchMessage}`
-                                : dispatchCompleted
-                                    ? 'Plugin finished - loading saved picks...'
-                                    : dispatchMessage}
-                            {typeof dispatchPercent === 'number' ? ` (${Math.round(dispatchPercent)}%)` : ''}
-                        </Typography>
-                        <Chip
-                            size="small"
-                            variant="outlined"
-                            label={socketConnected ? 'socket live' : 'socket connecting'}
-                            sx={{ mt: 0.5, height: 18, fontSize: '0.62rem' }}
-                        />
-                    </Box>
+                    <DispatchStatus
+                        variant="toolbar"
+                        selectedBackend={selectedBackend}
+                        dispatchPercent={dispatchPercent}
+                        dispatchMessage={dispatchMessage}
+                        dispatchCompleted={dispatchCompleted}
+                        dispatchFailed={dispatchFailed}
+                        socketConnected={socketConnected}
+                    />
                 )}
 
                 {/* RESULTS */}
                 {drawerState === 'results' && (
-                    <>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <ValidIcon sx={{ fontSize: 16, color: 'success.main' }} />
-                            <Typography variant="caption">
-                                <strong>{resultCount ?? currentParticleCount ?? 0}</strong> particles picked
-                            </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                            <Button variant="outlined" size="small" color="error" startIcon={<DiscardIcon sx={{ fontSize: 12 }} />}
-                                onClick={handleDiscard} sx={{ textTransform: 'none', fontSize: '0.7rem', py: 0.25, flex: 1 }}>
-                                Discard
-                            </Button>
-                            <Button variant="contained" size="small" startIcon={<AcceptIcon sx={{ fontSize: 12 }} />}
-                                onClick={handleAccept} sx={{ textTransform: 'none', fontSize: '0.7rem', py: 0.25, flex: 1 }}>
-                                Accept
-                            </Button>
-                        </Box>
-                    </>
+                    <ResultsActions
+                        count={resultCount ?? currentParticleCount ?? 0}
+                        onDiscard={handleDiscard}
+                        onAccept={handleAccept}
+                    />
                 )}
 
                 {/* PREVIEWING spinner */}
@@ -815,23 +304,10 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                 )}
             </Box>
             {/* ============ VALIDATION ERRORS ============ */}
-            <Collapse in={showErrors && validationErrors.length > 0 && drawerState === 'configure'}>
-                <Box sx={{ px: 1.5, pt: 1 }}>
-                    <Alert severity="warning" sx={{ py: 0.25, '& .MuiAlert-message': { fontSize: '0.7rem' } }}>
-                        <AlertTitle sx={{ fontSize: '0.75rem', mb: 0.25 }}>Fix before running</AlertTitle>
-                        {validationErrors.map((err, i) => (
-                            <Typography
-                                key={i}
-                                variant="caption"
-                                sx={{
-                                    display: "block",
-                                    lineHeight: 1.5,
-                                    fontSize: '0.7rem'
-                                }}>• {err}</Typography>
-                        ))}
-                    </Alert>
-                </Box>
-            </Collapse>
+            <ValidationErrorsAlert
+                open={showErrors && validationErrors.length > 0 && drawerState === 'configure'}
+                errors={validationErrors}
+            />
             {/* ============ BODY (scrollable) ============ */}
             <Box sx={{ flex: 1, overflow: 'auto', px: 1.5, py: 1 }}>
 
@@ -882,37 +358,13 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
 
                 {/* PREVIEW: score map + tunable sliders */}
                 {drawerState === 'preview' && schema && (
-                    <>
-                        {scoreMapPng && (
-                            <Box sx={{ mb: 1.5, borderRadius: 1, overflow: 'hidden', border: `1px solid ${theme.palette.divider}` }}>
-                                <img src={`data:image/png;base64,${scoreMapPng}`} alt="Score map" style={{ width: '100%', display: 'block' }} />
-                                <Typography
-                                    variant="caption"
-                                    sx={{
-                                        color: "text.secondary",
-                                        px: 1,
-                                        py: 0.25,
-                                        display: 'block',
-                                        fontSize: '0.65rem'
-                                    }}>
-                                    Correlation map — brighter = higher match
-                                </Typography>
-                            </Box>
-                        )}
-                        <Typography
-                            variant="caption"
-                            sx={{
-                                fontWeight: 600,
-                                display: 'block',
-                                mb: 0.5,
-                                fontSize: '0.7rem'
-                            }}>
-                            Tune parameters:
-                        </Typography>
-                        <SchemaForm schema={schema} values={pickerParams} onChange={handleRetune}
-                            tunableOnly={true} defaultExpanded={['Auto-picking Settings', 'Advanced', 'Topaz']}
-                            onBrowseFile={handleBrowseFile} />
-                    </>
+                    <PreviewTunePanel
+                        scoreMapPng={scoreMapPng}
+                        schema={schema}
+                        values={pickerParams}
+                        onChange={handleRetune}
+                        onBrowseFile={handleBrowseFile}
+                    />
                 )}
 
                 {/* RUNNING */}
@@ -933,35 +385,15 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
 
                 {/* DISPATCHED — task queued via RMQ */}
                 {drawerState === 'dispatched' && (
-                    <Box sx={{ py: 3 }}>
-                        <LinearProgress
-                            variant={typeof dispatchPercent === 'number' ? 'determinate' : 'indeterminate'}
-                            value={typeof dispatchPercent === 'number' ? dispatchPercent : undefined}
-                            color={dispatchFailed ? 'error' : dispatchCompleted ? 'success' : 'primary'}
-                            sx={{ height: 6, borderRadius: 1 }}
-                        />
-                        <Typography
-                            variant="caption"
-                            sx={{
-                                color: "text.secondary",
-                                mt: 1,
-                                display: 'block'
-                            }}>
-                            <strong>{selectedBackend}</strong><br />
-                            {dispatchFailed
-                                ? `Failed: ${dispatchMessage}`
-                                : dispatchCompleted
-                                    ? 'Plugin finished. Waiting for the saved IPP record to appear.'
-                                    : dispatchMessage}
-                            {typeof dispatchPercent === 'number' ? ` (${Math.round(dispatchPercent)}%)` : ''}
-                        </Typography>
-                        <Chip
-                            size="small"
-                            variant="outlined"
-                            label={socketConnected ? 'socket live' : 'socket connecting'}
-                            sx={{ mt: 1, height: 20, fontSize: '0.68rem' }}
-                        />
-                    </Box>
+                    <DispatchStatus
+                        variant="body"
+                        selectedBackend={selectedBackend}
+                        dispatchPercent={dispatchPercent}
+                        dispatchMessage={dispatchMessage}
+                        dispatchCompleted={dispatchCompleted}
+                        dispatchFailed={dispatchFailed}
+                        socketConnected={socketConnected}
+                    />
                 )}
 
                 {/* RESULTS */}

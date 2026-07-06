@@ -6,7 +6,8 @@ import path from 'node:path';
 
 const FRONTEND = 'http://localhost:8080';
 const BACKEND = 'http://127.0.0.1:8000';
-const SANDBOX = 'C:/projects/Magellon/Sandbox/magellon_template_picker';
+const SANDBOX = process.env.MAGELLON_E2E_SANDBOX_PLUGIN
+    ?? 'C:/projects/Magellon/Sandbox/magellon_template_picker';
 const TEMPLATE_PICKER_PATH = encodeURIComponent('particle_picking/Template Picker');
 const SHOTS = path.join(process.cwd(), 'tests', 'e2e', 'screenshots');
 fs.mkdirSync(SHOTS, { recursive: true });

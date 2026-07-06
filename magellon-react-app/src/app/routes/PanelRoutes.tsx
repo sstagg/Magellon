@@ -10,10 +10,6 @@ import SettingsView from "../../pages/settings/SettingsView.tsx";
 import DashboardView from "../../pages/dashboard/DashboardView.tsx";
 import { Box, CircularProgress, Container, Typography } from "@mui/material";
 import AboutPage from "../../pages/about/AboutPage.tsx";
-import { FftTestPage } from "../../pages/dev/FftTestPage.tsx";
-import { PtolemyTestPage } from "../../pages/dev/PtolemyTestPage.tsx";
-import { TopazTestPage } from "../../pages/dev/TopazTestPage.tsx";
-import { RealtimeMockPage } from "../../pages/dev/RealtimeMockPage.tsx";
 
 import {ExportPageView} from "../../pages/export/ExportPageView.tsx";
 import PluginsPageView from "../../pages/plugins/PluginsPageView.tsx";
@@ -32,6 +28,13 @@ const ScalarApiDocs = lazy(() => import("../../pages/api-docs/ScalarApiDocs.tsx"
 const SwaggerApiDocs = lazy(() => import("../../pages/api-docs/SwaggerApiDocs.tsx"));
 const PipelineHealthPage = lazy(() => import("../../pages/admin/PipelineHealthPage.tsx"));
 const OpsLogPage = lazy(() => import("../../pages/tools/OpsLogPage.tsx"));
+
+// Dev/test pages: import.meta.env.DEV is statically replaced at build
+// time, so production bundles neither register the /dev routes nor
+// emit the DevRoutes chunk (or any page chunk it lazy-loads).
+const DevRoutes = import.meta.env.DEV
+    ? lazy(() => import("./DevRoutes.tsx"))
+    : null;
 
 const RouteFallback = () => (
     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
@@ -73,10 +76,7 @@ export const PanelRoutes = () => {
                 <Route path="/plugins/*" element={<PluginRunnerPageView />} />
                 <Route path="/artifacts/:oid" element={<ArtifactWorkflowPage />} />
                 <Route path="/test" element={<TestView />} />
-                <Route path="/dev/fft-test" element={<FftTestPage />} />
-                <Route path="/dev/ptolemy-test" element={<PtolemyTestPage />} />
-                <Route path="/dev/topaz-test" element={<TopazTestPage />} />
-                <Route path="/dev/realtime-mock" element={<RealtimeMockPage />} />
+                {DevRoutes && <Route path="/dev/*" element={<DevRoutes />} />}
                 <Route path="/admin/pipeline-health" element={<PipelineHealthPage />} />
                 <Route path="/tools/ops-log" element={<OpsLogPage />} />
                 <Route path="/settings" element={<SettingsView />} />

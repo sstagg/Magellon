@@ -254,7 +254,8 @@ export default function RoleEditDialog({
             showSnackbar('Role updated successfully', 'success');
             onSuccess();
         } catch (error) {
-            showSnackbar(`Failed to update role: ${  error.message}`, 'error');
+            const message = error instanceof Error ? error.message : String(error);
+            showSnackbar(`Failed to update role: ${message}`, 'error');
         } finally {
             setSaving(false);
         }
