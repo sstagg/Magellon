@@ -30,7 +30,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-sys_sec_permission_mgmt_router = APIRouter()
+sys_sec_permission_mgmt_router = APIRouter(
+    dependencies=[
+        Depends(get_current_user_id),
+        Depends(require_role('Administrator')),
+    ]
+)
 
 
 # ==================== ACTION PERMISSIONS ====================

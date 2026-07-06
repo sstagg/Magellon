@@ -26,7 +26,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-sys_sec_user_role_router = APIRouter()
+sys_sec_user_role_router = APIRouter(
+    dependencies=[
+        Depends(get_current_user_id),
+        Depends(require_role('Administrator')),
+    ]
+)
 
 
 @sys_sec_user_role_router.post('/', response_model=UserRoleResponseDto, status_code=201)

@@ -11,9 +11,17 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from dependencies.auth import get_current_user_id
+from dependencies.permissions import require_role
+
 logger = logging.getLogger(__name__)
 
-ops_router = APIRouter()
+ops_router = APIRouter(
+    dependencies=[
+        Depends(get_current_user_id),
+        Depends(require_role("Administrator")),
+    ]
+)
 
 
 def _log_glob() -> str:

@@ -36,7 +36,9 @@ admin_broker_router = APIRouter()
     "/health",
     summary="Magellon-domain projection of RMQ state + plugin liveness",
 )
-def get_broker_health() -> dict:
+def get_broker_health(
+    _: None = Depends(require_role("Administrator")),
+) -> dict:
     # Plain `def` (not async) so FastAPI runs this on the threadpool.
     # The service does a blocking urllib call to the RMQ Management API;
     # an `async def` here would stall the entire event loop (and every
