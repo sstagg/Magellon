@@ -166,12 +166,12 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
     }, [treeData, searchText]);
 
     // Handle item expansion
-    const handleExpandedItemsChange = (event: React.SyntheticEvent, itemIds: string[]) => {
+    const handleExpandedItemsChange = (_event: React.SyntheticEvent | null, itemIds: string[]) => {
         setExpandedItems(itemIds);
     };
 
     // Handle item selection - This is the key change to match ThumbImage behavior
-    const handleSelectedItemsChange = (event: React.SyntheticEvent, itemId: string | null) => {
+    const handleSelectedItemsChange = (_event: React.SyntheticEvent | null, itemId: string | null) => {
         setSelectedItems(itemId);
 
         // Find the selected node and trigger image click if it's an image
