@@ -3,6 +3,9 @@
 
 # Plugin runtime audit log written by append_json_to_file
 plugins/*/output_file.json
+plugins/*/.env
+plugins/*/app.log
+plugins/*/logs/
 
 .idea/
 /CoreService3/
