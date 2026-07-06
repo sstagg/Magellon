@@ -73,6 +73,7 @@ import rich.traceback
 
 from core.dev_routes import dev_routes_enabled, register_dev_routes
 from core.exception_handlers import register_exception_handlers
+from core.request_observability import register_request_observability
 from services.casbin_service import CasbinService
 from services.casbin_policy_sync_service import CasbinPolicySyncService
 from core.socketio_server import sio
@@ -190,6 +191,7 @@ app = FastAPI(
 )
 
 register_exception_handlers(app, is_production=_is_production)
+register_request_observability(app)
 
 app.add_middleware(
     CORSMiddleware,
