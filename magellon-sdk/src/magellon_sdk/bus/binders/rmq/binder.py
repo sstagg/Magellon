@@ -138,6 +138,8 @@ class _RmqSubscriptionHandle:
                 conn.add_callback_threadsafe(self._client.channel.stop_consuming)
             except Exception as e:  # noqa: BLE001
                 logger.debug("subscriber stop_consuming dispatch failed: %s", e)
+        if self._thread.is_alive():
+            self._thread.join(timeout=5)
         try:
             self._client.close_connection()
         except Exception as e:  # noqa: BLE001
