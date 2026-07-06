@@ -57,12 +57,16 @@ Use this before promoting CoreService, magellon-sdk based plugins, and the React
 
 ## CI Gates
 
-- `python scripts/check_repo_hygiene.py`
+- `python scripts/check_repo_hygiene.py` (includes secret patterns + dev-password ratchet)
+- `python scripts/refresh_sdk_wheel.py --check` (bundled plugin wheels match SDK version)
 - CoreService ruff checks
+- CoreService tests, no infra (`pytest` — must be green; `requires_db` auto-skips)
+- CoreService `requires_db` suite against a MySQL service container (security/RLS tests run for real)
 - SDK ruff checks
-- SDK tests
+- SDK tests, including the real-RabbitMQ e2e suite against a broker service container
 - React type-check
 - React lint
+- Route-table auth gate (`CoreService/tests/test_route_auth_policy.py`, part of the test suite)
 
 ## Release Smoke Checks
 

@@ -6,6 +6,9 @@ Run with: pytest tests/test_casbin_basic.py -v
 import pytest
 from services.casbin_service import CasbinService
 
+# Every test here exercises the live security schema.
+pytestmark = pytest.mark.requires_db
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_casbin():

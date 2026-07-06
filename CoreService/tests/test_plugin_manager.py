@@ -428,6 +428,7 @@ def test_set_default_writes_through_state_store():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.requires_db
 def test_replicas_classifies_recent_heartbeat_as_healthy():
     now = datetime(2026, 5, 3, 12, 0, 0, tzinfo=timezone.utc)
     fresh = _make_liveness_entry(
@@ -440,6 +441,7 @@ def test_replicas_classifies_recent_heartbeat_as_healthy():
     assert replica.status == "Healthy"
 
 
+@pytest.mark.requires_db
 def test_replicas_classifies_aged_heartbeat_as_lost():
     """Heartbeat age between healthy_window (30s) and stale_window (60s)
     means the replica missed >2× pulses but hasn't been reaped — call
@@ -454,6 +456,7 @@ def test_replicas_classifies_aged_heartbeat_as_lost():
     assert replica.status == "Lost"
 
 
+@pytest.mark.requires_db
 def test_replicas_returns_one_row_per_instance_id():
     """Three live replicas of the same plugin → three rows. Pinned
     because PM5's whole point is exposing per-instance keying — one

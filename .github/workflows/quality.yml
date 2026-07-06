@@ -14,6 +14,9 @@ jobs:
         with:
           python-version: "3.11"
       - run: python scripts/check_repo_hygiene.py
+      # Bundled plugin SDK wheels must match the SDK version — a stale
+      # wheel breaks plugin image builds at import time.
+      - run: python scripts/refresh_sdk_wheel.py --check
 
   core-ruff:
     runs-on: ubuntu-latest
@@ -39,6 +42,24 @@ jobs:
 
   sdk-tests:
     runs-on: ubuntu-latest
+    services:
+      rabbitmq:
+        image: rabbitmq:3
+        env:
+          RABBITMQ_DEFAULT_USER: rabbit
+          RABBITMQ_DEFAULT_PASS: magellon_ci
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      RABBITMQ_HOST: 127.0.0.1
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: rabbit
+      RABBITMQ_PASS: magellon_ci
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -48,6 +69,82 @@ jobs:
         working-directory: magellon-sdk
       - run: pytest
         working-directory: magellon-sdk
+      # Guard against the e2e suite silently skipping: with the broker
+      # service up, at least one real-RMQ test must have executed.
+      - name: assert real-broker e2e ran (not skipped)
+        working-directory: magellon-sdk
+        run: |
+          pytest tests/test_e2e_rabbitmq.py -q | tee /tmp/e2e.out
+          grep -Eq "[0-9]+ passed" /tmp/e2e.out || {
+            echo "::error::real-RMQ e2e suite skipped entirely — broker service misconfigured" >&2
+            exit 1
+          }
+
+  core-tests:
+    # Default suite: green with no infrastructure (requires_db and other
+    # infra-marked tests auto-skip). This is the gate a contributor's
+    # bare `pytest` matches.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: CoreService/requirements.txt
+      - name: Install deps
+        run: |
+          pip install -e magellon-sdk[rabbitmq,nats,logging,config]
+          pip install -r CoreService/requirements.txt
+          pip install pytest pytest-asyncio httpx
+      - run: pytest -q
+        working-directory: CoreService
+
+  core-db-tests:
+    # The requires_db set — mostly the security/RLS suites — must run
+    # for real somewhere on every PR, not just be skippable.
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: magellon_ci
+          MYSQL_DATABASE: magellon01
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -pmagellon_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      MAGELLON_DB_HOST: 127.0.0.1
+      MAGELLON_DB_PORT: "3306"
+      MAGELLON_DB_USER: root
+      MAGELLON_DB_PASSWORD: magellon_ci
+      MAGELLON_DB_NAME: magellon01
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: CoreService/requirements.txt
+      - name: Load schema
+        run: mysql -h 127.0.0.1 -uroot -pmagellon_ci magellon01 < CoreService/database/magellon01db.sql
+      - name: Install deps
+        run: |
+          pip install -e magellon-sdk[rabbitmq,nats,logging,config]
+          pip install -r CoreService/requirements.txt
+          pip install pytest pytest-asyncio httpx
+      - name: Run requires_db suite
+        working-directory: CoreService
+        run: |
+          pytest -m requires_db -q | tee /tmp/db.out
+          grep -Eq "[0-9]+ passed" /tmp/db.out || {
+            echo "::error::requires_db suite skipped entirely — MySQL service misconfigured" >&2
+            exit 1
+          }
 
   react-quality:
     runs-on: ubuntu-latest

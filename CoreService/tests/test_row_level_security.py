@@ -21,6 +21,9 @@ from services.security.criteria_parser_service import (
 from services.casbin_service import CasbinService
 from services.casbin_policy_sync_service import CasbinPolicySyncService
 
+# Every test here exercises the live security schema.
+pytestmark = pytest.mark.requires_db
+
 
 # ==================== CRITERIA PARSER TESTS ====================
 

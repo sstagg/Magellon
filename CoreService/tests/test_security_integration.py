@@ -32,6 +32,9 @@ from core.sqlalchemy_row_level_security import (
     get_session_filter_clause
 )
 import logging
+
+# Every test here exercises the live security schema.
+pytestmark = pytest.mark.requires_db
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 

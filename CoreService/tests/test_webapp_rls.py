@@ -15,6 +15,9 @@ from services.casbin_service import CasbinService
 from models.sqlalchemy_models import Msession, Image, SysSecUser, SysSecRole
 from database import get_db
 
+# Every test here exercises the live security schema.
+pytestmark = pytest.mark.requires_db
+
 
 WEBAPP_RLS_USERS = ("admin_test", "jack_test")
 WEBAPP_RLS_SESSION_PATTERN = "TEST_SESSION_%"

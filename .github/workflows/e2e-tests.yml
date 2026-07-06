@@ -13,7 +13,7 @@ name: e2e-tests
 #                     runs the e2e suite. Too slow (~5-min boot) to gate
 #                     every PR; the nightly run is the safety net.
 #
-# Phases 0-4 unit tests run via lint.yml's pytest job; this workflow
+# Phases 0-4 unit tests run via quality.yml (core-tests / core-db-tests);
 # covers Waves 2 + 3 (install/lifecycle/dispatch + logs/upgrade) at
 # the end-to-end seam.
 
