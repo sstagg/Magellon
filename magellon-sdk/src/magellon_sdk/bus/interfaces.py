@@ -65,9 +65,11 @@ class PatternRef(Protocol):
 # ---------------------------------------------------------------------------
 # Handler signatures
 # ---------------------------------------------------------------------------
-# Task handlers return either an Envelope (which the binder publishes
-# to the result route) or None (ack-only). Async handlers allowed —
-# binder handles the sync/async boundary.
+# Task handlers publish their results explicitly (see
+# PluginBrokerRunner); the handler's return value is ignored by the
+# binder. Async handlers are allowed — binders run the coroutine to
+# completion on the consumer thread, so exceptions classify for
+# retry/DLQ exactly like a sync handler's.
 #
 # Event handlers are fire-and-forget. Return value is ignored.
 
@@ -152,8 +154,8 @@ class TasksBus(Protocol):
               self._handle = bus.tasks.consumer(route, self._handle_task)
 
         Handler semantics:
-        - return ``Envelope`` → binder publishes to the result route
-        - return ``None`` → ack only
+        - return value is ignored — publish results explicitly
+        - normal return → ack
         - raise → :func:`classify_exception` picks ACK / REQUEUE / DLQ
         """
         ...

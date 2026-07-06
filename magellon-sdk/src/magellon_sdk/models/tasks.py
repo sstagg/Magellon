@@ -7,7 +7,7 @@ place.
 
 Plugin-specific task-data subclasses (e.g. a plugin's own input schema)
 should still live in the plugin — subclass :class:`CryoEmImageTaskData`
-and pair it with a :class:`TaskDto` subclass as :class:`FftTask` /
+and pair it with a :class:`TaskMessage` subclass as :class:`FftTask` /
 :class:`CtfTask` below do.
 """
 from __future__ import annotations
@@ -94,8 +94,8 @@ class TaskMessage(TaskBase):
 
     Wraps a category-shaped ``data`` payload with routing-time metadata
     (``job_id``, ``type``, ``status``, optional ``target_backend``).
-    Pre-1.3 callers know it as ``TaskDto`` — the alias at the bottom
-    of this module keeps that name working through 1.x.
+    Pre-1.3 callers knew it as ``TaskDto``; that alias was removed in
+    2.0 (see CHANGELOG).
     """
 
     job_id: Optional[UUID] = Field(default_factory=uuid4)

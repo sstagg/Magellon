@@ -1,6 +1,6 @@
 # magellon-sdk — Public Contract
 
-**Status:** 1.2.0, 2026-04-17. Companion to `Documentation/UNIFIED_PLATFORM_PLAN.md`.
+**Status:** 2.5.0, 2026-07-06. Companion to `Documentation/UNIFIED_PLATFORM_PLAN.md`.
 **Audience:** Plugin authors (what you can rely on), SDK maintainers (what you can change).
 **Rule in one line:** *Public surface breaks only on a major version bump. Everything not in §2 is internal; change at will.*
 
@@ -10,7 +10,7 @@
 
 Plugin authors need to know which imports are stable and which will shift between releases. SDK maintainers need a clear line between "promised" and "internal" so internal churn doesn't freeze the whole codebase. This document draws that line and is the authoritative source of truth — `pyproject.toml` version is just a tag, what's in §2 is the actual contract.
 
-The hub vision (see `Documentation/UNIFIED_PLATFORM_PLAN.md` phase H) depends on stability here. A third-party plugin shipped through the hub pins `magellon-sdk>=1.0,<2.0`; that pin is worthless if the shapes under §2 drift inside a major version.
+The hub vision (see `Documentation/UNIFIED_PLATFORM_PLAN.md` phase H) depends on stability here. A third-party plugin shipped through the hub pins `magellon-sdk>=2.0,<3.0`; that pin is worthless if the shapes under §2 drift inside a major version.
 
 ---
 
@@ -73,8 +73,8 @@ from magellon_sdk.logging_config import setup_logging
 
 # Plugin archive format (1.2+) — manifest shape for .mpn archives
 from magellon_sdk.archive import (
-    PluginArchiveManifest, ArchiveImage, ArchiveInstallDefaults,
-    ArchiveVolumeSpec, load_manifest_bytes, load_manifest_yaml,
+    PluginArchiveManifest, InstallSpec, HealthCheckSpec, UISpec,
+    load_manifest_bytes, load_manifest_yaml,
     check_sdk_compat, SchemaVersionError, SdkCompatError,
 )
 
@@ -91,7 +91,7 @@ For every Pydantic class in §2.1:
 - **Field names, types, and defaults are part of the contract.** Renaming or retyping is a major-version break.
 - **Required fields stay required.** Making a required field optional is non-breaking; the reverse is not.
 - **Field ordering is NOT part of the contract.** Plugins using positional args: you're on your own.
-- **Extra fields are ignored by default** (Pydantic's `extra="ignore"`). Plugins can safely read newer-than-expected DTOs.
+- **Extra fields are ignored by default** (Pydantic's `extra="ignore"`). Plugins can safely read newer-than-expected DTOs. Exception: `CryoEmImageInput` uses `extra="allow"` so plugin-specific tuning keys pass through validation — see the model's docstring.
 
 ### 2.3 Method signature guarantees
 
@@ -109,7 +109,7 @@ For every class in §2.1:
 - Step event routing keys (RMQ form — drops the `magellon.` prefix): `job.<job_id>.step.<step>`.
 - Discovery subjects: `magellon.plugins.announce.<category>.<plugin_id>` and `magellon.plugins.heartbeat.<category>.<plugin_id>`.
 
-These strings are part of the contract. Cross-implementation plugins bind to these; we can't rename them inside a major. The per-impl suffix is an additive extension, not a replacement — both shapes are promised stable within 1.x.
+These strings are part of the contract. Cross-implementation plugins bind to these; we can't rename them inside a major. The per-impl suffix is an additive extension, not a replacement — both shapes are promised stable within the current major.
 
 ### 2.5 CloudEvents envelope shape
 
@@ -137,11 +137,11 @@ Anything importable today that's not in §2 is a **happy accident**, not a promi
 
 ## 4. SemVer policy
 
-- **MAJOR** (1.x.y → 2.0.0): breaking change to anything in §2.
-- **MINOR** (1.x.y → 1.x+1.0): new public API additions, fully backward-compatible. Optional parameters. New Pydantic fields with defaults. New modules.
-- **PATCH** (1.x.y → 1.x.y+1): bug fixes that don't change observable behavior on the public surface. Internal refactors. Performance improvements.
+- **MAJOR** (x.y.z → x+1.0.0): breaking change to anything in §2. (2.0 removed the `TaskDto` alias in favor of `TaskMessage`; see CHANGELOG.)
+- **MINOR** (x.y.z → x.y+1.0): new public API additions, fully backward-compatible. Optional parameters. New Pydantic fields with defaults. New modules.
+- **PATCH** (x.y.z → x.y.z+1): bug fixes that don't change observable behavior on the public surface. Internal refactors. Performance improvements.
 
-**CoreService's SDK pin:** `magellon-sdk>=1.0,<2.0`. Plugins ship with the same pin. CoreService refuses to dispatch to a plugin whose announced manifest declares a SemVer-incompatible SDK (enforcement is an H-tier deliverable; policy is locked now).
+**CoreService's SDK pin:** `magellon-sdk>=2.0,<3.0`. Plugins ship with the same pin. CoreService refuses to dispatch to a plugin whose announced manifest declares a SemVer-incompatible SDK (enforcement is an H-tier deliverable; policy is locked now).
 
 ---
 
@@ -154,7 +154,7 @@ Breaking changes inside a major aren't allowed. To evolve the contract without c
 3. **Keep the old shape for ≥1 minor cycle.** Gives plugin authors time to migrate.
 4. **Remove on the next major bump.** Not before.
 
-Example: post-1.0, renaming a field like `TaskBase.session_id` would require adding the new name as an alias, raising `DeprecationWarning` on the old accessor, and keeping both through all of `1.x` — removing the old name only in `2.0`. (Pre-1.0 we took the cheaper path; see §6.)
+Example: post-1.0, renaming a field like `TaskBase.session_id` would require adding the new name as an alias, raising `DeprecationWarning` on the old accessor, and keeping both through the rest of the major — removing the old name only in the next major. (Pre-1.0 we took the cheaper path; see §6.)
 
 ---
 
@@ -192,7 +192,7 @@ Kept the names un-prefixed (`DiscoveryPublisher`, `HeartbeatLoop`, `ConfigSubscr
 
 ## 7. Plugin archive format (`.mpn`, added 1.2)
 
-Authored via the `magellon-sdk plugin` CLI. Zip with a top-level `plugin.yaml` (required) and optional `README.md`. Field shapes are versioned separately via `schema_version` — bump on breaking changes. `schema_version: 1` readers are promised stable within 1.x.
+Authored via the `magellon-sdk plugin` CLI. Zip with a top-level `plugin.yaml` (required) and optional `README.md`. Field shapes are versioned separately via `schema_version` — bump on breaking changes. `schema_version: 1` readers are promised stable within the current major.
 
 Required fields (`schema_version: 1`):
 
@@ -200,7 +200,7 @@ Required fields (`schema_version: 1`):
 - `name` — human display name.
 - `version` — plugin version (SemVer recommended).
 - `category` — lowercase Magellon category (`fft`, `ctf`, `motioncor`, `pp`, ...).
-- `sdk_compat` — version specifier string, comma-separated clauses using `>=`, `<=`, `>`, `<`, `==`, `!=`. Example: `">=1.0,<2.0"`. `POST /plugins/install/archive` hard-rejects archives whose pin excludes the running CoreService SDK.
+- `sdk_compat` — version specifier string, comma-separated clauses using `>=`, `<=`, `>`, `<`, `==`, `!=`. Example: `">=2.0,<3.0"`. `POST /plugins/install/archive` hard-rejects archives whose pin excludes the running CoreService SDK.
 - `image.ref` — Docker image reference. Archive does **not** ship the image payload (that's an H3 follow-up); CoreService pulls from the registry named here.
 
 Optional fields:

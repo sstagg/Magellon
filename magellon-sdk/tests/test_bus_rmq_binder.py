@@ -287,18 +287,14 @@ def test_publish_task_no_audit_when_route_not_in_scope(tmp_path, mock_client):
 
 def _invoke_consumer_callback(binder, route, policy, handler):
     """Register a consumer and return the pika callback (the fn passed
-    to client.consume), plus a factory for (ch, method, properties)
-    tuples so tests can drive the callback manually."""
-    client = None
-    # Capture the created consumer client so we can grab the callback.
+    to channel.basic_consume), plus the consumer client so tests can
+    drive the callback manually."""
     # binder.consume_tasks constructs a new RabbitmqClient; the mock
     # fixture returns a fresh MagicMock each time.
     binder.consume_tasks(route, handler, policy)
-    # The LAST client RabbitmqClient instance (from mock_client.side_effect)
-    # is the consumer client. Pull it from its .consume call args.
     handle = binder._consumer_handles[-1]
     client = handle._client
-    callback = client.consume.call_args[0][1]
+    callback = client.channel.basic_consume.call_args.kwargs["on_message_callback"]
     return callback, client
 
 
@@ -354,6 +350,10 @@ def test_consume_callback_handles_legacy_body_without_ce_headers(binder):
 
 
 def test_consume_callback_requeues_retryable_error(binder):
+    """REQUEUE = republish with an incremented x-magellon-redelivery
+    header + ack of the original — the honest count that makes the
+    retry ceiling real on RMQ (nack(requeue=True) only carries a
+    boolean redelivered flag)."""
     def handler(env):
         raise RetryableError("nfs blip")
 
@@ -363,7 +363,10 @@ def test_consume_callback_requeues_retryable_error(binder):
     ch, method, props = _ch_method_props(headers=_ce_headers())
     callback(ch, method, props, b'{}')
 
-    ch.basic_nack.assert_called_once_with(delivery_tag=method.delivery_tag, requeue=True)
+    republished = ch.basic_publish.call_args
+    assert republished.kwargs["properties"].headers["x-magellon-redelivery"] == 1
+    ch.basic_ack.assert_called_once_with(delivery_tag=method.delivery_tag)
+    ch.basic_nack.assert_not_called()
 
 
 def test_consume_callback_dlqs_permanent_error(binder):
@@ -380,7 +383,8 @@ def test_consume_callback_dlqs_permanent_error(binder):
 
 
 def test_consume_callback_reads_magellon_redelivery_header(binder):
-    """x-magellon-redelivery overrides the pika redelivered boolean."""
+    """x-magellon-redelivery overrides the pika redelivered boolean:
+    a requeue after count 5 republishes with count 6."""
 
     def handler(env):
         raise RetryableError("blip")
@@ -392,7 +396,9 @@ def test_consume_callback_reads_magellon_redelivery_header(binder):
     headers = {**_ce_headers(), "x-magellon-redelivery": 5}
     ch, method, props = _ch_method_props(headers=headers)
     callback(ch, method, props, b'{}')
-    ch.basic_nack.assert_called_once()
+    republished = ch.basic_publish.call_args
+    assert republished.kwargs["properties"].headers["x-magellon-redelivery"] == 6
+    ch.basic_ack.assert_called_once()
 
 
 # -- purge_tasks ----------------------------------------------------------
@@ -468,10 +474,17 @@ def test_publish_event_routes_config_broadcast_on_plugins_exchange(binder):
 
 # -- RPC ------------------------------------------------------------------
 
-def test_call_rpc_publishes_with_reply_to_and_correlation_id(binder):
+def test_call_rpc_publishes_with_reply_to_and_correlation_id(binder, mock_client):
+    """call_rpc uses a dedicated per-call connection (thread safety),
+    so the prepared mock is what the next RabbitmqClient() returns."""
     route = RpcRoute.for_backend(CTF, "ctffind4")
-    binder._client.channel.queue_declare.return_value.method.queue = "amq.reply"
     callback_holder = {}
+
+    rpc_client = MagicMock()
+    rpc_client.connection = MagicMock()
+    rpc_client.connection.is_closed = False
+    rpc_client.channel = MagicMock()
+    rpc_client.channel.queue_declare.return_value.method.queue = "amq.reply"
 
     def basic_consume(**kwargs):
         callback_holder["callback"] = kwargs["on_message_callback"]
@@ -483,24 +496,26 @@ def test_call_rpc_publishes_with_reply_to_and_correlation_id(binder):
         props.content_type = "application/json"
         props.correlation_id = str(request.id)
         callback_holder["callback"](
-            binder._client.channel,
+            rpc_client.channel,
             MagicMock(delivery_tag=99),
             props,
             b'{"ok": true}',
         )
 
-    binder._client.channel.basic_consume.side_effect = basic_consume
-    binder._client.connection.process_data_events.side_effect = process_data_events
+    rpc_client.channel.basic_consume.side_effect = basic_consume
+    rpc_client.connection.process_data_events.side_effect = process_data_events
+    mock_client.side_effect = lambda *a, **k: rpc_client
     request = _env({"probe": "schema"})
 
     response = binder.call_rpc(route, request, timeout=1.0)
 
     assert response.data == {"ok": True}
-    publish = binder._client.channel.basic_publish.call_args
+    publish = rpc_client.channel.basic_publish.call_args
     assert publish.kwargs["routing_key"] == route.subject
     props = publish.kwargs["properties"]
     assert props.reply_to == "amq.reply"
     assert props.correlation_id == str(request.id)
+    rpc_client.close_connection.assert_called_once()
 
 
 def test_respond_rpc_publishes_reply_and_acks(binder):
@@ -512,7 +527,7 @@ def test_respond_rpc_publishes_reply_and_acks(binder):
     binder.respond_rpc(route, handler, policy=RpcPolicy())
     handle = binder._consumer_handles[-1]
     client = handle._client
-    callback = client.consume.call_args[0][1]
+    callback = client.channel.basic_consume.call_args.kwargs["on_message_callback"]
 
     ch, method, props = _ch_method_props(headers=_ce_headers())
     props.reply_to = "amq.reply"

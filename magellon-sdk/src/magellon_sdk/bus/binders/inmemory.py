@@ -30,6 +30,7 @@ target.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import queue
@@ -432,14 +433,14 @@ class InMemoryBinder:
         try:
             envelope = _envelope_from_delivery(delivery)
             result = handler(envelope)
-            # If the handler returned an awaitable, the in-memory binder
-            # doesn't drive an event loop — log and move on (matches
-            # RmqBinder behavior).
-            if result is not None and hasattr(result, "__await__"):
-                logger.debug(
-                    "InMemoryBinder: handler returned awaitable on %s; dropping",
-                    delivery.subject,
-                )
+            # Async handlers run to completion so their exceptions
+            # classify like a sync handler's (matches RmqBinder).
+            if asyncio.iscoroutine(result):
+                asyncio.run(result)
+            elif result is not None and hasattr(result, "__await__"):
+                async def _drive():
+                    return await result
+                asyncio.run(_drive())
             # Success → ack (nothing to do in memory; removal from queue already happened)
         except Exception as exc:
             cls = classify_exception(

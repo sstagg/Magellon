@@ -31,9 +31,11 @@ stays lossless for the transition.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
@@ -74,20 +76,45 @@ logger = logging.getLogger(__name__)
 # Handles
 # ---------------------------------------------------------------------------
 
+#: Reconnect backoff bounds for consumer loops (seconds).
+_RECONNECT_BACKOFF_INITIAL = 1.0
+_RECONNECT_BACKOFF_MAX = 60.0
+
+
 class _RmqConsumerHandle:
     """:class:`ConsumerHandle` over a pika BlockingConnection.
 
     ``run_until_shutdown`` calls ``start_consuming`` on the calling
-    thread; ``close`` signals ``stop_consuming`` (via
-    ``add_callback_threadsafe``) so the blocking loop returns.
+    thread and — unlike a bare pika loop — survives broker drops: when
+    the connection dies it reconnects with capped exponential backoff
+    and re-runs the ``setup`` closure (queue declare, qos,
+    basic_consume) before resuming. ``close`` signals
+    ``stop_consuming`` (via ``add_callback_threadsafe``) so the
+    blocking loop returns and the reconnect loop exits.
+
+    ``healthy`` is ``False`` while the consumer is disconnected and
+    trying to reconnect, so runners can surface a degraded state
+    instead of reporting a zombie consumer as OK.
     """
 
     def __init__(
-        self, client: RabbitmqClient, binder: "RmqBinder"
+        self,
+        client: RabbitmqClient,
+        binder: "RmqBinder",
+        setup: Callable[[RabbitmqClient], None],
+        description: str,
     ) -> None:
         self._client = client
         self._binder = binder
+        self._setup = setup
+        self._description = description
         self._stopped = threading.Event()
+        self._healthy = True
+
+    @property
+    def healthy(self) -> bool:
+        """True when connected and consuming (or not yet started)."""
+        return self._healthy
 
     def close(self) -> None:
         if self._stopped.is_set():
@@ -106,11 +133,51 @@ class _RmqConsumerHandle:
         self._binder._forget_consumer(self)
 
     def run_until_shutdown(self) -> None:
-        try:
-            self._client.start_consuming()
-        except Exception as e:  # noqa: BLE001
-            if not self._stopped.is_set():
-                logger.warning("consume loop exited unexpectedly: %s", e)
+        backoff = _RECONNECT_BACKOFF_INITIAL
+        while not self._stopped.is_set():
+            try:
+                self._client.start_consuming()
+                if self._stopped.is_set():
+                    break
+                # start_consuming returned without close() — broker
+                # cancelled us (queue deleted, forced disconnect).
+                # Treat like a drop and reconnect.
+                logger.warning(
+                    "consume loop for %s returned unexpectedly — reconnecting",
+                    self._description,
+                )
+            except Exception as e:  # noqa: BLE001
+                if self._stopped.is_set():
+                    break
+                logger.warning(
+                    "consume loop for %s dropped (%s: %s) — reconnecting",
+                    self._description, type(e).__name__, e,
+                )
+
+            self._healthy = False
+            while not self._stopped.is_set():
+                # Event.wait doubles as an interruptible sleep so close()
+                # never waits out a full backoff window.
+                if self._stopped.wait(backoff):
+                    break
+                try:
+                    try:
+                        self._client.close_connection()
+                    except Exception:  # noqa: BLE001 — half-dead conn
+                        pass
+                    self._client.connect()
+                    self._setup(self._client)
+                    self._healthy = True
+                    logger.info("consumer for %s reconnected", self._description)
+                    backoff = _RECONNECT_BACKOFF_INITIAL
+                    break
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(
+                        "reconnect for %s failed (%s) — next attempt in %.0fs",
+                        self._description, e, min(backoff * 2, _RECONNECT_BACKOFF_MAX),
+                    )
+                    backoff = min(backoff * 2, _RECONNECT_BACKOFF_MAX)
+        self._healthy = False
 
 
 class _RmqSubscriptionHandle:
@@ -290,14 +357,6 @@ class RmqBinder:
         self._require_started()
         queue_name = self._resolve_queue(route)
 
-        # New client so start_consuming can block a dedicated thread
-        # without freezing the binder's publish channel.
-        client = RabbitmqClient(self._settings)
-        client.connect()
-        client.declare_queue(queue_name)
-        if policy.prefetch is not None:
-            client.channel.basic_qos(prefetch_count=policy.prefetch)
-
         def _callback(ch, method, properties, body):
             redelivery_count = _redelivery_count(method, properties)
             try:
@@ -314,15 +373,39 @@ class RmqBinder:
                     cls.reason,
                 )
                 if cls.action is AckAction.REQUEUE:
-                    ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
+                    # Republish with an incremented redelivery header +
+                    # ack the original. basic_nack(requeue=True) would
+                    # lose the count (RMQ only carries a boolean
+                    # `redelivered` flag), so the untyped-exception
+                    # retry ceiling could never trigger and poison
+                    # messages would hot-loop forever.
+                    _requeue_with_count(
+                        ch, method, properties, body,
+                        queue_name=queue_name,
+                        redelivery_count=redelivery_count,
+                        retry_after_seconds=cls.retry_after_seconds,
+                    )
                 else:
                     # ACK or DLQ both nack-no-requeue; DLQ topology (if
                     # configured on the queue) routes to the dead-letter
                     # exchange.
                     ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
-        client.consume(queue_name, _callback)
-        handle = _RmqConsumerHandle(client, self)
+        def _setup(client: RabbitmqClient) -> None:
+            client.declare_queue(queue_name)
+            if policy.prefetch is not None:
+                client.channel.basic_qos(prefetch_count=policy.prefetch)
+            client.channel.basic_consume(
+                queue=queue_name, on_message_callback=_callback
+            )
+
+        # New client so start_consuming can block a dedicated thread
+        # without freezing the binder's publish channel.
+        client = RabbitmqClient(self._settings)
+        client.connect()
+        _setup(client)
+
+        handle = _RmqConsumerHandle(client, self, _setup, f"tasks:{queue_name}")
         with self._lock:
             self._consumer_handles.append(handle)
         return handle
@@ -450,54 +533,63 @@ class RmqBinder:
     # -- RPC ---------------------------------------------------------------
 
     def call_rpc(self, route: RouteRef, envelope: Envelope, timeout: float) -> Envelope:
+        """Blocking request/response over a **dedicated connection**.
+
+        Pika's BlockingConnection is not thread-safe. The old
+        implementation shared the binder's publish connection and
+        busy-polled ``process_data_events`` on it without taking
+        ``_publish_lock`` — a concurrent ``publish_task`` from another
+        thread could corrupt the connection. A per-call connection is
+        fully isolated (RPC is rare; connection setup is milliseconds)
+        and cleans itself up on every path.
+        """
         self._require_started()
         queue_name = self._resolve_queue(route)
         body = _body_from_envelope(envelope)
         response: Dict[str, Envelope] = {}
         correlation_id = str(envelope.id)
 
-        decl = self._client.channel.queue_declare(
-            queue="", exclusive=True, auto_delete=True
-        )
-        reply_queue = decl.method.queue
-
-        def _on_response(ch, method, properties, resp_body):
-            if getattr(properties, "correlation_id", None) != correlation_id:
-                ch.basic_ack(delivery_tag=method.delivery_tag)
-                return
-            response["envelope"] = _reconstruct_envelope(resp_body, properties)
-            ch.basic_ack(delivery_tag=method.delivery_tag)
-
-        consumer_tag = self._client.channel.basic_consume(
-            queue=reply_queue,
-            on_message_callback=_on_response,
-            auto_ack=False,
-        )
-        properties = _ce_properties(envelope)
-        properties.reply_to = reply_queue
-        properties.correlation_id = correlation_id
-        self._client.declare_queue(queue_name)
-        self._client.channel.basic_publish(
-            exchange="",
-            routing_key=queue_name,
-            body=body,
-            properties=properties,
-        )
-
-        deadline = datetime.now(timezone.utc).timestamp() + timeout
-        while "envelope" not in response:
-            if datetime.now(timezone.utc).timestamp() >= deadline:
-                try:
-                    self._client.channel.basic_cancel(consumer_tag)
-                except Exception:  # noqa: BLE001
-                    pass
-                raise TimeoutError(f"RPC call to {route.subject!r} timed out after {timeout}s")
-            self._client.connection.process_data_events(time_limit=0.05)
+        client = RabbitmqClient(self._settings)
+        client.connect()
         try:
-            self._client.channel.basic_cancel(consumer_tag)
-        except Exception:  # noqa: BLE001
-            pass
-        return response["envelope"]
+            decl = client.channel.queue_declare(
+                queue="", exclusive=True, auto_delete=True
+            )
+            reply_queue = decl.method.queue
+
+            def _on_response(ch, method, properties, resp_body):
+                if getattr(properties, "correlation_id", None) != correlation_id:
+                    ch.basic_ack(delivery_tag=method.delivery_tag)
+                    return
+                response["envelope"] = _reconstruct_envelope(resp_body, properties)
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+
+            client.channel.basic_consume(
+                queue=reply_queue,
+                on_message_callback=_on_response,
+                auto_ack=False,
+            )
+            properties = _ce_properties(envelope)
+            properties.reply_to = reply_queue
+            properties.correlation_id = correlation_id
+            client.declare_queue(queue_name)
+            client.channel.basic_publish(
+                exchange="",
+                routing_key=queue_name,
+                body=body,
+                properties=properties,
+            )
+
+            deadline = datetime.now(timezone.utc).timestamp() + timeout
+            while "envelope" not in response:
+                if datetime.now(timezone.utc).timestamp() >= deadline:
+                    raise TimeoutError(
+                        f"RPC call to {route.subject!r} timed out after {timeout}s"
+                    )
+                client.connection.process_data_events(time_limit=0.05)
+            return response["envelope"]
+        finally:
+            client.close_connection()
 
     def respond_rpc(
         self,
@@ -508,18 +600,12 @@ class RmqBinder:
         self._require_started()
         queue_name = self._resolve_queue(route)
 
-        client = RabbitmqClient(self._settings)
-        client.connect()
-        client.declare_queue(queue_name)
-        if policy.prefetch is not None:
-            client.channel.basic_qos(prefetch_count=policy.prefetch)
-
         def _callback(ch, method, properties, body):
             try:
                 request = _reconstruct_envelope(body, properties)
                 result = handler(request)
-                if result is not None and hasattr(result, "__await__"):
-                    raise RuntimeError("RmqBinder does not await async RPC handlers")
+                if asyncio.iscoroutine(result):
+                    result = asyncio.run(result)
                 reply_to = getattr(properties, "reply_to", None)
                 if reply_to:
                     reply_props = _ce_properties(result)
@@ -535,8 +621,18 @@ class RmqBinder:
                 logger.exception("RPC responder failed on %s", queue_name)
                 ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
-        client.consume(queue_name, _callback)
-        handle = _RmqConsumerHandle(client, self)
+        def _setup(client: RabbitmqClient) -> None:
+            client.declare_queue(queue_name)
+            if policy.prefetch is not None:
+                client.channel.basic_qos(prefetch_count=policy.prefetch)
+            client.channel.basic_consume(
+                queue=queue_name, on_message_callback=_callback
+            )
+
+        client = RabbitmqClient(self._settings)
+        client.connect()
+        _setup(client)
+        handle = _RmqConsumerHandle(client, self, _setup, f"rpc:{queue_name}")
         with self._lock:
             self._consumer_handles.append(handle)
         return handle
@@ -568,22 +664,87 @@ class RmqBinder:
 # Helpers
 # ---------------------------------------------------------------------------
 
+_REDELIVERY_HEADER = "x-magellon-redelivery"
+
+#: Cap on how long the consumer thread will honor a RetryableError's
+#: retry_after_seconds hint before republishing. Sleeping happens on the
+#: consumer thread, so an unbounded hint could stall the whole queue.
+_MAX_RETRY_DELAY_S = 30.0
+
+
 def _redelivery_count(method: Any, properties: Any) -> int:
     """Read the redelivery count from AMQP headers.
 
-    Today's code passes ``int(method.redelivered)`` — a boolean — as
-    the count. MB4 flips this to an honest integer in a pika header
-    (``x-magellon-redelivery``) managed by the binder. For MB2 we
-    honor that header if present and fall back to the boolean.
+    The requeue path republishes with an incremented
+    ``x-magellon-redelivery`` header (see :func:`_requeue_with_count`),
+    so the count is an honest integer. Legacy messages that arrived via
+    a raw ``basic_nack(requeue=True)`` only carry the boolean
+    ``redelivered`` flag — fall back to that.
     """
     if properties is not None and properties.headers:
-        value = properties.headers.get("x-magellon-redelivery")
+        value = properties.headers.get(_REDELIVERY_HEADER)
         if value is not None:
             try:
                 return int(value)
             except (TypeError, ValueError):
                 pass
     return int(bool(getattr(method, "redelivered", False)))
+
+
+def _requeue_with_count(
+    ch: Any,
+    method: Any,
+    properties: Any,
+    body: bytes,
+    *,
+    queue_name: str,
+    redelivery_count: int,
+    retry_after_seconds: Optional[float] = None,
+) -> None:
+    """Requeue by republishing with ``x-magellon-redelivery`` + 1, then
+    acking the original delivery.
+
+    This is what makes the untyped-exception retry ceiling real on
+    RabbitMQ: ``basic_nack(requeue=True)`` redelivers with only a
+    boolean flag, pinning the observable count at 1 forever. Semantics
+    stay at-least-once — a crash between publish and ack duplicates the
+    message, exactly like a crash before a plain nack would.
+
+    ``retry_after_seconds`` (a RetryableError hint) is honored with a
+    bounded sleep on the consumer thread; without it the republish is
+    immediate, matching the old nack behavior.
+    """
+    if retry_after_seconds and retry_after_seconds > 0:
+        time.sleep(min(float(retry_after_seconds), _MAX_RETRY_DELAY_S))
+
+    headers: Dict[str, Any] = {}
+    content_type = None
+    if properties is not None:
+        headers = dict(properties.headers or {})
+        content_type = properties.content_type
+    headers[_REDELIVERY_HEADER] = redelivery_count + 1
+
+    try:
+        ch.basic_publish(
+            exchange="",
+            routing_key=queue_name,
+            body=body,
+            properties=pika.BasicProperties(
+                delivery_mode=2,
+                content_type=content_type,
+                headers=headers,
+            ),
+        )
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+    except Exception as e:  # noqa: BLE001
+        # Republish failed (connection dropping?) — fall back to a raw
+        # nack so the message is never lost; the count stalls for this
+        # hop but at-least-once delivery is preserved.
+        logger.warning(
+            "requeue republish on %s failed (%s); falling back to basic_nack",
+            queue_name, e,
+        )
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
 
 
 # ---------------------------------------------------------------------------
@@ -686,18 +847,22 @@ def _parse_ce_time(value: Any) -> datetime:
 
 
 def _invoke(handler: Callable, envelope: Envelope) -> None:
-    """Invoke a handler, dropping awaitable returns.
+    """Invoke a handler; async handlers are run to completion.
 
-    Sync handlers are first-class. Async handlers are accepted but
-    the coroutine is not awaited — the binder is pika-sync and
-    wiring an asyncio loop here is out of MB2 scope. MB4 revisits
-    if any plugin actually needs async at the handler level.
+    Sync handlers are first-class. An async handler's coroutine is
+    executed with :func:`asyncio.run` on the consumer thread (which has
+    no running loop), so its exceptions classify for retry/DLQ exactly
+    like a sync handler's. Previously the coroutine was silently
+    dropped and the delivery acked as success — a data-loss footgun.
     """
     result = handler(envelope)
-    if result is not None and hasattr(result, "__await__"):
-        logger.debug(
-            "RmqBinder: handler returned an awaitable; not awaiting (MB2 limitation)"
-        )
+    if asyncio.iscoroutine(result):
+        asyncio.run(result)
+    elif result is not None and hasattr(result, "__await__"):
+        # Non-coroutine awaitable (rare) — drive it on a fresh loop too.
+        async def _drive():
+            return await result
+        asyncio.run(_drive())
 
 
 __all__ = ["RmqBinder"]

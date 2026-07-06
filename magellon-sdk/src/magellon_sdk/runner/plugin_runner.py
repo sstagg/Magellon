@@ -8,10 +8,10 @@ caller-supplied ``in_queue`` / ``out_queue`` strings become
 and the binder behind the bus (RMQ in production, InMemory in tests)
 handles the transport.
 
-Discovery (announce + heartbeat) and config subscription still run
-against a direct pika connection — those migrate to ``bus.events`` in
-MB5. For now the runner needs both an RMQ-compatible ``settings``
-object (for discovery/config) and a bus (for task I/O).
+Discovery (announce + heartbeat, MB5.1) and config subscription
+(MB5.2) also ride ``bus.events`` now. The RMQ-compatible ``settings``
+object remains in the constructor signature for backward compatibility
+and for auto-installing an RmqBus when no bus was set up explicitly.
 
 The constructor signature is unchanged for backward compatibility —
 every existing plugin's ``main.py`` keeps working. New callers that
@@ -82,8 +82,8 @@ class PluginBrokerRunner:
     settings :
         RMQ settings duck-typed object — needs ``HOST_NAME``,
         ``USER_NAME``, ``PASSWORD``, optional ``PORT`` / ``VIRTUAL_HOST``.
-        Used by discovery + config subscriber, which still run
-        against a direct pika connection (MB5 migrates them to the bus).
+        Used to auto-install an RmqBus when none was installed
+        explicitly; discovery + config ride the bus (MB5.1/MB5.2).
     in_queue :
         Queue name / subject the plugin consumes ``TaskMessage`` deliveries
         from. Becomes ``TaskRoute.named(in_queue)`` on the bus.
@@ -439,14 +439,30 @@ class PluginBrokerRunner:
                 self.plugin.get_info().name,
             )
 
+    @property
+    def consumer_healthy(self) -> bool:
+        """True while the task consumer is connected and consuming.
+
+        Goes ``False`` when the broker connection dropped and the
+        binder is reconnecting with backoff. Plugin ``/health``
+        endpoints should surface this so a reconnecting consumer
+        reports degraded instead of OK.
+        """
+        handle = self._task_handle
+        if handle is None:
+            return False
+        return bool(getattr(handle, "healthy", True))
+
     def start_blocking(self) -> None:
         """Register the task consumer on the bus + run until shutdown.
 
-        Reconnect is the binder's concern now; this method trusts the
-        bus to keep the consumer alive across transient broker
-        blips. Discovery / config still open their own pika
-        connections and have independent reconnect behavior (MB5
-        folds them into the bus).
+        Reconnect is the binder's concern: the RMQ consumer handle
+        survives broker drops by reconnecting with capped backoff and
+        re-registering the consumer (see ``_RmqConsumerHandle``).
+        While disconnected, :attr:`consumer_healthy` is ``False``.
+        Discovery / config still open their own pika connections and
+        have independent reconnect behavior (MB5 folds them into the
+        bus).
         """
         bus = self._require_bus()
         self._task_handle = bus.tasks.consumer(

@@ -5,7 +5,7 @@
 # bumping any pin.
 #
 # Magellon Plugin SDK — shared rabbitmq / logging / bootstrap / events helpers.
-./wheels/magellon_sdk-2.4.0-py3-none-any.whl[rabbitmq,nats,logging,config]
+./wheels/magellon_sdk-2.5.0-py3-none-any.whl[rabbitmq,nats,logging,config]
 
 fastapi
 uvicorn

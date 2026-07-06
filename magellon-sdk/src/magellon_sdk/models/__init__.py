@@ -6,7 +6,9 @@ Organized into submodules so the surface area stays navigable:
 - :mod:`.tasks`  — task envelope, task-data DTOs, result shapes, constants
 
 Everything exported from either submodule is re-exported here, so
-``from magellon_sdk.models import PluginInfo, TaskDto`` keeps working.
+``from magellon_sdk.models import PluginInfo, TaskMessage`` keeps
+working. (The pre-2.0 ``TaskDto`` alias was removed in 2.0 — see
+CHANGELOG.)
 """
 from magellon_sdk.models.artifact import Artifact, ArtifactKind
 from magellon_sdk.models.conditions import Condition, ConditionStatus, ConditionType

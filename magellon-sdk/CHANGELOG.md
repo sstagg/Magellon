@@ -11,6 +11,56 @@ Version pattern follows SemVer as defined in `CONTRACT.md` §4.
 
 ---
 
+## 2.5.0 — 2026-07-06
+
+**Minor.** Broker-robustness release: makes the runtime honor what the
+docs already promised. No wire-shape changes.
+
+### Fixed
+
+- **RMQ consumers reconnect after broker drops.** `_RmqConsumerHandle`
+  now survives a RabbitMQ restart: it reconnects with capped
+  exponential backoff and re-registers the consumer (queue declare,
+  qos, `basic_consume`). Previously the consume loop exited once and
+  the plugin became a zombie behind a green `/health`.
+- **Poison-message retry ceiling works on real RabbitMQ.** The REQUEUE
+  path republishes with an incremented `x-magellon-redelivery` header
+  (+ ack of the original) instead of `basic_nack(requeue=True)`, which
+  only carries a boolean flag and pinned the observable count at 1 —
+  untyped-exception failures now DLQ after `max_retries` instead of
+  hot-looping forever. `RetryableError.retry_after_seconds` is honored
+  with a bounded (30 s max) delay before the republish.
+- **Async task handlers are executed, not dropped.** Both binders run
+  coroutine results to completion with `asyncio.run` on the consumer
+  thread, so an async handler's exceptions classify for retry/DLQ like
+  a sync handler's. Previously the coroutine was silently discarded
+  and the delivery acked as success. Same for async RPC handlers.
+- **`call_rpc` is thread-safe.** Each call now uses a dedicated
+  connection instead of busy-polling the binder's shared (non
+  thread-safe) publish connection without a lock.
+- `pyproject.toml` dev extra: `httpx2` typo → `httpx` (required by
+  starlette's TestClient).
+
+### Added
+
+- **`_RmqConsumerHandle.healthy`** / **`PluginBrokerRunner.consumer_healthy`**
+  — `False` while the consumer is disconnected and reconnecting, so
+  plugin `/health` endpoints can report degraded instead of OK.
+
+### Docs
+
+- `CONTRACT.md` brought to 2.x reality: status header, SDK pins
+  (`>=2.0,<3.0`), removal of the stale `TaskDto`-alias claims, and the
+  `CryoEmImageInput extra="allow"` exception noted in §2.2.
+- Handler-contract docstrings no longer claim the binder publishes a
+  returned `Envelope` to the result route (no binder ever did);
+  results are published explicitly by the runner.
+- `PluginBrokerRunner` docstrings updated: discovery (MB5.1) and
+  config (MB5.2) ride the bus; the reconnect claim in
+  `start_blocking` is now true.
+
+---
+
 ## 2.4.0 — 2026-05-11
 
 **Minor.** Field-level subject tags on `CategoryContract` — the

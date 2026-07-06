@@ -36,7 +36,7 @@ RUN rm -rf /root/.cache/pip/*
 # pins the SDK to the bundled wheel) instead of requirements.txt (which
 # has an editable ../../magellon-sdk path that doesn't exist in-image).
 COPY requirements.docker.txt ./
-COPY magellon_sdk-2.4.0-py3-none-any.whl ./
+COPY magellon_sdk-2.5.0-py3-none-any.whl ./
 RUN pip install --upgrade -r ./requirements.docker.txt
 # Install debugpy
 #RUN pip install --upgrade pip
