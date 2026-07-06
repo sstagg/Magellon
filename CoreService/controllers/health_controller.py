@@ -34,6 +34,12 @@ def _check_bus() -> Tuple[bool, Dict[str, Any]]:
 
 
 def _state_service(request: Request, attr: str, enabled_env: str, default_enabled: str = "1") -> Dict[str, Any]:
+    registry = getattr(request.app.state, "background_services", None)
+    if registry is not None:
+        status = registry.get(attr)
+        if status is not None:
+            return status
+
     enabled = os.environ.get(enabled_env, default_enabled) != "0"
     service = getattr(request.app.state, attr, None)
     if not enabled:
@@ -79,4 +85,3 @@ def ready(request: Request) -> JSONResponse:
             "checks": checks,
         },
     )
-

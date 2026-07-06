@@ -45,3 +45,22 @@ def test_ready_returns_503_when_required_check_fails(monkeypatch):
     assert resp.status_code == 503
     assert resp.json()["status"] == "not_ready"
 
+
+def test_ready_uses_background_registry_when_present(monkeypatch):
+    monkeypatch.setattr(ctl, "_check_database", lambda: (True, {"status": "ok"}))
+    monkeypatch.setattr(ctl, "_check_bus", lambda: (True, {"status": "ok"}))
+    app = FastAPI()
+    app.include_router(ctl.health_router, prefix="/health")
+
+    class _Registry:
+        def get(self, name):
+            if name == "rmq_step_event_forwarder":
+                return {"status": "error", "error": "failed to bind"}
+            return None
+
+    app.state.background_services = _Registry()
+
+    resp = TestClient(app).get("/health/ready")
+
+    assert resp.status_code == 200
+    assert resp.json()["checks"]["rmq_step_event_forwarder"]["error"] == "failed to bind"

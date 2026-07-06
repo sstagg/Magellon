@@ -395,6 +395,9 @@ app.mount('/socket.io', socketio.ASGIApp(sio, socketio_path=''))
 async def startup_event():
     """Initialize services on application startup"""
     import threading
+    from core.background_services import ensure_background_registry
+
+    background_services = ensure_background_registry(app)
 
     logger.info("=" * 60)
     logger.info("Starting Magellon Core Service...")
@@ -452,24 +455,32 @@ async def startup_event():
         logger.info("Starting motioncor test result processor...")
         result_processor_thread = threading.Thread(target=result_consumer_engine, daemon=True)
         result_processor_thread.start()
+        app.state.motioncor_test_result_processor = result_processor_thread
+        background_services.started("motioncor_test_result_processor", result_processor_thread)
         logger.info("[OK] Motioncor test result processor started")
     except Exception as e:
+        background_services.failed("motioncor_test_result_processor", e)
         logger.error(f"[WARNING] Failed to start result processor: {e}")
 
     # Plugin liveness listener (P6). Subscribes to magellon.plugins.*
     # so announce + heartbeat messages from PluginBrokerRunner-based
     # plugins land in an in-memory registry. Replaces Consul service
     # registration as the source of truth for "what's alive right now".
-    try:
-        from core.plugin_liveness_registry import start_liveness_listener
-        from config import app_settings as _app_settings
-        logger.info("Starting plugin liveness listener...")
-        app.state.plugin_liveness_listener = start_liveness_listener(
-            _app_settings.rabbitmq_settings
-        )
-        logger.info("[OK] Plugin liveness listener started")
-    except Exception as e:
-        logger.error(f"[WARNING] Failed to start plugin liveness listener: {e}")
+    if os.environ.get("MAGELLON_PLUGIN_LIVENESS_LISTENER", "1") != "0":
+        try:
+            from core.plugin_liveness_registry import start_liveness_listener
+            from config import app_settings as _app_settings
+            logger.info("Starting plugin liveness listener...")
+            app.state.plugin_liveness_listener = start_liveness_listener(
+                _app_settings.rabbitmq_settings
+            )
+            background_services.started("plugin_liveness_listener", app.state.plugin_liveness_listener)
+            logger.info("[OK] Plugin liveness listener started")
+        except Exception as e:
+            background_services.failed("plugin_liveness_listener", e)
+            logger.error(f"[WARNING] Failed to start plugin liveness listener: {e}")
+    else:
+        background_services.disabled("plugin_liveness_listener")
 
     # Operational event tap. This is intentionally not event sourcing:
     # bus.events.subscribe uses anonymous auto-delete queues, so it gives
@@ -483,9 +494,13 @@ async def startup_event():
             app.state.operational_event_logger = start_operational_event_logger(
                 bus=get_bus()
             )
+            background_services.started("operational_event_logger", app.state.operational_event_logger)
             logger.info("[OK] Operational event logger started")
         except Exception as e:
+            background_services.failed("operational_event_logger", e)
             logger.error(f"[WARNING] Operational event logger failed to start: {e}")
+    else:
+        background_services.disabled("operational_event_logger")
 
     # Start in-process result-processor (P3). Sole result writer since
     # A.4 deleted the out-of-tree magellon_result_processor plugin:
@@ -496,9 +511,13 @@ async def startup_event():
     try:
         from core.result_consumer import result_consumer_engine as run_result_consumer
         logger.info("Starting in-process result-processor (OUT_QUEUES)...")
-        threading.Thread(target=run_result_consumer, daemon=True).start()
+        result_consumer_thread = threading.Thread(target=run_result_consumer, daemon=True)
+        result_consumer_thread.start()
+        app.state.result_consumer = result_consumer_thread
+        background_services.started("result_consumer", result_consumer_thread)
         logger.info("[OK] In-process result-processor started")
     except Exception as e:
+        background_services.failed("result_consumer", e)
         logger.error(f"[WARNING] Failed to start in-process result-processor: {e}")
 
     # Start RMQ → job_event forwarder. Default-on; set
@@ -528,9 +547,13 @@ async def startup_event():
             )
             rmq_forwarder.start()
             app.state.rmq_step_event_forwarder = rmq_forwarder
+            background_services.started("rmq_step_event_forwarder", rmq_forwarder)
             logger.info("[OK] RMQ step-event forwarder started (with state projector)")
         except Exception as e:
+            background_services.failed("rmq_step_event_forwarder", e)
             logger.error(f"[WARNING] RMQ step-event forwarder failed to start: {e}")
+    else:
+        background_services.disabled("rmq_step_event_forwarder")
 
     # Start NATS → job_event forwarder. Default-on; set
     # MAGELLON_STEP_EVENTS_FORWARDER=0 to disable. When NATS/stream is
@@ -561,6 +584,7 @@ async def startup_event():
                 started = False
             if started:
                 app.state.step_event_forwarder = forwarder
+                background_services.started("step_event_forwarder", forwarder)
                 logger.info("[OK] Step-event forwarder (NATS -> job_event) started (with state projector)")
             else:
                 # With ensure_stream=True (the default) we should never get
@@ -571,8 +595,12 @@ async def startup_event():
                     "(broker reachable? JetStream enabled?) — events will not "
                     "be projected this boot"
                 )
+                background_services.failed("step_event_forwarder", RuntimeError("could not attach to NATS"))
         except Exception as e:
+            background_services.failed("step_event_forwarder", e)
             logger.error(f"[WARNING] Step-event forwarder failed to start: {e}")
+    else:
+        background_services.disabled("step_event_forwarder")
 
     logger.info("=" * 60)
     logger.info("[OK] Magellon Core Service started successfully")
