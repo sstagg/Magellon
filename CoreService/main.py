@@ -613,6 +613,10 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on application shutdown"""
+    from core.background_services import ensure_background_registry
+
+    background_services = ensure_background_registry(app)
+
     logger.info("=" * 60)
     logger.info("Shutting down Magellon Core Service...")
     logger.info("=" * 60)
@@ -621,24 +625,40 @@ async def shutdown_event():
     if forwarder is not None:
         try:
             await forwarder.stop()
+            background_services.stopped("step_event_forwarder", forwarder)
             logger.info("[OK] Step-event forwarder stopped")
         except Exception as e:
+            background_services.failed("step_event_forwarder", e)
             logger.error(f"[WARNING] Step-event forwarder stop failed: {e}")
 
     rmq_forwarder = getattr(app.state, "rmq_step_event_forwarder", None)
     if rmq_forwarder is not None:
         try:
             rmq_forwarder.stop()
+            background_services.stopped("rmq_step_event_forwarder", rmq_forwarder)
             logger.info("[OK] RMQ step-event forwarder stopped")
         except Exception as e:
+            background_services.failed("rmq_step_event_forwarder", e)
             logger.error(f"[WARNING] RMQ step-event forwarder stop failed: {e}")
+
+    liveness_listener = getattr(app.state, "plugin_liveness_listener", None)
+    if liveness_listener is not None:
+        try:
+            liveness_listener.stop()
+            background_services.stopped("plugin_liveness_listener", liveness_listener)
+            logger.info("[OK] Plugin liveness listener stopped")
+        except Exception as e:
+            background_services.failed("plugin_liveness_listener", e)
+            logger.error(f"[WARNING] Plugin liveness listener stop failed: {e}")
 
     operational_logger = getattr(app.state, "operational_event_logger", None)
     if operational_logger is not None:
         try:
             operational_logger.stop()
+            background_services.stopped("operational_event_logger", operational_logger)
             logger.info("[OK] Operational event logger stopped")
         except Exception as e:
+            background_services.failed("operational_event_logger", e)
             logger.error(f"[WARNING] Operational event logger stop failed: {e}")
 
 

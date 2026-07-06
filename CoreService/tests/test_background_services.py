@@ -11,6 +11,7 @@ def test_background_registry_records_started_failed_and_disabled():
     registry.started("worker", object())
     registry.failed("forwarder", RuntimeError("boom"))
     registry.disabled("optional")
+    registry.stopped("stoppable")
 
     snapshot = registry.snapshot()
     assert snapshot["worker"]["status"] == "ok"
@@ -19,6 +20,8 @@ def test_background_registry_records_started_failed_and_disabled():
     assert snapshot["forwarder"]["error"] == "boom"
     assert snapshot["optional"]["status"] == "disabled"
     assert snapshot["optional"]["enabled"] is False
+    assert snapshot["stoppable"]["status"] == "stopped"
+    assert snapshot["stoppable"]["enabled"] is True
 
 
 def test_ensure_background_registry_reuses_existing_registry():
@@ -28,4 +31,3 @@ def test_ensure_background_registry_reuses_existing_registry():
     second = ensure_background_registry(app)
 
     assert first is second
-

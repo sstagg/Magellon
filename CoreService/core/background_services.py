@@ -46,6 +46,15 @@ class BackgroundServiceRegistry:
             checked_at=time.time(),
         )
 
+    def stopped(self, name: str, service: Any = None) -> None:
+        self._services[name] = BackgroundServiceStatus(
+            name=name,
+            status="stopped",
+            enabled=True,
+            checked_at=time.time(),
+            service_type=type(service).__name__ if service is not None else None,
+        )
+
     def get(self, name: str) -> Optional[Dict[str, Any]]:
         status = self._services.get(name)
         return asdict(status) if status is not None else None
@@ -60,4 +69,3 @@ def ensure_background_registry(app: Any) -> BackgroundServiceRegistry:
         registry = BackgroundServiceRegistry()
         app.state.background_services = registry
     return registry
-
