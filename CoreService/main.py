@@ -28,6 +28,7 @@ from controllers.pipelines_controller import pipelines_router
 from controllers.db_controller import db_router
 from controllers.deployment_docker_controller import deployment_docker_router
 from controllers.graph_controller import graph_router
+from controllers.health_controller import health_router
 from controllers.home_controller import home_router
 from controllers.image_meta_data_category_controller import image_meta_data_category_router
 from controllers.image_meta_data_controller import image_meta_data_router
@@ -281,6 +282,7 @@ app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
 
 
 app.include_router(home_router, tags=["Home"])
+app.include_router(health_router, tags=["Health"], prefix="/health")
 app.include_router(db_router, tags=["Database"], prefix="/db")
 app.include_router(export_router, tags=["Export"], prefix="/export")
 app.include_router(import_router, tags=["Import"], prefix="/export")
