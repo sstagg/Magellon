@@ -88,6 +88,34 @@ logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
 # Initialize HTTP Basic Authentication for API docs
 security = HTTPBasic(auto_error=False)
 
+
+def _is_production() -> bool:
+    env = os.environ.get("APP_ENV") or getattr(app_settings, "ENV_TYPE", None)
+    return str(env or "").lower() == "production"
+
+
+def _csv_env(name: str) -> list[str]:
+    raw = os.environ.get(name, "")
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def _cors_origins() -> list[str]:
+    configured = _csv_env("MAGELLON_CORS_ALLOWED_ORIGINS")
+    if configured:
+        return configured
+    if _is_production():
+        logger.warning(
+            "MAGELLON_CORS_ALLOWED_ORIGINS is not set in production; "
+            "falling back to localhost-only origins"
+        )
+        return [
+            "http://localhost",
+            "https://localhost",
+            "http://127.0.0.1",
+            "https://127.0.0.1",
+        ]
+    return ["*"]
+
 def verify_docs_credentials(
     request: Request,
     credentials: HTTPBasicCredentials = Depends(security)
@@ -159,11 +187,13 @@ app = FastAPI(
     openapi_url=None  # Disable default openapi.json
 )
 
-app.add_middleware(CORSMiddleware,
-                   allow_origins=["*"],
-                   allow_methods=["*"],
-                   allow_headers=["*"],
-                   allow_credentials=True)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins(),
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=True,
+)
 
 
 # Custom protected docs endpoints
@@ -628,12 +658,19 @@ def app_exception_handler(request, err):
     import traceback
     tb = traceback.format_exc()
     logger.error(f"Unhandled exception on {request.method} {request.url}:\n{tb}")
-    return JSONResponse(
-        status_code=500,
-        content={
+    if _is_production():
+        content = {
+            "message": "Internal server error",
+            "path": str(request.url.path),
+        }
+    else:
+        content = {
             "message": f"{type(err).__name__}: {err}",
             "path": str(request.url),
-        },
+        }
+    return JSONResponse(
+        status_code=500,
+        content=content,
         headers=_cors_headers(request),
     )
 
