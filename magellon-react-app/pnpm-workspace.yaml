@@ -1,0 +1,2 @@
+patchedDependencies:
+  '@mui/material@9.1.0': patches/@mui__material@9.1.0.patch

@@ -65,3 +65,5 @@ jobs:
         working-directory: magellon-react-app
       - run: pnpm run lint
         working-directory: magellon-react-app
+      - run: pnpm run test
+        working-directory: magellon-react-app
