@@ -106,13 +106,13 @@ class UserApiService {
 
         // Add Authorization header if token exists
         const token = localStorage.getItem('access_token');
-        const headers: HeadersInit = {
-            'Content-Type': 'application/json',
-            ...options.headers,
-        };
+        const headers = new Headers(options.headers);
+        if (!headers.has('Content-Type')) {
+            headers.set('Content-Type', 'application/json');
+        }
 
         if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
+            headers.set('Authorization', `Bearer ${token}`);
         }
 
         const response = await fetch(url, {
@@ -121,24 +121,24 @@ class UserApiService {
         });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => null);
+            const errorData = await response.json().catch((): null => null);
             throw new Error(errorData?.detail || `HTTP error! status: ${response.status}`);
         }
 
-        return response.json();
+        return response.json() as Promise<T>;
     }
 
     private async authRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
         const url = `${this.authBaseUrl}${endpoint}`;
 
         const token = localStorage.getItem('access_token');
-        const headers: HeadersInit = {
-            'Content-Type': 'application/json',
-            ...options.headers,
-        };
+        const headers = new Headers(options.headers);
+        if (!headers.has('Content-Type')) {
+            headers.set('Content-Type', 'application/json');
+        }
 
         if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
+            headers.set('Authorization', `Bearer ${token}`);
         }
 
         const response = await fetch(url, {
@@ -147,11 +147,11 @@ class UserApiService {
         });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => null);
+            const errorData = await response.json().catch((): null => null);
             throw new Error(errorData?.detail || `HTTP error! status: ${response.status}`);
         }
 
-        return response.json();
+        return response.json() as Promise<T>;
     }
 
     // Transform API response from uppercase to lowercase field names

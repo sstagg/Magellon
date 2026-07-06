@@ -395,7 +395,7 @@ export const FftTestPage: React.FC = () => {
                 open={pickerOpen}
                 onClose={() => setPickerOpen(false)}
                 multiple
-                onPick={(paths) => setBatchSelected(paths)}
+                onPick={(paths: string[]) => setBatchSelected(paths)}
                 onPathChange={setLastPickedDir}
                 title="Pick images for batch FFT"
                 initialPath={lastPickedDir}
@@ -404,7 +404,7 @@ export const FftTestPage: React.FC = () => {
             <ImagePickerDialog
                 open={singlePickerOpen}
                 onClose={() => setSinglePickerOpen(false)}
-                onPick={(path) => setImagePath(path)}
+                onPick={(path: string) => setImagePath(path)}
                 onPathChange={setLastPickedDir}
                 title="Pick an image"
                 initialPath={lastPickedDir}

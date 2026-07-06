@@ -58,7 +58,7 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
     // Build tree hierarchy from flat data
     const treeData = useMemo(() => {
         if (!allImages || allImages.length === 0) {
-            return [];
+            return [] as TreeNode[];
         }
 
         // Group images by the first part of their name (before the first underscore)
@@ -103,7 +103,7 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
                     id: image.oid || `image-${image.name}`,
                     name: image.name?.split('_')[2] || image.name || 'Unknown Image',
                     level: 2,
-                    children: [],
+                    children: [] as TreeNode[],
                     isImage: true,
                     imageData: image
                 }));

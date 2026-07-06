@@ -573,7 +573,7 @@ export const PluginTestPanel: React.FC<PluginTestPanelProps> = ({
                         title={`Pick ${pickerRequest.fieldTitle}`}
                         allowedExts={pickerRequest.allowedExts}
                         onClose={() => setPickerRequest(null)}
-                        onPick={(paths) => {
+                        onPick={(paths: string[]) => {
                             pickerRequest.onPick(paths);
                             setPickerRequest(null);
                         }}
@@ -589,7 +589,7 @@ export const PluginTestPanel: React.FC<PluginTestPanelProps> = ({
                         title={`Pick ${pickerRequest.fieldTitle}`}
                         allowedExts={pickerRequest.allowedExts}
                         onClose={() => setPickerRequest(null)}
-                        onPick={(path) => {
+                        onPick={(path: string) => {
                             pickerRequest.onPick(path);
                             setPickerRequest(null);
                         }}

@@ -320,7 +320,7 @@ export const PtolemyTestPage: React.FC = () => {
             <ImagePickerDialog
                 open={pickerOpen}
                 onClose={() => setPickerOpen(false)}
-                onPick={(path) => {
+                onPick={(path: string) => {
                     if (typeof path === 'string') setImagePath(path);
                 }}
                 onPathChange={setLastPickedDir}
