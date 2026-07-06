@@ -89,7 +89,7 @@ export const PanelHeader: React.FC<PanelHeaderProps> = ({
         // For example: navigate('/profile');
         handleClose();
     };
-    const navigateUrl = (url) => {
+    const navigateUrl = (url: string) => {
         navigate(`/en/panel/${url}`);
     };
     const handleSettings = () => {

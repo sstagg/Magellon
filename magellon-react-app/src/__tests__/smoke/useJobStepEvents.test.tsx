@@ -17,7 +17,7 @@ let mockConnected = true;
 
 vi.mock('../../shared/lib/useSocket.ts', () => ({
     useSocket: () => ({
-        socket: null,
+        socket: null as unknown,
         connected: mockConnected,
         sid: 'test-sid',
         on: (event: string, handler: Handler) => {

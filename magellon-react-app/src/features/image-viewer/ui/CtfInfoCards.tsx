@@ -1,7 +1,19 @@
 import React from "react";
 import { Grid, Card, CardContent, Typography } from "@mui/material";
 
-const InfoCards = ({ defocus1Micrometers, defocus2Micrometers, angleAstigmatismDegrees, resolutionAngstroms }) => {
+interface InfoCardsProps {
+    defocus1Micrometers: string | number;
+    defocus2Micrometers: string | number;
+    angleAstigmatismDegrees: string | number;
+    resolutionAngstroms: string | number;
+}
+
+const InfoCards = ({
+    defocus1Micrometers,
+    defocus2Micrometers,
+    angleAstigmatismDegrees,
+    resolutionAngstroms,
+}: InfoCardsProps) => {
     // Convert values
     // const defocus1Micrometers = (defocus1 * 1e6).toFixed(2); // Defocus 1 in μm
     // const defocus2Micrometers = (defocus2 * 1e6).toFixed(2); // Defocus 2 in μm

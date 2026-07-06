@@ -82,7 +82,7 @@ export const PanelTemplate = () => {
     });
 
     // Store drawer state in localStorage to persist between page refreshes
-    const [open, setOpen] = React.useState(() => {
+    const [open, setOpen] = React.useState<boolean>(() => {
         // For mobile devices, default to closed drawer unless explicitly opened
         if (isMobile) return false;
 

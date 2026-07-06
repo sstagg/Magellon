@@ -25,7 +25,7 @@ vi.mock('../../shared/api/AxiosClient.ts', () => ({
 
 vi.mock('../../shared/lib/useSocket.ts', () => ({
     useSocket: () => ({
-        socket: null,
+        socket: null as unknown,
         connected: true,
         sid: 'test-sid',
         on: () => () => {},
