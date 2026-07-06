@@ -5,6 +5,7 @@ This test suite verifies that permission dependencies work correctly,
 including proper HTTP status codes and permission enforcement.
 """
 import pytest
+import casbin
 from uuid import UUID, uuid4
 from fastapi import HTTPException
 from unittest.mock import Mock, patch
@@ -20,17 +21,26 @@ from dependencies.permissions import (
     filter_by_permissions,
 )
 from services.casbin_service import CasbinService
-from database import session_local
 
 
 # Test fixtures
 @pytest.fixture(scope="module")
 def setup_casbin():
-    """Initialize Casbin for testing"""
-    CasbinService.initialize()
-    CasbinService.clear_policy()
+    """Initialize Casbin with an in-memory enforcer for isolated tests."""
+    original_enforcer = CasbinService._enforcer
+    original_adapter = CasbinService._adapter
+
+    CasbinService._enforcer = casbin.Enforcer("configs/casbin_model.conf")
+    CasbinService._adapter = None
+    CasbinService._enforcer.enable_auto_save(False)
+    CasbinService._enforcer.clear_policy()
+    CasbinService._invalidate_authorization_cache()
+
     yield
-    CasbinService.clear_policy()
+
+    CasbinService._enforcer = original_enforcer
+    CasbinService._adapter = original_adapter
+    CasbinService._invalidate_authorization_cache()
 
 
 @pytest.fixture
@@ -252,25 +262,17 @@ def test_check_permission_denied(setup_test_permissions, test_user_id):
 # Tests for filter_by_permissions utility
 def test_filter_by_permissions_wildcard(setup_test_permissions, test_user_id):
     """Test filter_by_permissions with wildcard permission"""
-    db = session_local()
-    try:
-        result = filter_by_permissions(test_user_id, "msession", "read", db)
-        assert result["allowed"] is True
-        assert result["filter_all"] is False
-        assert result["criteria"] is None
-    finally:
-        db.close()
+    result = filter_by_permissions(test_user_id, "msession", "read", Mock())
+    assert result["allowed"] is True
+    assert result["filter_all"] is False
+    assert result["criteria"] is None
 
 
 def test_filter_by_permissions_no_access(setup_test_permissions, test_user_id):
     """Test filter_by_permissions with no permission"""
-    db = session_local()
-    try:
-        result = filter_by_permissions(test_user_id, "camera", "read", db)
-        assert result["allowed"] is False
-        assert result["filter_all"] is True
-    finally:
-        db.close()
+    result = filter_by_permissions(test_user_id, "camera", "read", Mock())
+    assert result["allowed"] is False
+    assert result["filter_all"] is True
 
 
 def test_filter_by_permissions_admin():
@@ -282,14 +284,10 @@ def test_filter_by_permissions_admin():
     CasbinService.add_role_for_user(admin_user_str, "Administrator")
 
     try:
-        db = session_local()
-        try:
-            result = filter_by_permissions(admin_user_id, "msession", "read", db)
-            assert result["allowed"] is True
-            assert result["filter_all"] is False
-            assert result["criteria"] is None
-        finally:
-            db.close()
+        result = filter_by_permissions(admin_user_id, "msession", "read", Mock())
+        assert result["allowed"] is True
+        assert result["filter_all"] is False
+        assert result["criteria"] is None
     finally:
         CasbinService.delete_role_for_user(admin_user_str, "Administrator")
 
