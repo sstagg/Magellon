@@ -33,6 +33,8 @@ plugins/*/output_file.json
 /magellon-react-app/playwright-report/
 /magellon-react-app/playwright/.cache/
 /magellon-react-app/tests/e2e/screenshots/
+/magellon-react-app/tests/e2e/*.log
+/magellon-react-app/tests/e2e/phase1-*.cjs
 
 
 /WebApp/node_modules/
