@@ -20,9 +20,16 @@ logger = logging.getLogger(__name__)
 
 
 def _cors_headers(request) -> dict:
-    """Echo CORS headers onto error responses so browsers keep the body."""
+    """Echo CORS headers onto error responses so browsers keep the body.
+
+    Only origins on the canonical allowlist are echoed — reflecting an
+    arbitrary Origin with allow-credentials would hand any site a
+    credentialed read of our error bodies, bypassing the middleware.
+    """
+    from core.cors import is_origin_allowed
+
     origin = request.headers.get("origin") if request is not None else None
-    if not origin:
+    if not is_origin_allowed(origin):
         return {}
     return {
         "Access-Control-Allow-Origin": origin,

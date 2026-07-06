@@ -37,7 +37,7 @@ checked out are never blocked by them.
 | `MAGELLON_E2E_BACKEND`         | `http://127.0.0.1:8000`                           |
 | `MAGELLON_E2E_FIXTURE_DIR`     | `C:/temp/magellon/gpfs/playwright_run`            |
 | `MAGELLON_E2E_USERNAME`        | `super`                                           |
-| `MAGELLON_E2E_PASSWORD`        | `behd1d2`                                         |
+| `MAGELLON_E2E_PASSWORD`        | dev-stack default (see `helpers/credentials.ts`)  |
 
 Screenshots land in `tests/e2e/screenshots/<spec-name>/`.
 

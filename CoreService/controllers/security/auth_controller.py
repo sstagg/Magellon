@@ -316,7 +316,7 @@ async def setup_security_system(
     ```json
     {
         "username": "super",
-        "password": "behd1d2",
+        "password": "your-admin-password",
         "setup_token": "optional_security_token"
     }
     ```

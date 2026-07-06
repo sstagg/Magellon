@@ -20,6 +20,7 @@
  *     the particle overlay is visible
  */
 import { expect, test } from '@playwright/test';
+import { E2E_USERNAME, E2E_PASSWORD } from './helpers/credentials';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -41,7 +42,7 @@ test('preview API returns particles via /particle-picking/preview', async ({ req
 
   const auth = await (await fetch(`${BACKEND}/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'super', password: 'behd1d2' }),
+    body: JSON.stringify({ username: E2E_USERNAME, password: E2E_PASSWORD }),
   })).json();
 
   // Confirm CoreService sees a live particle_picking plugin first;
@@ -127,7 +128,7 @@ test('panel renders + session dropdown is populated', async ({ page, context }) 
 
   const auth = await (await fetch(`${BACKEND}/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'super', password: 'behd1d2' }),
+    body: JSON.stringify({ username: E2E_USERNAME, password: E2E_PASSWORD }),
   })).json();
   await context.addInitScript(
     ({ token, userId, username }) => {

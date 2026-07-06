@@ -2,9 +2,15 @@
 
 Use this before promoting CoreService, magellon-sdk based plugins, and the React app into a shared or production environment.
 
+## Credential Rotation (one-time, after 2026-07 security pass)
+
+- Git history contains the historical dev-stack password and one revoked AWS key pair (`infrastructure/Deployment/assets/terraform/aws/instance.tf`, removed 2026-07-06). Deactivate that AWS key in IAM and rotate any real system still using the dev-stack password before exposing it beyond a trusted network.
+- The dev-stack default password remains valid ONLY for local/dev infrastructure; the CI repo-hygiene gate blocks it from appearing in any new file.
+
 ## CoreService
 
 - Set `APP_ENV=production`.
+- Set `JWT_SECRET_KEY` (32+ chars). Startup hard-fails in production without it.
 - Set `MAGELLON_CORS_ALLOWED_ORIGINS` to the exact React app origins. Do not rely on wildcard CORS in production.
 - Provide secrets through environment variables or a secret manager, not committed YAML:
   - database user/password/host/name

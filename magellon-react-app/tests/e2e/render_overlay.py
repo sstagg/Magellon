@@ -33,7 +33,10 @@ url = f"{api}/web/particle-pickings?img_name={urllib.parse.quote(img)}"
 def login():
     req = urllib.request.Request(
         f"{api}/auth/login",
-        data=json.dumps({'username': 'super', 'password': 'behd1d2'}).encode(),
+        data=json.dumps({
+            'username': os.environ.get('MAGELLON_E2E_USERNAME', 'super'),
+            'password': os.environ.get('MAGELLON_E2E_PASSWORD', ''),
+        }).encode(),
         headers={'Content-Type': 'application/json'},
     )
     return json.loads(urllib.request.urlopen(req).read())['access_token']

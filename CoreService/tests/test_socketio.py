@@ -31,6 +31,34 @@ def test_sio_has_expected_handlers():
 
 
 # ---------------------------------------------------------------------------
+# Test: connect auth enforcement
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_connect_rejected_without_token_when_auth_required(monkeypatch):
+    """With auth required, a connect without a valid JWT is refused."""
+    monkeypatch.setenv("MAGELLON_SOCKETIO_REQUIRE_AUTH", "1")
+    handler = sio.handlers["/"]["connect"]
+    with pytest.raises(socketio.exceptions.ConnectionRefusedError):
+        await handler("sid-noauth", {}, None)
+
+
+@pytest.mark.asyncio
+async def test_connect_accepts_valid_token_when_auth_required(monkeypatch):
+    """With auth required, a connect carrying a valid JWT succeeds."""
+    from dependencies.auth import create_access_token
+
+    monkeypatch.setenv("MAGELLON_SOCKETIO_REQUIRE_AUTH", "1")
+    token = create_access_token({"sub": "11111111-2222-3333-4444-555555555555"})
+    handler = sio.handlers["/"]["connect"]
+    with patch.object(sio, "emit", new_callable=AsyncMock), \
+         patch.object(sio, "save_session", new_callable=AsyncMock) as mock_save:
+        await handler("sid-auth", {}, {"token": token})
+    mock_save.assert_called_once()
+    assert mock_save.call_args[0][1]["user_id"] == "11111111-2222-3333-4444-555555555555"
+
+
+# ---------------------------------------------------------------------------
 # Test: connect sends welcome message
 # ---------------------------------------------------------------------------
 
@@ -38,7 +66,8 @@ def test_sio_has_expected_handlers():
 async def test_connect_sends_welcome():
     """On connect, server should emit a welcome server_message."""
     handler = sio.handlers["/"]["connect"]
-    with patch.object(sio, "emit", new_callable=AsyncMock) as mock_emit:
+    with patch.object(sio, "emit", new_callable=AsyncMock) as mock_emit, \
+         patch.object(sio, "save_session", new_callable=AsyncMock):
         await handler("test-sid-123", {})
         mock_emit.assert_called_once_with(
             "server_message",
@@ -381,7 +410,8 @@ async def test_rapid_connect_disconnect_cycles():
         nonlocal welcome_count
         welcome_count += 1
 
-    with patch.object(sio, "emit", side_effect=count_welcomes):
+    with patch.object(sio, "emit", side_effect=count_welcomes), \
+         patch.object(sio, "save_session", new_callable=AsyncMock):
         for i in range(20):
             await connect_handler(f"sid-rapid-{i}", {})
             await disconnect_handler(f"sid-rapid-{i}")
@@ -404,7 +434,8 @@ async def test_connect_emit_fails_gracefully():
     async def fail_emit(*args, **kwargs):
         raise ConnectionResetError("gone before welcome")
 
-    with patch.object(sio, "emit", side_effect=fail_emit):
+    with patch.object(sio, "emit", side_effect=fail_emit), \
+         patch.object(sio, "save_session", new_callable=AsyncMock):
         with pytest.raises(ConnectionResetError):
             await connect_handler("sid-ghost", {})
 

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { E2E_USERNAME, E2E_PASSWORD } from './helpers/credentials';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -14,7 +15,7 @@ test('Optional number fields render as number inputs, not JSON textareas', async
   const auth = await (await fetch(`${BACKEND}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'super', password: 'behd1d2' }),
+    body: JSON.stringify({ username: E2E_USERNAME, password: E2E_PASSWORD }),
   })).json();
 
   await context.addInitScript(

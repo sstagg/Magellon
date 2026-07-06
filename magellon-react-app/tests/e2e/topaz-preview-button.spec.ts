@@ -6,6 +6,7 @@
  * test isn't fighting the column-browser navigation.
  */
 import { expect, test } from '@playwright/test';
+import { E2E_USERNAME, E2E_PASSWORD } from './helpers/credentials';
 import path from 'node:path';
 import fs from 'node:fs';
 
@@ -19,7 +20,7 @@ fs.mkdirSync(SHOTS, { recursive: true });
 async function login(): Promise<any> {
   return (await fetch(`${BACKEND}/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'super', password: 'behd1d2' }),
+    body: JSON.stringify({ username: E2E_USERNAME, password: E2E_PASSWORD }),
   })).json();
 }
 

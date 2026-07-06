@@ -15,6 +15,9 @@ function getSocket(): Socket {
             reconnection: true,
             reconnectionAttempts: 10,
             reconnectionDelay: 2000,
+            // Function form so every (re)connect reads the current token,
+            // not the one captured when the socket was first created.
+            auth: (cb) => cb({ token: localStorage.getItem('access_token') }),
         });
     }
     return sharedSocket;

@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { E2E_USERNAME, E2E_PASSWORD } from './helpers/credentials';
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -30,8 +31,8 @@ const FIXTURE_DIR = (
 const SHOTS = path.join(process.cwd(), 'tests', 'e2e', 'screenshots', 'fft-test');
 fs.mkdirSync(SHOTS, { recursive: true });
 
-const USERNAME = process.env.MAGELLON_E2E_USERNAME ?? 'super';
-const PASSWORD = process.env.MAGELLON_E2E_PASSWORD ?? 'behd1d2';
+const USERNAME = E2E_USERNAME;
+const PASSWORD = E2E_PASSWORD;
 
 const INPUT_PATHS = [
   `${FIXTURE_DIR}/sample_00.png`,

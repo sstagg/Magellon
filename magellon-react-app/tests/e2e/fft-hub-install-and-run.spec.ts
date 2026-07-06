@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { E2E_USERNAME, E2E_PASSWORD } from './helpers/credentials';
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,8 +9,8 @@ const HUB_INSTALL = process.env.MAGELLON_E2E_HUB_INSTALL === '1';
 
 const FRONTEND = process.env.MAGELLON_E2E_FRONTEND ?? 'http://localhost:8080';
 const BACKEND = process.env.MAGELLON_E2E_BACKEND ?? 'http://127.0.0.1:8000';
-const USERNAME = process.env.MAGELLON_E2E_USERNAME ?? 'super';
-const PASSWORD = process.env.MAGELLON_E2E_PASSWORD ?? 'behd1d2';
+const USERNAME = E2E_USERNAME;
+const PASSWORD = E2E_PASSWORD;
 const INPUT_FILE = (
   process.env.MAGELLON_E2E_FFT_INPUT ??
   'C:/magellon/gpfs/24dec03a_00031gr_00002sq_v01_00002hl_00001fc.mrc'

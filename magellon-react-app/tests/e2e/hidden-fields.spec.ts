@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { E2E_USERNAME, E2E_PASSWORD } from './helpers/credentials';
 
 const FRONTEND = 'http://localhost:8080';
 const BACKEND = 'http://127.0.0.1:8000';
@@ -8,7 +9,7 @@ test('Hidden-marked fields (angle_ranges, image_path, output_dir) do not render'
   test.setTimeout(60_000);
   const auth = await (await fetch(`${BACKEND}/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'super', password: 'behd1d2' }),
+    body: JSON.stringify({ username: E2E_USERNAME, password: E2E_PASSWORD }),
   })).json();
   await context.addInitScript(
     ({ token, userId, username }) => {

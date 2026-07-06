@@ -71,7 +71,9 @@ from models.graphql_strawberry_schema import strawberry_graphql_router
 
 import rich.traceback
 
+from core.cors import allowed_origins
 from core.dev_routes import dev_routes_enabled, register_dev_routes
+from core.environment import is_production
 from core.exception_handlers import register_exception_handlers
 from core.request_observability import register_request_observability
 from services.casbin_service import CasbinService
@@ -93,31 +95,11 @@ security = HTTPBasic(auto_error=False)
 
 
 def _is_production() -> bool:
-    env = os.environ.get("APP_ENV") or getattr(app_settings, "ENV_TYPE", None)
-    return str(env or "").lower() == "production"
-
-
-def _csv_env(name: str) -> list[str]:
-    raw = os.environ.get(name, "")
-    return [item.strip() for item in raw.split(",") if item.strip()]
+    return is_production()
 
 
 def _cors_origins() -> list[str]:
-    configured = _csv_env("MAGELLON_CORS_ALLOWED_ORIGINS")
-    if configured:
-        return configured
-    if _is_production():
-        logger.warning(
-            "MAGELLON_CORS_ALLOWED_ORIGINS is not set in production; "
-            "falling back to localhost-only origins"
-        )
-        return [
-            "http://localhost",
-            "https://localhost",
-            "http://127.0.0.1",
-            "https://127.0.0.1",
-        ]
-    return ["*"]
+    return allowed_origins()
 
 def verify_docs_credentials(
     request: Request,
@@ -388,7 +370,13 @@ app.include_router(ops_router, tags=["Ops Log"], prefix="/web/ops")
 
 Instrumentator().instrument(app).expose(app)
 
-app.include_router(strawberry_graphql_router, prefix="/graphql")
+# GraphQL reads the same data as the REST surface — same auth bar.
+from dependencies.auth import get_current_user_id as _gql_auth  # noqa: E402
+app.include_router(
+    strawberry_graphql_router,
+    prefix="/graphql",
+    dependencies=[Depends(_gql_auth)],
+)
 
 
 # Mount Socket.IO inside FastAPI (handles both HTTP polling and WebSocket)

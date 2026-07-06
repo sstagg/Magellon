@@ -25,7 +25,7 @@ rabbitmq_settings:
   HOST_NAME: rabbitmq
   PORT: 5672
   USER_NAME: rabbit
-  PASSWORD: behd1d2
+  PASSWORD: change_me
   VIRTUAL_HOST: /
   SSL_ENABLED: false
   CONNECTION_TIMEOUT: 30

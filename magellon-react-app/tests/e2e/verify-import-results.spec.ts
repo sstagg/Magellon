@@ -10,13 +10,14 @@
  *   3. Ops event log — DuckDB query returns expected category/status rows
  */
 import { expect, test } from "@playwright/test";
+import { E2E_USERNAME, E2E_PASSWORD } from './helpers/credentials';
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
 const BACKEND   = process.env.MAGELLON_E2E_BACKEND   ?? "http://127.0.0.1:8000";
-const USERNAME  = process.env.MAGELLON_E2E_USERNAME  ?? "super";
-const PASSWORD  = process.env.MAGELLON_E2E_PASSWORD  ?? "behd1d2";
+const USERNAME  = E2E_USERNAME;
+const PASSWORD  = E2E_PASSWORD;
 const CORE_DIR  = path.resolve(process.cwd(), "..", "CoreService");
 
 const SHOTS = path.join(process.cwd(), "tests", "e2e", "screenshots", "verify-import-results");

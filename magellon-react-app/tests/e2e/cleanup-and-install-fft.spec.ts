@@ -8,13 +8,14 @@
  *     pnpm exec playwright test --project=e2e-live tests/e2e/cleanup-and-install-fft.spec.ts
  */
 import { test, expect, type Page } from '@playwright/test';
+import { E2E_USERNAME, E2E_PASSWORD } from './helpers/credentials';
 import fs from 'node:fs';
 import path from 'node:path';
 
 const FRONTEND = 'http://localhost:8080';
 const BACKEND = 'http://127.0.0.1:8000';
-const USERNAME = 'super';
-const PASSWORD = 'behd1d2';
+const USERNAME = E2E_USERNAME;
+const PASSWORD = E2E_PASSWORD;
 const SHOTS = path.join(process.cwd(), 'tests', 'e2e', 'screenshots', 'cleanup-and-install-fft');
 fs.mkdirSync(SHOTS, { recursive: true });
 

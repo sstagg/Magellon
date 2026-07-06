@@ -68,7 +68,9 @@ from services.sync_dispatcher import (
 
 logger = logging.getLogger(__name__)
 
-particle_picking_router = APIRouter()
+# Policy: same bar as the generic /dispatch surface these routes wrap —
+# every route requires an authenticated user.
+particle_picking_router = APIRouter(dependencies=[Depends(get_current_user_id)])
 
 
 # Stable plugin_id used by JobManager rows.

@@ -1,6 +1,8 @@
+# Credentials come from the standard AWS credential chain
+# (AWS_PROFILE / AWS_ACCESS_KEY_ID env vars / ~/.aws/credentials).
+# Never inline keys here — a real key pair was committed in this file
+# once and had to be revoked.
 provider "aws" {
-  access_key = "AKIASFXRSJBYBB2SJNNY"
-  secret_key = "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"
   region = "us-east-1"
 }
 

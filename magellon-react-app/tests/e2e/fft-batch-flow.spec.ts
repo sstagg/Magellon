@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { E2E_USERNAME, E2E_PASSWORD } from './helpers/credentials';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -25,11 +26,11 @@ test('FFT batch: dispatch 4 images, watch lifecycle, then check pipeline-health'
         });
     });
 
-    // 1. Auth — match the existing e2e harness pattern (super/behd1d2)
+    // 1. Auth — match the existing e2e harness pattern (the shared e2e credentials)
     const auth = await (await fetch(`${BACKEND}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'super', password: 'behd1d2' }),
+        body: JSON.stringify({ username: E2E_USERNAME, password: E2E_PASSWORD }),
     })).json();
     expect(auth.access_token, 'login should return access_token').toBeTruthy();
 

@@ -28,7 +28,45 @@ import logging
 logger = logging.getLogger(__name__)
 
 # JWT Configuration
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-CHANGE-THIS-IN-PRODUCTION-min-32-chars")
+_DEV_FALLBACK_SECRET = "your-secret-key-CHANGE-THIS-IN-PRODUCTION-min-32-chars"
+_MIN_SECRET_LENGTH = 32
+
+
+def _resolve_secret_key() -> str:
+    """Resolve the JWT signing key from JWT_SECRET_KEY.
+
+    In production (APP_ENV=production) a missing, too-short, or
+    known-default key is a hard startup failure: silently falling back
+    to a published default would let anyone forge tokens for every
+    authenticated route.
+    """
+    secret = os.getenv("JWT_SECRET_KEY", "")
+    is_production = os.getenv("APP_ENV", "").strip().lower() == "production"
+
+    if is_production:
+        if not secret:
+            raise RuntimeError(
+                "JWT_SECRET_KEY must be set when APP_ENV=production. "
+                "Refusing to start with the built-in development key."
+            )
+        if secret == _DEV_FALLBACK_SECRET or len(secret) < _MIN_SECRET_LENGTH:
+            raise RuntimeError(
+                "JWT_SECRET_KEY is the known development default or shorter "
+                f"than {_MIN_SECRET_LENGTH} characters. Set a strong secret "
+                "before starting in production."
+            )
+        return secret
+
+    if not secret:
+        logger.warning(
+            "JWT_SECRET_KEY is not set; using the built-in development key. "
+            "Never deploy this configuration."
+        )
+        return _DEV_FALLBACK_SECRET
+    return secret
+
+
+SECRET_KEY = _resolve_secret_key()
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 

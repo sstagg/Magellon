@@ -13,7 +13,7 @@
  * Pre-reqs (operator):
  *   - CoreService running with:
  *       MAGELLON_DOCKER_NETWORK=docker_magellon-network
- *       MAGELLON_PLUGIN_BROKER_URL=amqp://rabbit:behd1d2@rabbitmq:5672/
+ *       MAGELLON_PLUGIN_BROKER_URL=amqp://rabbit:<password>@rabbitmq:5672/
  *   - Frontend dev server on :8080.
  *   - magellon-rabbitmq-container + magellon-nats-container up.
  *   - Locally-packed .mpn files at:
@@ -24,14 +24,15 @@
  *   pnpm exec playwright test --project=e2e-live tests/e2e/install-hub-docker.spec.ts
  */
 import type { Page } from '@playwright/test';
+import { E2E_USERNAME, E2E_PASSWORD } from './helpers/credentials';
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 
 const FRONTEND = process.env.MAGELLON_E2E_FRONTEND ?? 'http://localhost:8080';
 const BACKEND = process.env.MAGELLON_E2E_BACKEND ?? 'http://127.0.0.1:8000';
-const USERNAME = process.env.MAGELLON_E2E_USERNAME ?? 'super';
-const PASSWORD = process.env.MAGELLON_E2E_PASSWORD ?? 'behd1d2';
+const USERNAME = E2E_USERNAME;
+const PASSWORD = E2E_PASSWORD;
 const SHOTS_ROOT = path.join(process.cwd(), 'tests', 'e2e', 'screenshots', 'install-hub-docker');
 
 const TARGETS = [

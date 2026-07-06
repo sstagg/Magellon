@@ -1,8 +1,12 @@
 import logging
 import asyncio
+import os
 from typing import Any, Optional
 
 import socketio
+
+from core.cors import allowed_origins
+from core.environment import is_production
 
 logger = logging.getLogger(__name__)
 
@@ -28,17 +32,57 @@ def get_asgi_loop() -> Optional[asyncio.AbstractEventLoop]:
 
 # Create the Socket.IO async server
 # Using in-memory adapter (sufficient for < 100 users)
+# Browser origins are checked against the same allowlist as the HTTP
+# CORS middleware; non-browser clients (no Origin header) pass through.
 sio = socketio.AsyncServer(
     async_mode='asgi',
-    cors_allowed_origins='*',
+    cors_allowed_origins=allowed_origins(),
     logger=False,
     engineio_logger=False,
 )
 
 
+def _auth_required() -> bool:
+    """JWT required on connect. Production default: required. Anywhere
+    else it can be forced on/off with MAGELLON_SOCKETIO_REQUIRE_AUTH."""
+    flag = os.environ.get("MAGELLON_SOCKETIO_REQUIRE_AUTH", "").strip().lower()
+    if flag in ("1", "true", "yes"):
+        return True
+    if flag in ("0", "false", "no"):
+        if is_production():
+            logger.warning(
+                "Socket.IO authentication explicitly disabled in production "
+                "via MAGELLON_SOCKETIO_REQUIRE_AUTH=0"
+            )
+        return False
+    return is_production()
+
+
+def _verify_socket_token(auth) -> Optional[str]:
+    """Return the user id from a valid JWT in the connect auth payload,
+    or None when absent/invalid."""
+    token = (auth or {}).get("token") if isinstance(auth, dict) else None
+    if not token:
+        return None
+    try:
+        from jose import jwt as jose_jwt
+
+        from dependencies.auth import ALGORITHM, SECRET_KEY
+
+        payload = jose_jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload.get("sub")
+    except Exception:
+        return None
+
+
 @sio.event
-async def connect(sid, environ):
-    logger.info(f"Client connected: {sid}")
+async def connect(sid, environ, auth=None):
+    user_id = _verify_socket_token(auth)
+    if _auth_required() and user_id is None:
+        logger.warning(f"Rejecting unauthenticated socket connect: {sid}")
+        raise socketio.exceptions.ConnectionRefusedError("authentication required")
+    await sio.save_session(sid, {"user_id": user_id})
+    logger.info(f"Client connected: {sid} (user={user_id or 'anonymous'})")
     await sio.emit('server_message', {'message': 'Welcome! You are connected.'}, room=sid)
 
 

@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { E2E_USERNAME, E2E_PASSWORD } from './helpers/credentials';
 
 const BACKEND = process.env.MAGELLON_E2E_BACKEND ?? "http://127.0.0.1:8000";
-const USERNAME = process.env.MAGELLON_E2E_USERNAME ?? "super";
-const PASSWORD = process.env.MAGELLON_E2E_PASSWORD ?? "behd1d2";
+const USERNAME = E2E_USERNAME;
+const PASSWORD = E2E_PASSWORD;
 
 interface AuthBody {
   access_token: string;

@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { E2E_USERNAME, E2E_PASSWORD } from './helpers/credentials';
 import { test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,8 +11,8 @@ const TEMPLATE_PICKER_PATH = encodeURIComponent('particle_picking/Template Picke
 const SHOTS = path.join(process.cwd(), 'tests', 'e2e', 'screenshots');
 fs.mkdirSync(SHOTS, { recursive: true });
 
-const USERNAME = 'super';
-const PASSWORD = 'behd1d2';
+const USERNAME = E2E_USERNAME;
+const PASSWORD = E2E_PASSWORD;
 
 const shot = async (page: Page, name: string) => {
   const p = path.join(SHOTS, `${name}.png`);

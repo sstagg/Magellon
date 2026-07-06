@@ -10,9 +10,10 @@
  *   4. Click Pause on the FFT row.
  *   5. Click Resume.
  *
- * Driven by Playwright. Username super / password behd1d2.
+ * Driven by Playwright. Username super / the shared e2e password.
  */
 import { test } from '@playwright/test';
+import { E2E_USERNAME, E2E_PASSWORD } from './helpers/credentials';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -40,7 +41,7 @@ test('audit /en/panel/plugins to discover the hub install flow', async ({ page, 
 
   const auth = await (await fetch(`${BACKEND}/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'super', password: 'behd1d2' }),
+    body: JSON.stringify({ username: E2E_USERNAME, password: E2E_PASSWORD }),
   })).json();
   await context.addInitScript(({ token, userId, username }) => {
     localStorage.setItem('access_token', token);

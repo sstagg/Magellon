@@ -31,8 +31,10 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 # heartbeat sort below entries with one without raising on None compares.
 _MIN_DT = _datetime.min.replace(tzinfo=_timezone.utc)
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
+
+from dependencies.auth import get_current_user_id
 
 from core.installed_plugins import get_installed_registry
 from core.plugin_catalog import get_catalog
@@ -68,7 +70,11 @@ from services.job_manager import job_manager
 
 logger = logging.getLogger(__name__)
 
-plugins_router = APIRouter()
+# Policy: the whole plugin surface (registry reads, install/lifecycle,
+# job submission) requires an authenticated user. Role escalation for
+# install/uninstall is a future policy decision; today the bar matches
+# the rest of the authenticated API.
+plugins_router = APIRouter(dependencies=[Depends(get_current_user_id)])
 
 
 # ---------------------------------------------------------------------------

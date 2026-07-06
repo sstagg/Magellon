@@ -21,8 +21,15 @@ legacy_architecture_b = pytest.mark.skip(
 
 @pytest.fixture(scope="module")
 def client() -> TestClient:
+    from uuid import uuid4
+
+    from dependencies.auth import get_current_user_id
+
     app = FastAPI()
     app.include_router(plugins_router, prefix="/plugins")
+    # The router requires an authenticated user; these tests pin the
+    # HTTP contract, not auth (tests/test_route_auth_policy.py owns that).
+    app.dependency_overrides[get_current_user_id] = lambda: uuid4()
     return TestClient(app)
 
 
@@ -581,7 +588,14 @@ def test_submit_job_rejects_particle_stack_category_without_subject_id(
 
 
 @pytest.mark.characterization
-def test_cancel_unknown_job_returns_404(client):
+def test_cancel_unknown_job_returns_404(client, monkeypatch):
+    """Pins the LookupError -> 404 mapping without needing a live DB."""
+    from services.job_manager import job_manager
+
+    def _unknown(job_id, include_result=False):
+        raise LookupError(job_id)
+
+    monkeypatch.setattr(job_manager, "get_job", _unknown)
     resp = client.delete("/plugins/jobs/00000000-0000-0000-0000-000000000999")
     assert resp.status_code == 404
 

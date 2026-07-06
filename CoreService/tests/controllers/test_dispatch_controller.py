@@ -27,11 +27,22 @@ from services.sync_dispatcher import (
 )
 
 
-@pytest.fixture
-def client():
+def _make_client() -> TestClient:
+    from uuid import uuid4
+
+    from dependencies.auth import get_current_user_id
+
     app = FastAPI()
     app.include_router(dispatch_router, prefix="/dispatch")
+    # The router requires an authenticated user; these tests pin dispatch
+    # behavior, not auth (tests/test_route_auth_policy.py owns that).
+    app.dependency_overrides[get_current_user_id] = lambda: uuid4()
     return TestClient(app)
+
+
+@pytest.fixture
+def client():
+    return _make_client()
 
 
 # ---------------------------------------------------------------------------
@@ -277,9 +288,7 @@ def test_capabilities_reports_supports_flags_from_live_plugin():
         "is_enabled": lambda self, p: True,
     })()
 
-    app = FastAPI()
-    app.include_router(dispatch_router, prefix="/dispatch")
-    test_client = TestClient(app)
+    test_client = _make_client()
 
     with patch(
         "core.plugin_liveness_registry.get_registry",
@@ -311,9 +320,7 @@ def test_capabilities_supports_flags_false_when_http_endpoint_missing():
         "manifest": type("M", (), {"capabilities": [Capability.PREVIEW]})(),
     })()
 
-    app = FastAPI()
-    app.include_router(dispatch_router, prefix="/dispatch")
-    test_client = TestClient(app)
+    test_client = _make_client()
 
     with patch(
         "core.plugin_liveness_registry.get_registry",
@@ -399,9 +406,7 @@ def test_capabilities_supports_flags_false_when_disabled():
         })(),
     })()
 
-    app = FastAPI()
-    app.include_router(dispatch_router, prefix="/dispatch")
-    test_client = TestClient(app)
+    test_client = _make_client()
 
     with patch(
         "core.plugin_liveness_registry.get_registry",

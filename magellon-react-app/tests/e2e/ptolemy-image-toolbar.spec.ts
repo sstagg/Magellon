@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { E2E_USERNAME, E2E_PASSWORD } from './helpers/credentials';
 
 const FRONTEND = process.env.MAGELLON_FRONTEND ?? 'http://localhost:8080';
 const BACKEND = process.env.MAGELLON_BACKEND ?? 'http://127.0.0.1:8000';
@@ -13,7 +14,7 @@ async function login(): Promise<AuthBody> {
   const res = await fetch(`${BACKEND}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'super', password: 'behd1d2' }),
+    body: JSON.stringify({ username: E2E_USERNAME, password: E2E_PASSWORD }),
   });
   if (!res.ok) throw new Error(`login failed: ${res.status} ${await res.text()}`);
   return res.json();
@@ -148,7 +149,7 @@ test('job status endpoint returns status for a dispatched job', async ({ request
 
   // Get a token
   const loginResp = await apiRequest.post(`${BACKEND}/auth/login`, {
-    data: { username: 'super', password: 'behd1d2' },
+    data: { username: E2E_USERNAME, password: E2E_PASSWORD },
   });
   const { access_token } = await loginResp.json();
 

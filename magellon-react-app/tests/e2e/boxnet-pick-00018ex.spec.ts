@@ -6,6 +6,7 @@
  * the plugin's `invert` option before dispatching through the normal RMQ path.
  */
 import { expect, test } from '@playwright/test';
+import { E2E_USERNAME, E2E_PASSWORD } from './helpers/credentials';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -21,7 +22,7 @@ async function login(): Promise<any> {
   const res = await fetch(`${BACKEND}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'super', password: 'behd1d2' }),
+    body: JSON.stringify({ username: E2E_USERNAME, password: E2E_PASSWORD }),
   });
   expect(res.ok, 'login must succeed').toBeTruthy();
   return res.json();

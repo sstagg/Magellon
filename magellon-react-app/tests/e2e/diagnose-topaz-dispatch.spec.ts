@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+import { E2E_USERNAME, E2E_PASSWORD } from './helpers/credentials';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -31,7 +32,7 @@ test('diagnose topaz dispatch flow', async ({ page, context }) => {
   // Login
   const auth = await (await fetch(`${BACKEND}/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'super', password: 'behd1d2' }),
+    body: JSON.stringify({ username: E2E_USERNAME, password: E2E_PASSWORD }),
   })).json();
   console.log('[AUTH]', auth.user_id ? 'ok' : 'FAILED', auth);
 

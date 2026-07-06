@@ -34,8 +34,9 @@ import asyncio
 import logging
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 
+from dependencies.auth import get_current_user_id
 from magellon_sdk.categories.contract import CATEGORIES, CategoryContract
 from magellon_sdk.models.manifest import Capability
 from services.sync_dispatcher import (
@@ -49,7 +50,10 @@ from services.sync_dispatcher import (
 
 logger = logging.getLogger(__name__)
 
-dispatch_router = APIRouter()
+# Policy: dispatch executes compute on plugin backends, so every route
+# requires an authenticated user (same bar as the feature-named
+# particle-picking routes that wrap this surface).
+dispatch_router = APIRouter(dependencies=[Depends(get_current_user_id)])
 
 
 def _normalize_name(name: str) -> str:
