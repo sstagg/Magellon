@@ -3,8 +3,8 @@ ENV_TYPE: production
 
 DOCKER_URL: tcp://localhost:2375
 DOCKER_REPOSITORY: tcp://localhost:2375
-DOCKER_USERNAME: khoshbin
-DOCKER_PASSWORD: khoshbin
+DOCKER_USERNAME: change_me
+DOCKER_PASSWORD: change_me
 
 
 DEBUG_CTF: false
@@ -12,13 +12,13 @@ DEBUG_CTF_PATH : C:/temp/magellon
 DEBUG_CTF_REPLACE : /gpfs
 
 
-SLACK_TOKEN: xoxb-5284990093169-5258053840439-aJ8x7uHcUCNqCKSZkbOSbAlt
+SLACK_TOKEN: null
 
 database_settings:
   DB_Driver: mysql+pymysql
   DB_HOST: mysql
   DB_NAME: magellon01
-  DB_PASSWORD: behd1d2
+  DB_PASSWORD: change_me
   DB_Port: 3306
   DB_USER: root
 
@@ -37,14 +37,14 @@ api_docs_settings:
 
 security_setup_settings:
   ENABLED: true  # Will auto-disable after first run if AUTO_DISABLE is true
-  SETUP_TOKEN: change_this_secret_token_in_production
+  SETUP_TOKEN: null  # Set MAGELLON_SECURITY_SETUP_TOKEN in production.
   AUTO_DISABLE: true  # Automatically disable after first successful run
 
 rabbitmq_settings:
   HOST_NAME: rabbitmq
   PORT: 5672
   USER_NAME: rabbit
-  PASSWORD: behd1d2
+  PASSWORD: change_me
   VIRTUAL_HOST: /
   SSL_ENABLED: false
   CONNECTION_TIMEOUT: 30

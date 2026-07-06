@@ -3,10 +3,10 @@ ENV_TYPE: development
 
 DOCKER_URL: tcp://localhost:2375
 DOCKER_REPOSITORY: tcp://localhost:2375
-DOCKER_USERNAME: khoshbin
-DOCKER_PASSWORD: khoshbin
+DOCKER_USERNAME: change_me
+DOCKER_PASSWORD: change_me
 
-SLACK_TOKEN: xoxb-5284990093169-5258053840439-aJ8x7uHcUCNqCKSZkbOSbAlq
+SLACK_TOKEN: null
 
 
 DEBUG_CTF: true
@@ -18,7 +18,7 @@ database_settings:
   DB_Driver: mysql+pymysql
   DB_HOST: localhost
   DB_NAME: magellon01
-  DB_PASSWORD: behd1d2
+  DB_PASSWORD: change_me
   DB_Port: 3306
   DB_USER: root
 
@@ -27,13 +27,13 @@ leginon_db_settings:
   HOST: 127.0.0.1
   PORT: 3310
   USER: usr_object
-  PASSWORD: ThPHMn3m39Ds
+  PASSWORD: change_me
   DATABASE: dbemdata
 
 api_docs_settings:
   ENABLED: true
   USERNAME: admin
-  PASSWORD: admin123
+  PASSWORD: change_me
 
 security_setup_settings:
   ENABLED: true
@@ -46,7 +46,7 @@ rabbitmq_settings:
   HOST_NAME: 127.0.0.1   # Force IPv4: `localhost` on Windows resolves to ::1 first → pika retry storm.
   PORT: 5672
   USER_NAME: rabbit
-  PASSWORD: behd1d2
+  PASSWORD: change_me
   VIRTUAL_HOST: /
   SSL_ENABLED: false
   CONNECTION_TIMEOUT: 30
