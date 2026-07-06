@@ -72,6 +72,7 @@ from models.graphql_strawberry_schema import strawberry_graphql_router
 import rich.traceback
 
 from core.dev_routes import dev_routes_enabled, register_dev_routes
+from core.exception_handlers import register_exception_handlers
 from services.casbin_service import CasbinService
 from services.casbin_policy_sync_service import CasbinPolicySyncService
 from core.socketio_server import sio
@@ -187,6 +188,8 @@ app = FastAPI(
     redoc_url=None,  # Disable default redoc
     openapi_url=None  # Disable default openapi.json
 )
+
+register_exception_handlers(app, is_production=_is_production)
 
 app.add_middleware(
     CORSMiddleware,
@@ -638,69 +641,4 @@ async def shutdown_event():
         except Exception as e:
             logger.error(f"[WARNING] Operational event logger stop failed: {e}")
 
-
-from core.exceptions import (
-    EntityNotFoundError, DuplicateEntityError, ValidationError,
-    PermissionDeniedError, FileProcessingError, MagellonError
-)
-
-
-def _cors_headers(request) -> dict:
-    """Echo CORS headers onto error responses so the browser doesn't drop
-    the body. FastAPI exception handlers bypass CORSMiddleware, which leaves
-    the frontend seeing only 'Network Error' instead of the real detail."""
-    origin = request.headers.get("origin") if request is not None else None
-    if not origin:
-        return {}
-    return {
-        "Access-Control-Allow-Origin": origin,
-        "Access-Control-Allow-Credentials": "true",
-        "Vary": "Origin",
-    }
-
-
-@app.exception_handler(EntityNotFoundError)
-def handle_not_found(request, err):
-    return JSONResponse(status_code=404, content={"message": str(err)}, headers=_cors_headers(request))
-
-@app.exception_handler(DuplicateEntityError)
-def handle_duplicate(request, err):
-    return JSONResponse(status_code=409, content={"message": str(err)}, headers=_cors_headers(request))
-
-@app.exception_handler(ValidationError)
-def handle_validation(request, err):
-    return JSONResponse(status_code=422, content={"message": str(err)}, headers=_cors_headers(request))
-
-@app.exception_handler(PermissionDeniedError)
-def handle_permission(request, err):
-    return JSONResponse(status_code=403, content={"message": str(err)}, headers=_cors_headers(request))
-
-@app.exception_handler(FileProcessingError)
-def handle_file_error(request, err):
-    return JSONResponse(status_code=500, content={"message": str(err)}, headers=_cors_headers(request))
-
-@app.exception_handler(MagellonError)
-def handle_domain_error(request, err):
-    return JSONResponse(status_code=400, content={"message": str(err)}, headers=_cors_headers(request))
-
-@app.exception_handler(Exception)
-def app_exception_handler(request, err):
-    import traceback
-    tb = traceback.format_exc()
-    logger.error(f"Unhandled exception on {request.method} {request.url}:\n{tb}")
-    if _is_production():
-        content = {
-            "message": "Internal server error",
-            "path": str(request.url.path),
-        }
-    else:
-        content = {
-            "message": f"{type(err).__name__}: {err}",
-            "path": str(request.url),
-        }
-    return JSONResponse(
-        status_code=500,
-        content=content,
-        headers=_cors_headers(request),
-    )
 
