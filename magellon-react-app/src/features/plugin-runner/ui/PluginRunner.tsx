@@ -478,7 +478,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                         )}
 
                         <SchemaForm
-                            schema={schema}
+                            schema={schema ?? {}}
                             values={values}
                             onChange={(next) => {
                                 setValues(next);
@@ -588,7 +588,7 @@ export const PluginRunner: React.FC<PluginRunnerProps> = ({ plugin }) => {
                                         src={previewUrl}
                                         overlay={
                                             <ParticleOverlay
-                                                result={showsResult ? displayedResult : undefined}
+                                                result={showsResult ? displayedResult ?? null : null}
                                                 diameterAngstrom={Number(values['diameter_angstrom']) || undefined}
                                                 imagePixelSize={Number(values['image_pixel_size']) || undefined}
                                             />
@@ -865,7 +865,7 @@ const ZoomablePreview: React.FC<ZoomablePreviewProps> = ({ src, overlay }) => {
 };
 
 interface ParticleOverlayProps {
-    result: PreviewResult | null;
+    result: PreviewResult | Record<string, unknown> | null;
     diameterAngstrom?: number;
     imagePixelSize?: number;
 }

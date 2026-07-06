@@ -55,11 +55,11 @@ interface ImageViewerState {
     setCurrentImage: (image: ImageInfoDto | null) => void;
     updateImageColumn: (columnIndex: number, columnData: Partial<ImageColumn>) => void;
     resetImageColumns: () => void;
-    selectImageInColumn: (image: ImageInfoDto, columnIndex: number) => void;
+    selectImageInColumn: (image: ImageInfoDto | null, columnIndex: number) => void;
     setAtlasImages: (atlasImages: AtlasImageDto[] | null) => void;
     setActiveTab: (tabId: string) => void;
     toggleAtlasVisibility: () => void;
-    setCurrentAtlas: (atlas: AtlasImageDto) => void;
+    setCurrentAtlas: (atlas: AtlasImageDto | null) => void;
     setSelectedParticlePicking: (pp: ParticlePickingDto | null) => void;
     updateParticlePicking: (updatedPP: ParticlePickingDto) => void;
     setViewMode: (mode: ViewMode) => void;

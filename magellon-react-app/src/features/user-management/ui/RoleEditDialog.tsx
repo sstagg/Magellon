@@ -244,6 +244,9 @@ export default function RoleEditDialog({
         setSaving(true);
         try {
             const roleId = role.oid || role.Oid;
+            if (!roleId) {
+                throw new Error('Role ID is required');
+            }
             await RoleAPI.updateRole({
                 oid: roleId,
                 ...formData,

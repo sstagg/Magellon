@@ -298,7 +298,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 sessionName={sessionName}
                 autoPickingProgress={autoPickingProgress}
                 resultCount={lastResultCount}
-                ippName={selectedParticlePicking?.name}
+                ippName={selectedParticlePicking?.name ?? undefined}
                 currentParticleCount={particles.length}
                 currentParticles={particles}
             />

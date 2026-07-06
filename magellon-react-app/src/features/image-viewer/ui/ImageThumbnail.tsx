@@ -49,7 +49,7 @@ export const ImageThumbnail = ({
     }, [size]);
 
     const apiUrl = useMemo(() =>
-            `${BASE_URL}/image_thumbnail?name=${encodeURIComponent(image.name)}&sessionName=${sessionName}`,
+            `${BASE_URL}/image_thumbnail?name=${encodeURIComponent(image.name ?? '')}&sessionName=${sessionName}`,
         [image.name, sessionName]
     );
 

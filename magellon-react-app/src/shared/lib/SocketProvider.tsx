@@ -29,8 +29,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const offJob = on<JobUpdatePayload>('job_update', (data) => {
             // Backend envelope is already the shape we store. Keep a small
             // fallback so legacy {id, type} payloads don't silently drop.
+            const jobId = data.job_id ?? data.id;
+            if (!jobId || !data.plugin_id || !data.status) return;
             const job: Job = {
-                job_id: data.job_id ?? data.id,
+                job_id: jobId,
                 plugin_id: data.plugin_id,
                 name: data.name || 'Job',
                 status: data.status,
@@ -42,7 +44,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 settings: data.settings,
                 result: data.result,
             };
-            if (!job.job_id) return;
             upsertJob(job);
         });
 

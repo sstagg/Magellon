@@ -48,7 +48,7 @@ export default function SwaggerApiDocs() {
   return (
     <Box sx={{ height: 'calc(100vh - 64px - 56px)', width: '100%', overflow: 'auto' }}>
       <SwaggerUI
-        spec={spec}
+        spec={spec ?? undefined}
         docExpansion="list"
         defaultModelsExpandDepth={1}
         defaultModelExpandDepth={1}

@@ -29,7 +29,7 @@ export const useAtlasData = (options: UseAtlasDataOptions = {}) => {
         isLoading,
         isError,
         error
-    } = useAtlasImages(effectiveSessionName, enabled && effectiveSessionName !== undefined);
+    } = useAtlasImages(effectiveSessionName ?? '', enabled && effectiveSessionName !== undefined);
 
     // Sync atlas images with store when they change
     useEffect(() => {

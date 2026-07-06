@@ -384,9 +384,9 @@ export const AtlasSection: React.FC<AtlasSectionProps> = ({
                                                 />
                                             ) : (
                                                 <AuthenticatedAtlasImage
-                                                    atlasName={atlas.name}
+                                                    atlasName={atlas.name ?? ''}
                                                     sessionName={sessionName}
-                                                    alt={atlas.name}
+                                                    alt={atlas.name ?? 'Atlas image'}
                                                     style={{
                                                         width: '100%',
                                                         height: '100%',

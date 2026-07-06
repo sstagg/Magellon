@@ -468,8 +468,8 @@ export default function UserManagementTab({
                 {userToChangePassword && (
                     <ChangePasswordDialog
                         open={changePasswordDialogOpen}
-                        userId={userToChangePassword.oid}
-                        username={userToChangePassword.username}
+                        userId={userToChangePassword.oid ?? ''}
+                        username={userToChangePassword.username ?? ''}
                         isOwnPassword={false}
                         onClose={() => {
                             setChangePasswordDialogOpen(false);
@@ -538,10 +538,10 @@ export default function UserManagementTab({
                                                 size="small"
                                             />
                                         )}
-                                        {userPermissions?.roles?.length > 0 && (
+                        {(userPermissions?.roles?.length ?? 0) > 0 && (
                                             <Chip
                                                 icon={<Security />}
-                                                label={`${userPermissions.roles.length} Role${userPermissions.roles.length > 1 ? 's' : ''}`}
+                                                label={`${userPermissions?.roles?.length ?? 0} Role${(userPermissions?.roles?.length ?? 0) > 1 ? 's' : ''}`}
                                                 color="primary"
                                                 size="small"
                                                 variant="outlined"
@@ -955,8 +955,8 @@ export default function UserManagementTab({
             {/* Change Password Dialog (User changing own password) */}
             <ChangePasswordDialog
                 open={passwordDialogOpen}
-                userId={currentUser?.id}
-                username={currentUser?.username}
+                userId={currentUser?.id ?? ''}
+                username={currentUser?.username ?? ''}
                 isOwnPassword={true}
                 onClose={() => setPasswordDialogOpen(false)}
                 onSuccess={() => {

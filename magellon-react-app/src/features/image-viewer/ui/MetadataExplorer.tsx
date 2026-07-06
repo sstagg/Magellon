@@ -199,7 +199,7 @@ const MetadataExplorer: React.FC<MetadataExplorerProps> = ({ categories, isLoadi
                     </ListItemButton>
                     {hasChildren && (
                         <MuiCollapse in={isExpanded}>
-                            {renderCategoryTree(category.children, level + 1, [...parents, category])}
+                            {renderCategoryTree(category.children ?? [], level + 1, [...parents, category])}
                         </MuiCollapse>
                     )}
                 </Box>

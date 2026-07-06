@@ -14,7 +14,7 @@ export const useVisibleColumns = (
 
         return imageColumns.filter((col, index) => {
             if (index === 0) return true;
-            return col.images?.pages?.length > 0;
+            return (col.images?.pages?.length ?? 0) > 0;
         });
     }, [imageColumns, autoHideEmpty]);
 };

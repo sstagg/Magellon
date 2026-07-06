@@ -22,7 +22,7 @@ export const useImageDataFetching = (options: UseImageDataFetchingOptions = {}) 
     const [level, setLevel] = useState<number>(0);
     const [parentId, setParentId] = useState<string | null>(null);
 
-    const sessionName = options.sessionName || currentSession?.name;
+    const sessionName = options.sessionName || currentSession?.name || '';
 
     // Fetch paged images with current query parameters
     const {
@@ -47,8 +47,8 @@ export const useImageDataFetching = (options: UseImageDataFetchingOptions = {}) 
                     updateImageColumn(0, { images: data });
                 }
             } else if (
-                imageColumns[columnIndex].selectedImage &&
-                (imageColumns[columnIndex].selectedImage?.children_count ?? 0) > 0
+                imageColumns[columnIndex]?.selectedImage &&
+                (imageColumns[columnIndex]?.selectedImage?.children_count ?? 0) > 0
             ) {
                 // Child column - fetch images for selected parent
                 setParentId(imageColumns[columnIndex].selectedImage!.oid);

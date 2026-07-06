@@ -265,7 +265,7 @@ export const PanelDrawer: React.FC<PanelDrawerProps> = ({ open, handleDrawerClos
                     {hasChildren && (
                         <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                             <List component="div" disablePadding>
-                                {renderNavItems(item.children, level + 1)}
+                                {renderNavItems(item.children ?? [], level + 1)}
                             </List>
                         </Collapse>
                     )}

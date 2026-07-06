@@ -312,7 +312,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
             return (
                 <ImageColumn
                     caption=""
-                    images={data}
+                    images={data ?? null}
                     level={level}
                     direction={isHorizontalMode ? 'horizontal' : 'vertical'}
                     width={isHorizontalMode ? undefined : width}

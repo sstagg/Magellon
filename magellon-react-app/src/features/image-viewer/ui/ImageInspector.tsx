@@ -125,7 +125,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
         error: isCtfInfoError,
         isLoading: isCtfInfoLoading,
         refetch: refetchCtfInfo
-    } = useFetchImageCtfInfo(selectedImage?.name, false);
+    } = useFetchImageCtfInfo(selectedImage?.name ?? '', false);
 
     // Only fetch particle pickings when PP tab is active
     const {
@@ -133,7 +133,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
         isLoading: isIPPLoading,
         isError: _isIPPError,
         refetch: refetchImageParticlePickings
-    } = useImageParticlePickings(selectedImage?.name, false);
+    } = useImageParticlePickings(selectedImage?.name ?? '', false);
 
     const updatePPMutation = useUpdateParticlePicking();
 
@@ -369,7 +369,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                     )}
                                 </Box>
                                 <ImageViewer
-                                    imageUrl={`${BASE_URL}/image_thumbnail?name=${encodeURIComponent(selectedImage?.name)}&sessionName=${sessionName}`}
+                                    imageUrl={`${BASE_URL}/image_thumbnail?name=${encodeURIComponent(selectedImage?.name ?? '')}&sessionName=${sessionName}`}
                                     width={isMobile ? IMAGE_SIZE_MOBILE : IMAGE_SIZE_DESKTOP}
                                     height={isMobile ? IMAGE_SIZE_MOBILE : IMAGE_SIZE_DESKTOP}
                                     imageStyle={imageStyle}
