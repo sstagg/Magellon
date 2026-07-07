@@ -1,6 +1,7 @@
 # Magellon Remediation & Improvement Plan
 
-**Status:** Proposed, 2026-07-06
+**Status:** EXECUTED 2026-07-06 — commits `56e73d70` (S), `07084aa4` (R, SDK 2.5.0 tagged), `69074b8b` (T), `70b5ee88` (D), `82e6f6ef` (F), `5fdbeaa9` (C).
+Remaining operator actions: rotate the AWS key found in terraform (deactivate in IAM) and any real system using the dev-stack password; decide on git-history scrub. Deferred by design: knip CI gate (43-file report needs triage), RLS f-string→Core SQL rewrite (needs live-DB verification loop), plugin install/uninstall role escalation, F3 React Query migration (opportunistic per ADR 0001).
 **Source:** Full-platform review of CoreService (6.5/10), magellon-react-app (6.5/10), magellon-sdk (7/10) run 2026-07-06.
 **Goal:** Close the security, runtime-truth, and hygiene gaps without touching the (sound) architecture. Estimated total: ~2 weeks of focused work for phases S/R/T/D; F and C are ongoing budgeted work.
 
