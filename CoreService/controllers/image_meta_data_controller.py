@@ -44,7 +44,7 @@ async def create_image_meta_data(
         raise HTTPException(status_code=400, detail="Image metadata already exists!")
 
     try:
-        created_image_meta_data = await ImageMetaDataRepository.create(
+        created_image_meta_data = ImageMetaDataRepository.create(
             db=db,
             image_meta_data_dto=image_meta_data_request
         )
@@ -73,7 +73,7 @@ async def update_image_meta_data(
     """
     logger.info(f"User {user_id} updating image metadata: {image_meta_data_request.oid}")
     try:
-        updated_metadata = await ImageMetaDataRepository.update(
+        updated_metadata = ImageMetaDataRepository.update(
             db=db,
             image_meta_data_dto=image_meta_data_request
         )
@@ -151,6 +151,6 @@ async def delete_image_meta_data(
     if db_image_meta_data is None:
         raise HTTPException(status_code=404, detail="Image metadata not found with the given ID")
 
-    await ImageMetaDataRepository.delete(db, oid)
+    ImageMetaDataRepository.delete(db, oid)
     logger.info(f"Image metadata {oid} deleted by user {user_id}")
     return {"message": "Image metadata deleted successfully", "deleted_by": str(user_id)}

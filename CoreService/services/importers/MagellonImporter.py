@@ -470,17 +470,6 @@ class MagellonImporter(BaseImporter):
 
                 # Get original file path
                 original_file = os.path.normpath(os.path.join(self.params.source_dir, 'home', ORIGINAL_IMAGES_SUB_URL, f"{image.name}.mrc"))
-                # if not os.path.exists(original_file):
-                #     original_file = os.path.join(self.params.source_file, 'home', ORIGINAL_IMAGES_SUB_URL, f"{image.name}.tiff")
-                #
-                # # Get frame file if exists
-                # frame_file = None
-                # frame_path = os.path.join(self.params.source_file, 'home', FRAMES_SUB_URL)
-                # if os.path.exists(frame_path):
-                #     frame_files = [f for f in os.listdir(frame_path) if f.startswith(image.name)]
-                #     if frame_files:
-                #         frame_file = os.path.join(frame_path, frame_files[0])
-
                 # Create job task record
                 if os.path.exists(original_file):
                     task = self.create_image_job_task_record(

@@ -8,6 +8,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from starlette import status
 
+from controllers.security._crud_helpers import (
+    crud_guard,
+    ensure_success,
+    found_or_404,
+    get_role_or_404,
+    get_user_or_404,
+)
 from database import get_db
 from dependencies.auth import get_current_user_id
 from dependencies.permissions import require_role
@@ -48,23 +55,10 @@ async def assign_role_to_user(
 
     logger.info(f"Assigning role {role_id} to user {user_id}")
 
-    # Validate user exists
-    user = SysSecUserRepository.fetch_by_id(db, user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+    get_user_or_404(db, user_id)
+    get_role_or_404(db, role_id)
 
-    # Validate role exists
-    role = SysSecRoleRepository.fetch_by_id(db, role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
-
-    try:
+    with crud_guard(logger, 'Error assigning role to user'):
         assignment = SysSecUserRoleRepository.assign_role_to_user(db, user_id, role_id)
 
         # Sync user permissions to Casbin
@@ -82,13 +76,6 @@ async def assign_role_to_user(
             optimistic_lock_field=assignment.OptimisticLockField
         )
 
-    except Exception as e:
-        logger.exception('Error assigning role to user')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error assigning role to user'
-        )
-
 
 @sys_sec_user_role_router.delete('/user/{user_id}/role/{role_id}')
 async def remove_role_from_user(
@@ -103,30 +90,15 @@ async def remove_role_from_user(
     logger.info(f"Removing role {role_id} from user {user_id}")
 
     # Check if assignment exists
-    assignment = SysSecUserRoleRepository.fetch_by_user_and_role(db, user_id, role_id)
-    if not assignment:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User-role assignment not found"
-        )
+    found_or_404(
+        SysSecUserRoleRepository.fetch_by_user_and_role(db, user_id, role_id),
+        "User-role assignment not found"
+    )
 
-    try:
+    with crud_guard(logger, 'Error removing role from user'):
         success = SysSecUserRoleRepository.remove_role_from_user(db, user_id, role_id)
-
-        if success:
-            return {"message": "Role removed from user successfully"}
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error removing role from user"
-            )
-
-    except Exception as e:
-        logger.exception('Error removing role from user')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error removing role from user'
-        )
+        ensure_success(success, "Error removing role from user")
+        return {"message": "Role removed from user successfully"}
 
 
 @sys_sec_user_role_router.get('/user/{user_id}/roles', response_model=List[UserRoleDetailDto])
@@ -134,15 +106,9 @@ def get_user_roles(user_id: UUID, db: Session = Depends(get_db)):
     """
     Get all roles assigned to a user with role details
     """
-    # Validate user exists
-    user = SysSecUserRepository.fetch_by_id(db, user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+    get_user_or_404(db, user_id)
 
-    try:
+    with crud_guard(logger, 'Error fetching user roles'):
         user_roles = SysSecUserRoleRepository.fetch_roles_by_user(db, user_id)
         return [
             UserRoleDetailDto(
@@ -156,28 +122,15 @@ def get_user_roles(user_id: UUID, db: Session = Depends(get_db)):
             for ur in user_roles
         ]
 
-    except Exception as e:
-        logger.exception('Error fetching user roles')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching user roles'
-        )
-
 
 @sys_sec_user_role_router.get('/role/{role_id}/users')
 def get_role_users(role_id: UUID, db: Session = Depends(get_db)):
     """
     Get all users assigned to a role
     """
-    # Validate role exists
-    role = SysSecRoleRepository.fetch_by_id(db, role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
+    role = get_role_or_404(db, role_id)
 
-    try:
+    with crud_guard(logger, 'Error fetching role users'):
         user_roles = SysSecUserRoleRepository.fetch_users_by_role(db, role_id)
         return {
             "role_id": role_id,
@@ -193,13 +146,6 @@ def get_role_users(role_id: UUID, db: Session = Depends(get_db)):
             ]
         }
 
-    except Exception as e:
-        logger.exception('Error fetching role users')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching role users'
-        )
-
 
 @sys_sec_user_role_router.get('/', response_model=List[dict])
 def get_all_user_roles(
@@ -210,16 +156,8 @@ def get_all_user_roles(
     """
     Get all user-role assignments with details
     """
-    try:
-        assignments = SysSecUserRoleRepository.fetch_all_user_roles(db, skip, limit)
-        return assignments
-
-    except Exception as e:
-        logger.exception('Error fetching user-role assignments')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching user-role assignments'
-        )
+    with crud_guard(logger, 'Error fetching user-role assignments'):
+        return SysSecUserRoleRepository.fetch_all_user_roles(db, skip, limit)
 
 
 @sys_sec_user_role_router.delete('/user/{user_id}/roles')
@@ -233,31 +171,14 @@ async def remove_all_user_roles(
     """
     logger.info(f"Removing all roles from user {user_id}")
 
-    # Validate user exists
-    user = SysSecUserRepository.fetch_by_id(db, user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+    get_user_or_404(db, user_id)
 
-    try:
+    with crud_guard(logger, 'Error removing all user roles'):
         success = SysSecUserRoleRepository.remove_all_user_roles(db, user_id)
-
-        if success:
-            return {"message": "All roles removed from user successfully"}
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error removing roles from user"
-            )
-
-    except Exception as e:
-        logger.exception('Error removing all user roles')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error removing all user roles'
-        )
+        # Historical behavior: the failure raise happened inside the try
+        # block, so the client-visible detail is the guard's generic one.
+        ensure_success(success, "Error removing roles from user")
+        return {"message": "All roles removed from user successfully"}
 
 
 @sys_sec_user_role_router.post('/bulk-assign', status_code=201)
@@ -271,24 +192,14 @@ async def bulk_assign_role(
     """
     logger.info(f"Bulk assigning role {bulk_request.role_id} to {len(bulk_request.user_ids)} users")
 
-    # Validate role exists
-    role = SysSecRoleRepository.fetch_by_id(db, bulk_request.role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
+    role = get_role_or_404(db, bulk_request.role_id)
 
     # Validate all users exist
     for user_id in bulk_request.user_ids:
         user = SysSecUserRepository.fetch_by_id(db, user_id)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User not found: {user_id}"
-            )
+        found_or_404(user, f"User not found: {user_id}")
 
-    try:
+    with crud_guard(logger, 'Error in bulk role assignment'):
         assigned_users = SysSecUserRoleRepository.bulk_assign_roles(
             db,
             bulk_request.user_ids,
@@ -304,13 +215,6 @@ async def bulk_assign_role(
             "already_assigned": len(bulk_request.user_ids) - len(assigned_users)
         }
 
-    except Exception as e:
-        logger.exception('Error in bulk role assignment')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error in bulk role assignment'
-        )
-
 
 @sys_sec_user_role_router.put('/user/{user_id}/sync-roles')
 async def sync_user_roles(
@@ -324,24 +228,14 @@ async def sync_user_roles(
     """
     logger.info(f"Syncing roles for user {user_id}")
 
-    # Validate user exists
-    user = SysSecUserRepository.fetch_by_id(db, user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+    get_user_or_404(db, user_id)
 
     # Validate all roles exist
     for role_id in role_ids:
         role = SysSecRoleRepository.fetch_by_id(db, role_id)
-        if not role:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Role not found: {role_id}"
-            )
+        found_or_404(role, f"Role not found: {role_id}")
 
-    try:
+    with crud_guard(logger, 'Error syncing user roles'):
         result = SysSecUserRoleRepository.sync_user_roles(db, user_id, role_ids)
 
         return {
@@ -351,13 +245,6 @@ async def sync_user_roles(
             "roles_removed": result['removed'],
             "total_roles": len(role_ids)
         }
-
-    except Exception as e:
-        logger.exception('Error syncing user roles')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error syncing user roles'
-        )
 
 
 @sys_sec_user_role_router.get('/user/{user_id}/has-role/{role_name}')
@@ -369,15 +256,9 @@ def check_user_has_role(
     """
     Check if a user has a specific role by role name
     """
-    # Validate user exists
-    user = SysSecUserRepository.fetch_by_id(db, user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+    get_user_or_404(db, user_id)
 
-    try:
+    with crud_guard(logger, 'Error checking user role'):
         has_role = SysSecUserRoleRepository.user_has_role(db, user_id, role_name)
         return {
             "user_id": user_id,
@@ -385,40 +266,20 @@ def check_user_has_role(
             "has_role": has_role
         }
 
-    except Exception as e:
-        logger.exception('Error checking user role')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error checking user role'
-        )
-
 
 @sys_sec_user_role_router.get('/user/{user_id}/is-admin')
 def check_user_is_admin(user_id: UUID, db: Session = Depends(get_db)):
     """
     Check if a user has any administrative role
     """
-    # Validate user exists
-    user = SysSecUserRepository.fetch_by_id(db, user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+    get_user_or_404(db, user_id)
 
-    try:
+    with crud_guard(logger, 'Error checking admin status'):
         is_admin = SysSecUserRoleRepository.user_has_any_administrative_role(db, user_id)
         return {
             "user_id": user_id,
             "is_admin": is_admin
         }
-
-    except Exception as e:
-        logger.exception('Error checking admin status')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error checking admin status'
-        )
 
 
 @sys_sec_user_role_router.get('/stats/user/{user_id}')
@@ -426,15 +287,9 @@ def get_user_role_stats(user_id: UUID, db: Session = Depends(get_db)):
     """
     Get role statistics for a specific user
     """
-    # Validate user exists
-    user = SysSecUserRepository.fetch_by_id(db, user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+    user = get_user_or_404(db, user_id)
 
-    try:
+    with crud_guard(logger, 'Error fetching user role statistics'):
         role_count = SysSecUserRoleRepository.count_roles_for_user(db, user_id)
         is_admin = SysSecUserRoleRepository.user_has_any_administrative_role(db, user_id)
         roles = SysSecUserRoleRepository.fetch_roles_by_user(db, user_id)
@@ -454,28 +309,15 @@ def get_user_role_stats(user_id: UUID, db: Session = Depends(get_db)):
             ]
         }
 
-    except Exception as e:
-        logger.exception('Error fetching user role statistics')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching user role statistics'
-        )
-
 
 @sys_sec_user_role_router.get('/stats/role/{role_id}')
 def get_role_assignment_stats(role_id: UUID, db: Session = Depends(get_db)):
     """
     Get assignment statistics for a specific role
     """
-    # Validate role exists
-    role = SysSecRoleRepository.fetch_by_id(db, role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
+    role = get_role_or_404(db, role_id)
 
-    try:
+    with crud_guard(logger, 'Error fetching role assignment statistics'):
         user_count = SysSecUserRoleRepository.count_users_in_role(db, role_id)
 
         return {
@@ -484,10 +326,3 @@ def get_role_assignment_stats(role_id: UUID, db: Session = Depends(get_db)):
             "is_administrative": role['is_administrative'],
             "total_users": user_count
         }
-
-    except Exception as e:
-        logger.exception('Error fetching role assignment statistics')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching role assignment statistics'
-        )

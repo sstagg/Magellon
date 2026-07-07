@@ -64,6 +64,12 @@ def get_session_mags(
     except AttributeError:
         return {"error": "Invalid session ID"}
 
+    # SAFETY INVARIANT for the text(f"""...""") queries in this module:
+    # the only interpolated fragment is filter_clause, which is produced
+    # by get_session_filter_clause() from program constants — never from
+    # request input. All user-supplied values bind via :params. If you
+    # add interpolation of anything request-derived, switch the query to
+    # SQLAlchemy Core composition instead.
     # RLS: Get filter clause for session-level security
     filter_clause, filter_params = get_session_filter_clause(user_id)
 

@@ -15,6 +15,7 @@ from typing import Optional
 
 from config import MAGELLON_HOME_DIR
 from controllers.image_processing_tools import lowpass_filter
+from core.exceptions import TaskDispatchError
 from models.pydantic_models import LeginonFrameTransferJobBase, LeginonFrameTransferJobDto, \
     EpuImportJobBase, EpuImportJobDto
 from services.importers.EPUImporter import EPUImporter
@@ -218,13 +219,16 @@ async def fft_dispatch(
         "User %s dispatching FFT task %s in job %s for image %s",
         user_id, task_id, job_id, request.image_path,
     )
-    ok = dispatch_fft_task(
-        image_path=request.image_path,
-        target_path=target_path,
-        job_id=job_id,
-        task_id=task_id,
-        image_id=request.image_id,
-    )
+    try:
+        ok = dispatch_fft_task(
+            image_path=request.image_path,
+            target_path=target_path,
+            job_id=job_id,
+            task_id=task_id,
+            image_id=request.image_id,
+        )
+    except TaskDispatchError:
+        ok = False
     if not ok:
         # DB has a QUEUED job that will never run — flip it to failed
         # so the UI doesn't see a permanently-pending row.
@@ -275,12 +279,15 @@ async def fft_batch_dispatch(
 
     failures: list[str] = []
     for img, tgt, tid in zip(request.image_paths, target_paths, task_ids):
-        ok = dispatch_fft_task(
-            image_path=img,
-            target_path=tgt,
-            job_id=job_id,
-            task_id=tid,
-        )
+        try:
+            ok = dispatch_fft_task(
+                image_path=img,
+                target_path=tgt,
+                job_id=job_id,
+                task_id=tid,
+            )
+        except TaskDispatchError:
+            ok = False
         if not ok:
             failures.append(str(tid))
 
@@ -371,13 +378,16 @@ def _ptolemy_dispatch(
         if category_label == "SquareDetection"
         else dispatch_hole_detection_task
     )
-    ok = dispatch_fn(
-        image_path=request.image_path,
-        job_id=job_id,
-        task_id=task_id,
-        image_id=request.image_id,
-        session_name=request.session_name,
-    )
+    try:
+        ok = dispatch_fn(
+            image_path=request.image_path,
+            job_id=job_id,
+            task_id=task_id,
+            image_id=request.image_id,
+            session_name=request.session_name,
+        )
+    except TaskDispatchError:
+        ok = False
     if not ok:
         job_manager.fail_job(
             str(job_id), error=f"Failed to publish {category_label} task to RMQ",
@@ -581,17 +591,20 @@ async def topaz_pick_dispatch(
         "User %s dispatching topaz pick task %s in job %s for image %s",
         user_id, task_id, job_id, request.image_path,
     )
-    ok = dispatch_topaz_pick_task(
-        image_path=request.image_path,
-        model=request.model,
-        radius=request.radius,
-        threshold=request.threshold,
-        scale=request.scale,
-        job_id=job_id,
-        task_id=task_id,
-        image_id=request.image_id,
-        session_name=request.session_name,
-    )
+    try:
+        ok = dispatch_topaz_pick_task(
+            image_path=request.image_path,
+            model=request.model,
+            radius=request.radius,
+            threshold=request.threshold,
+            scale=request.scale,
+            job_id=job_id,
+            task_id=task_id,
+            image_id=request.image_id,
+            session_name=request.session_name,
+        )
+    except TaskDispatchError:
+        ok = False
     if not ok:
         job_manager.fail_job(str(job_id), error="Failed to publish topaz pick task to RMQ")
         raise HTTPException(status_code=502, detail="Failed to publish topaz pick task to RMQ")
@@ -636,17 +649,20 @@ async def topaz_denoise_dispatch(
         "User %s dispatching denoise task %s in job %s for image %s",
         user_id, task_id, job_id, request.image_path,
     )
-    ok = dispatch_micrograph_denoise_task(
-        image_path=request.image_path,
-        output_file=request.output_file,
-        model=request.model,
-        patch_size=request.patch_size,
-        padding=request.padding,
-        job_id=job_id,
-        task_id=task_id,
-        image_id=request.image_id,
-        session_name=request.session_name,
-    )
+    try:
+        ok = dispatch_micrograph_denoise_task(
+            image_path=request.image_path,
+            output_file=request.output_file,
+            model=request.model,
+            patch_size=request.patch_size,
+            padding=request.padding,
+            job_id=job_id,
+            task_id=task_id,
+            image_id=request.image_id,
+            session_name=request.session_name,
+        )
+    except TaskDispatchError:
+        ok = False
     if not ok:
         job_manager.fail_job(str(job_id), error="Failed to publish denoise task to RMQ")
         raise HTTPException(status_code=502, detail="Failed to publish denoise task to RMQ")

@@ -135,7 +135,7 @@ class SysSecRoleRepository:
         ).order_by(SysSecRole.Name).offset(skip).limit(limit).all()
 
     @staticmethod
-    async def soft_delete(db: Session, role_id: UUID, deleted_by: Optional[UUID] = None) -> bool:
+    def soft_delete(db: Session, role_id: UUID, deleted_by: Optional[UUID] = None) -> bool:
         """
         Soft delete role by setting GCRecord
         """
@@ -162,7 +162,7 @@ class SysSecRoleRepository:
             raise e
 
     @staticmethod
-    async def hard_delete(db: Session, role_id: UUID) -> bool:
+    def hard_delete(db: Session, role_id: UUID) -> bool:
         """
         Permanently delete role
         """

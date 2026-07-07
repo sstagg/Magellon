@@ -54,7 +54,11 @@ def test_particle_pick_dispatch_canonicalizes_template_picker_extras(monkeypatch
         captured["task"] = task
         return True
 
-    monkeypatch.setattr(helper_mod, "push_task_to_task_queue", _capture)
+    # Patch the builder module — dispatch_particle_pick_task resolves
+    # push_task_to_task_queue from core.dispatch_builders' namespace
+    # since the core.helper split.
+    import core.dispatch_builders as builders_mod
+    monkeypatch.setattr(builders_mod, "push_task_to_task_queue", _capture)
 
     ok = helper_mod.dispatch_particle_pick_task(
         "C:/magellon/gpfs/session/mic.mrc",

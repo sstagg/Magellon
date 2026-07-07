@@ -46,7 +46,7 @@ async def create_camera(
 
     # Create camera in the database
     try:
-        created_camera = await CameraRepository.create(db=db, camera_dto=camera_request)
+        created_camera = CameraRepository.create(db=db, camera_dto=camera_request)
         logger.info(f"Camera created by user {user_id}: {created_camera.oid}")
         return created_camera
     except Exception as e:
@@ -72,7 +72,7 @@ async def update_camera(
     """
     logger.info(f"User {user_id} updating camera: {camera_request.oid}")
     try:
-        updated_camera = await CameraRepository.update(db=db, camera_dto=camera_request)
+        updated_camera = CameraRepository.update(db=db, camera_dto=camera_request)
         logger.info(f"Camera updated by user {user_id}: {camera_request.oid}")
         return updated_camera
     except Exception as e:
@@ -145,6 +145,6 @@ async def delete_camera(
     if db_camera is None:
         raise HTTPException(status_code=404, detail="Camera not found with the given ID")
 
-    await CameraRepository.delete(db, oid)
+    CameraRepository.delete(db, oid)
     logger.info(f"Camera {oid} deleted by user {user_id}")
     return {"message": "Camera deleted successfully", "deleted_by": str(user_id)}

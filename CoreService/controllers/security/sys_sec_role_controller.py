@@ -8,6 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from starlette import status
 
+from controllers.security._crud_helpers import (
+    crud_guard,
+    ensure_success,
+    found_or_404,
+    get_role_or_404,
+)
 from database import get_db
 from dependencies.auth import get_current_user_id
 from dependencies.permissions import require_role
@@ -24,6 +30,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 sys_sec_role_router = APIRouter()
+
+
+def _to_role_response(role) -> RoleResponseDto:
+    """Convert a SysSecRole ORM row to the response DTO."""
+    return RoleResponseDto(
+        oid=role.Oid,
+        name=role.Name,
+        is_administrative=role.IsAdministrative,
+        can_edit_model=role.CanEditModel,
+        permission_policy=role.PermissionPolicy
+    )
 
 
 @sys_sec_role_router.post('/', response_model=RoleResponseDto, status_code=201)
@@ -50,27 +67,13 @@ async def create_role(
             detail=f"Role with name '{role_request.name}' already exists"
         )
 
-    try:
+    with crud_guard(logger, 'Error creating role'):
         created_role = SysSecRoleRepository.create(
             db=db,
             role_dto=role_request,
             created_by=current_user_id
         )
-
-        return RoleResponseDto(
-            oid=created_role.Oid,
-            name=created_role.Name,
-            is_administrative=created_role.IsAdministrative,
-            can_edit_model=created_role.CanEditModel,
-            permission_policy=created_role.PermissionPolicy
-        )
-
-    except Exception as e:
-        logger.exception('Error creating role')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error creating role'
-        )
+        return _to_role_response(created_role)
 
 
 @sys_sec_role_router.put('/', response_model=RoleResponseDto)
@@ -90,12 +93,7 @@ async def update_role(
     logger.info(f"Updating role: {role_request.oid}")
 
     # Check if role exists
-    existing_role = SysSecRoleRepository.fetch_by_id(db, role_request.oid)
-    if not existing_role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
+    get_role_or_404(db, role_request.oid)
 
     # If name is being updated, check for conflicts
     if role_request.name:
@@ -106,33 +104,16 @@ async def update_role(
                 detail=f"Another role with name '{role_request.name}' already exists"
             )
 
-    try:
+    with crud_guard(logger, 'Error updating role'):
         updated_role = SysSecRoleRepository.update(
             db=db,
             role_dto=role_request,
             updated_by=current_user_id
         )
-
-        if not updated_role:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Role not found"
-            )
-
-        return RoleResponseDto(
-            oid=updated_role.Oid,
-            name=updated_role.Name,
-            is_administrative=updated_role.IsAdministrative,
-            can_edit_model=updated_role.CanEditModel,
-            permission_policy=updated_role.PermissionPolicy
-        )
-
-    except Exception as e:
-        logger.exception('Error updating role')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error updating role'
-        )
+        # Historical behavior: this 404 was raised inside the try block, so
+        # the guard converts it into the generic 500 (as the original did).
+        found_or_404(updated_role, "Role not found")
+        return _to_role_response(updated_role)
 
 
 @sys_sec_role_router.get('/', response_model=List[RoleResponseDto])
@@ -152,29 +133,13 @@ def get_all_roles(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    try:
+    with crud_guard(logger, 'Error fetching roles'):
         if name:
             roles = SysSecRoleRepository.search_by_name(db, name, skip, limit)
         else:
             roles = SysSecRoleRepository.fetch_all(db, skip, limit)
 
-        return [
-            RoleResponseDto(
-                oid=role.Oid,
-                name=role.Name,
-                is_administrative=role.IsAdministrative,
-                can_edit_model=role.CanEditModel,
-                permission_policy=role.PermissionPolicy
-            )
-            for role in roles
-        ]
-
-    except Exception as e:
-        logger.exception('Error fetching roles')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching roles'
-        )
+        return [_to_role_response(role) for role in roles]
 
 
 @sys_sec_role_router.get('/administrative', response_model=List[RoleResponseDto])
@@ -190,25 +155,9 @@ def get_administrative_roles(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    try:
+    with crud_guard(logger, 'Error fetching administrative roles'):
         roles = SysSecRoleRepository.fetch_administrative_roles(db)
-        return [
-            RoleResponseDto(
-                oid=role.Oid,
-                name=role.Name,
-                is_administrative=role.IsAdministrative,
-                can_edit_model=role.CanEditModel,
-                permission_policy=role.PermissionPolicy
-            )
-            for role in roles
-        ]
-
-    except Exception as e:
-        logger.exception('Error fetching administrative roles')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching administrative roles'
-        )
+        return [_to_role_response(role) for role in roles]
 
 
 @sys_sec_role_router.get('/{role_id}', response_model=RoleResponseDto)
@@ -225,20 +174,8 @@ def get_role(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    role = SysSecRoleRepository.fetch_by_id(db, role_id)
-    if role is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
-
-    return RoleResponseDto(
-        oid=role.Oid,
-        name=role.Name,
-        is_administrative=role.IsAdministrative,
-        can_edit_model=role.CanEditModel,
-        permission_policy=role.PermissionPolicy
-    )
+    role = get_role_or_404(db, role_id)
+    return _to_role_response(role)
 
 
 @sys_sec_role_router.get('/name/{role_name}', response_model=RoleResponseDto)
@@ -255,20 +192,8 @@ def get_role_by_name(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    role = SysSecRoleRepository.fetch_by_name(db, role_name)
-    if role is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
-
-    return RoleResponseDto(
-        oid=role.Oid,
-        name=role.Name,
-        is_administrative=role.IsAdministrative,
-        can_edit_model=role.CanEditModel,
-        permission_policy=role.PermissionPolicy
-    )
+    role = found_or_404(SysSecRoleRepository.fetch_by_name(db, role_name), "Role not found")
+    return _to_role_response(role)
 
 
 @sys_sec_role_router.delete('/{role_id}')
@@ -286,12 +211,7 @@ async def delete_role(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    role = SysSecRoleRepository.fetch_by_id(db, role_id)
-    if role is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
+    get_role_or_404(db, role_id)
 
     # Check if role is assigned to any users
     user_count = SysSecUserRoleRepository.count_users_in_role(db, role_id)
@@ -301,28 +221,16 @@ async def delete_role(
             detail=f"Cannot hard delete role. It is assigned to {user_count} user(s). Remove all user assignments first."
         )
 
-    try:
+    with crud_guard(logger, 'Error deleting role'):
         # If hard deleting, remove all user-role associations first
         if hard_delete:
             SysSecUserRoleRepository.remove_all_role_assignments(db, role_id)
-            success = await SysSecRoleRepository.hard_delete(db, role_id)
+            success = SysSecRoleRepository.hard_delete(db, role_id)
         else:
-            success = await SysSecRoleRepository.soft_delete(db, role_id)
+            success = SysSecRoleRepository.soft_delete(db, role_id)
 
-        if success:
-            return {"message": f"Role {'permanently deleted' if hard_delete else 'deactivated'} successfully"}
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error deleting role"
-            )
-
-    except Exception as e:
-        logger.exception('Error deleting role')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error deleting role'
-        )
+        ensure_success(success, "Error deleting role")
+        return {"message": f"Role {'permanently deleted' if hard_delete else 'deactivated'} successfully"}
 
 
 @sys_sec_role_router.get('/{role_id}/users')
@@ -339,14 +247,9 @@ def get_role_users(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    role = SysSecRoleRepository.fetch_by_id(db, role_id)
-    if role is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
+    role = get_role_or_404(db, role_id)
 
-    try:
+    with crud_guard(logger, 'Error fetching role users'):
         user_roles = SysSecUserRoleRepository.fetch_users_by_role(db, role_id)
         return {
             "role_id": role_id,
@@ -362,13 +265,6 @@ def get_role_users(
                 for ur in user_roles
             ]
         }
-
-    except Exception as e:
-        logger.exception('Error fetching role users')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching role users'
-        )
 
 
 @sys_sec_role_router.get('/stats/count')
@@ -403,7 +299,7 @@ def get_role_statistics(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    try:
+    with crud_guard(logger, 'Error fetching role statistics'):
         from models.sqlalchemy_models import SysSecRole, SysSecUserRole
         from sqlalchemy import func
 
@@ -437,10 +333,3 @@ def get_role_statistics(
                 for row in roles_with_counts
             ]
         }
-
-    except Exception as e:
-        logger.exception('Error fetching role statistics')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching role statistics'
-        )

@@ -395,7 +395,7 @@ async def setup_security_system(
                 change_password_on_first_logon=False
             )
 
-            user = await SysSecUserRepository.create(
+            user = SysSecUserRepository.create(
                 db=db,
                 user_dto=user_dto,
                 created_by=None  # No creator for bootstrap user

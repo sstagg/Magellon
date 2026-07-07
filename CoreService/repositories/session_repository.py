@@ -13,14 +13,14 @@ class _SessionRepository(BaseRepository[Msession], SessionRepositoryInterface):
     def __init__(self):
         super().__init__(Msession)
 
-    async def create(self, db: Session, session_dto: SessionDto) -> Msession:
+    def create(self, db: Session, session_dto: SessionDto) -> Msession:
         if session_dto.oid is None:
             session_dto.oid = str(uuid.uuid4())
         session_instance = Msession(oid=session_dto.oid, name=session_dto.name)
-        return await super().create(db, session_instance)
+        return super().create(db, session_instance)
 
-    async def update(self, db: Session, session_dto) -> None:
-        await super().update(db, session_dto)
+    def update(self, db: Session, session_dto) -> None:
+        super().update(db, session_dto)
 
 
 SessionRepository = _SessionRepository()

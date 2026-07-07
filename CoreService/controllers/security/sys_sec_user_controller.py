@@ -7,6 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from starlette import status
 
+from controllers.security._crud_helpers import (
+    crud_guard,
+    ensure_success,
+    found_or_404,
+    get_user_or_404,
+)
 from database import get_db
 from dependencies.auth import get_current_user_id
 from dependencies.permissions import require_permission, require_role
@@ -42,6 +48,27 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 
+def _convert_user_to_response_dto(user) -> SysSecUserResponseDto:
+    """
+    Helper function to convert SQLAlchemy user model to response DTO
+    """
+    return SysSecUserResponseDto(
+        oid=user.oid,
+        USERNAME=user.USERNAME,
+        ACTIVE=user.ACTIVE,
+        created_date=user.created_date,
+        last_modified_date=user.last_modified_date,
+        omid=user.omid,
+        ouid=user.ouid,
+        sync_status=user.sync_status,
+        version=user.version,
+        ChangePasswordOnFirstLogon=user.ChangePasswordOnFirstLogon,
+        ObjectType=user.ObjectType,
+        AccessFailedCount=user.AccessFailedCount,
+        LockoutEnd=user.LockoutEnd
+    )
+
+
 @sys_sec_user_router.post('/', response_model=SysSecUserResponseDto, status_code=201)
 async def create_user(
         user_request: SysSecUserCreateDto,
@@ -73,42 +100,18 @@ async def create_user(
             detail="User already exists with this username"
         )
 
-    try:
+    with crud_guard(logger, 'Error creating user in database', 'Error creating user'):
         # Hash password
         user_request.password = hash_password(user_request.password)
 
         # Create user in the database
-        created_user = await SysSecUserRepository.create(
+        created_user = SysSecUserRepository.create(
             db=db,
             user_dto=user_request,
             created_by=current_user_id
         )
 
-        # Convert to response DTO with proper field mapping
-        response_data = {
-            "oid": created_user.oid,
-            "USERNAME": created_user.USERNAME,
-            "ACTIVE": created_user.ACTIVE,
-            "created_date": created_user.created_date,
-            "last_modified_date": created_user.last_modified_date,
-            "omid": created_user.omid,
-            "ouid": created_user.ouid,
-            "sync_status": created_user.sync_status,
-            "version": created_user.version,
-            "ChangePasswordOnFirstLogon": created_user.ChangePasswordOnFirstLogon,
-            "ObjectType": created_user.ObjectType,
-            "AccessFailedCount": created_user.AccessFailedCount,
-            "LockoutEnd": created_user.LockoutEnd
-        }
-
-        return SysSecUserResponseDto(**response_data)
-
-    except Exception as e:
-        logger.exception('Error creating user in database')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error creating user'
-        )
+        return _convert_user_to_response_dto(created_user)
 
 
 @sys_sec_user_router.put('/', response_model=SysSecUserResponseDto, status_code=200)
@@ -131,65 +134,17 @@ async def update_user(
     if user_request.password:
         user_request.password = hash_password(user_request.password)
 
-    try:
-        updated_user = await SysSecUserRepository.update(
+    with crud_guard(logger, 'Error updating user in database', 'Error updating user'):
+        updated_user = SysSecUserRepository.update(
             db=db,
             user_dto=user_request,
             updated_by=current_user_id
         )
 
-        if not updated_user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
-
-        # Convert to response DTO with proper field mapping
-        response_data = {
-            "oid": updated_user.oid,
-            "USERNAME": updated_user.USERNAME,
-            "ACTIVE": updated_user.ACTIVE,
-            "created_date": updated_user.created_date,
-            "last_modified_date": updated_user.last_modified_date,
-            "omid": updated_user.omid,
-            "ouid": updated_user.ouid,
-            "sync_status": updated_user.sync_status,
-            "version": updated_user.version,
-            "ChangePasswordOnFirstLogon": updated_user.ChangePasswordOnFirstLogon,
-            "ObjectType": updated_user.ObjectType,
-            "AccessFailedCount": updated_user.AccessFailedCount,
-            "LockoutEnd": updated_user.LockoutEnd
-        }
-
-        return SysSecUserResponseDto(**response_data)
-
-    except Exception as e:
-        logger.exception('Error updating user in database')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error updating user'
-        )
-
-
-def _convert_user_to_response_dto(user) -> SysSecUserResponseDto:
-    """
-    Helper function to convert SQLAlchemy user model to response DTO
-    """
-    return SysSecUserResponseDto(
-        oid=user.oid,
-        USERNAME=user.USERNAME,
-        ACTIVE=user.ACTIVE,
-        created_date=user.created_date,
-        last_modified_date=user.last_modified_date,
-        omid=user.omid,
-        ouid=user.ouid,
-        sync_status=user.sync_status,
-        version=user.version,
-        ChangePasswordOnFirstLogon=user.ChangePasswordOnFirstLogon,
-        ObjectType=user.ObjectType,
-        AccessFailedCount=user.AccessFailedCount,
-        LockoutEnd=user.LockoutEnd
-    )
+        # Historical behavior: this 404 was raised inside the try block, so
+        # the guard converts it into the generic 500 (as the original did).
+        found_or_404(updated_user, "User not found")
+        return _convert_user_to_response_dto(updated_user)
 
 
 @sys_sec_user_router.get('/', response_model=List[SysSecUserResponseDto])
@@ -209,20 +164,13 @@ def get_all_users(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    try:
+    with crud_guard(logger, 'Error fetching users from database', 'Error fetching users'):
         if username:
             users = SysSecUserRepository.search_by_username(db, username, skip, limit)
         else:
             users = SysSecUserRepository.fetch_all(db, skip, limit, include_inactive)
 
         return [_convert_user_to_response_dto(user) for user in users]
-
-    except Exception as e:
-        logger.exception('Error fetching users from database')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching users'
-        )
 
 
 @sys_sec_user_router.get('/{user_id}', response_model=SysSecUserResponseDto)
@@ -239,13 +187,7 @@ def get_user(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    db_user = SysSecUserRepository.fetch_by_id(db, user_id)
-    if db_user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-
+    db_user = get_user_or_404(db, user_id)
     return _convert_user_to_response_dto(db_user)
 
 
@@ -263,13 +205,7 @@ def get_user_by_username(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    db_user = SysSecUserRepository.fetch_by_username(db, username)
-    if db_user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-
+    db_user = found_or_404(SysSecUserRepository.fetch_by_username(db, username), "User not found")
     return _convert_user_to_response_dto(db_user)
 
 
@@ -288,35 +224,20 @@ async def delete_user(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    user = SysSecUserRepository.fetch_by_id(db, user_id)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+    get_user_or_404(db, user_id)
 
-    try:
+    with crud_guard(logger, 'Error deleting user'):
         if hard_delete:
-            success = await SysSecUserRepository.hard_delete(db, user_id)
+            success = SysSecUserRepository.hard_delete(db, user_id)
         else:
-            success = await SysSecUserRepository.soft_delete(db, user_id, current_user_id)
+            success = SysSecUserRepository.soft_delete(db, user_id, current_user_id)
 
-        if success:
-            return {"message": "User deleted successfully"}
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error deleting user"
-            )
-
-    except Exception as e:
-        logger.exception('Error deleting user')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_SERVER_ERROR,
-            detail='Error deleting user'
-        )
+        ensure_success(success, "Error deleting user")
+        return {"message": "User deleted successfully"}
 
 
+# Deliberately public route: login-equivalent credential check used by the
+# older UI flow (allowlisted in tests/test_route_auth_policy.py).
 @sys_sec_user_router.post('/authenticate')
 async def authenticate_user(
         username: str,
@@ -344,12 +265,12 @@ async def authenticate_user(
     # Verify password
     if not verify_password(password, user.PASSWORD):
         # Increment failed access count
-        await SysSecUserRepository.increment_failed_access(db, user.oid)
+        SysSecUserRepository.increment_failed_access(db, user.oid)
 
         # Lock account after 5 failed attempts
         if (user.AccessFailedCount or 0) >= 4:  # Will be 5 after increment
             lockout_end = datetime.now() + timedelta(minutes=30)
-            await SysSecUserRepository.set_lockout(db, user.oid, lockout_end)
+            SysSecUserRepository.set_lockout(db, user.oid, lockout_end)
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -357,7 +278,7 @@ async def authenticate_user(
         )
 
     # Reset failed access count on successful login
-    await SysSecUserRepository.reset_failed_access(db, user.oid)
+    SysSecUserRepository.reset_failed_access(db, user.oid)
 
     return {
         "message": "Authentication successful",
@@ -382,13 +303,8 @@ async def activate_user(
     - Permission: Administrator role
     """
     update_dto = SysSecUserUpdateDto(oid=user_id, active=True)
-    updated_user = await SysSecUserRepository.update(db, update_dto, current_user_id)
-
-    if not updated_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+    updated_user = SysSecUserRepository.update(db, update_dto, current_user_id)
+    found_or_404(updated_user, "User not found")
 
     return {"message": "User activated successfully"}
 
@@ -408,13 +324,8 @@ async def deactivate_user(
     - Permission: Administrator role
     """
     update_dto = SysSecUserUpdateDto(oid=user_id, active=False)
-    updated_user = await SysSecUserRepository.update(db, update_dto, current_user_id)
-
-    if not updated_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+    updated_user = SysSecUserRepository.update(db, update_dto, current_user_id)
+    found_or_404(updated_user, "User not found")
 
     return {"message": "User deactivated successfully"}
 
@@ -433,13 +344,8 @@ async def unlock_user(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    user = await SysSecUserRepository.reset_failed_access(db, user_id)
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+    user = SysSecUserRepository.reset_failed_access(db, user_id)
+    found_or_404(user, "User not found")
 
     return {"message": "User unlocked successfully"}
 
@@ -472,12 +378,7 @@ async def change_password(
             detail='New password must be at least 6 characters long'
         )
 
-    user = SysSecUserRepository.fetch_by_id(db, user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+    user = get_user_or_404(db, user_id)
 
     # Verify current password
     if not verify_password(current_password, user.PASSWORD):
@@ -493,13 +394,8 @@ async def change_password(
         change_password_on_first_logon=False
     )
 
-    updated_user = await SysSecUserRepository.update(db, update_dto, user_id)
-
-    if not updated_user:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error updating password"
-        )
+    updated_user = SysSecUserRepository.update(db, update_dto, user_id)
+    ensure_success(updated_user, "Error updating password")
 
     return {"message": "Password changed successfully"}
 
@@ -534,14 +430,9 @@ async def admin_reset_password(
         )
 
     # Validate target user exists
-    user = SysSecUserRepository.fetch_by_id(db, user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+    get_user_or_404(db, user_id)
 
-    try:
+    with crud_guard(logger, 'Error resetting user password', 'Error resetting password'):
         # Hash the new password
         hashed_password = hash_password(new_password)
 
@@ -553,13 +444,8 @@ async def admin_reset_password(
             access_failed_count=0  # Reset failed login attempts
         )
 
-        updated_user = await SysSecUserRepository.update(db, update_dto, current_user_id)
-
-        if not updated_user:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error resetting password"
-            )
+        updated_user = SysSecUserRepository.update(db, update_dto, current_user_id)
+        ensure_success(updated_user, "Error resetting password")
 
         return {
             "message": "Password reset successfully",
@@ -567,13 +453,6 @@ async def admin_reset_password(
             "username": updated_user.USERNAME,
             "require_change_on_login": require_change_on_login
         }
-
-    except Exception as e:
-        logger.exception('Error resetting user password')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error resetting password'
-        )
 
 
 @sys_sec_user_router.get('/stats/count')
@@ -647,7 +526,7 @@ async def generate_password_hash(request: PasswordHashRequest):
         "Verify this request is legitimate."
     )
 
-    try:
+    with crud_guard(logger, 'Error generating password hash', 'Error generating password hash'):
         # Generate bcrypt hash using the same function used for user creation
         hashed = hash_password(request.password)
 
@@ -658,10 +537,3 @@ async def generate_password_hash(request: PasswordHashRequest):
             "sql_example": f"UPDATE sys_sec_user SET PASSWORD = '{hashed}' WHERE USERNAME = 'admin';",
             "note": "Copy the password_hash value and use it in the SQL UPDATE statement to recover admin access"
         }
-
-    except Exception as e:
-        logger.exception("Error generating password hash")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error generating password hash"
-        )

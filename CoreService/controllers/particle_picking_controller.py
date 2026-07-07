@@ -40,6 +40,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.orm import Session
 
 from config import ORIGINAL_IMAGES_SUB_URL, app_settings
+from core.exceptions import TaskDispatchError
 from core.helper import dispatch_particle_pick_task, to_canonical_gpfs_path
 from core.plugin_liveness_registry import get_registry as get_liveness_registry
 from core.plugin_state import get_state_store
@@ -784,19 +785,22 @@ async def dispatch_particle_pick(
     job_id = UUID(job_envelope["job_id"])
 
     loop = asyncio.get_running_loop()
-    ok = await loop.run_in_executor(
-        None,
-        lambda: dispatch_particle_pick_task(
-            resolved_path,
-            image_id=image_id_val,
-            session_name=req.session_name,
-            job_id=job_id,
-            task_id=task_id,
-            target_backend=req.target_backend,
-            ipp_name=req.ipp_name,
-            engine_opts=req.engine_opts,
-        ),
-    )
+    try:
+        ok = await loop.run_in_executor(
+            None,
+            lambda: dispatch_particle_pick_task(
+                resolved_path,
+                image_id=image_id_val,
+                session_name=req.session_name,
+                job_id=job_id,
+                task_id=task_id,
+                target_backend=req.target_backend,
+                ipp_name=req.ipp_name,
+                engine_opts=req.engine_opts,
+            ),
+        )
+    except TaskDispatchError:
+        ok = False
     if not ok:
         job_manager.fail_job(str(job_id), error="Failed to enqueue task")
         raise HTTPException(status_code=503, detail="Failed to enqueue task — RMQ unavailable")

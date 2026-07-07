@@ -8,6 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from starlette import status
 
+from controllers.security._crud_helpers import (
+    crud_guard,
+    ensure_success,
+    found_or_404,
+    get_role_or_404,
+)
 from database import get_db
 from dependencies.auth import get_current_user_id
 from dependencies.permissions import require_role
@@ -23,8 +29,8 @@ from models.security.security_models import (
 )
 from repositories.security.sys_sec_action_permission_repository import SysSecActionPermissionRepository
 from repositories.security.sys_sec_navigation_permission_repository import SysSecNavigationPermissionRepository
+from repositories.security.sys_sec_object_permission_repository import SysSecObjectPermissionRepository
 from repositories.security.sys_sec_type_permission_repository import SysSecTypePermissionRepository
-from repositories.security.sys_sec_role_repository import SysSecRoleRepository
 
 import logging
 
@@ -36,6 +42,60 @@ sys_sec_permission_mgmt_router = APIRouter(
         Depends(require_role('Administrator')),
     ]
 )
+
+
+def _to_action_permission_response(perm) -> ActionPermissionResponseDto:
+    """Convert a SysSecActionPermission ORM row to the response DTO."""
+    return ActionPermissionResponseDto(
+        oid=perm.Oid,
+        action_id=perm.ActionId,
+        role_id=perm.Role,
+        optimistic_lock_field=perm.OptimisticLockField,
+        gc_record=perm.GCRecord if hasattr(perm, 'GCRecord') else None
+    )
+
+
+def _to_navigation_permission_response(perm) -> NavigationPermissionResponseDto:
+    """Convert a SysSecNavigationPermission ORM row to the response DTO."""
+    return NavigationPermissionResponseDto(
+        oid=perm.Oid,
+        item_path=perm.ItemPath,
+        navigate_state=perm.NavigateState,
+        role_id=perm.Role,
+        optimistic_lock_field=perm.OptimisticLockField,
+        gc_record=perm.GCRecord if hasattr(perm, 'GCRecord') else None
+    )
+
+
+def _to_type_permission_response(perm) -> TypePermissionResponseDto:
+    """Convert a SysSecTypePermission ORM row to the response DTO."""
+    return TypePermissionResponseDto(
+        oid=perm.Oid,
+        target_type=perm.TargetType,
+        role=perm.Role,
+        read_state=perm.ReadState,
+        write_state=perm.WriteState,
+        create_state=perm.CreateState,
+        delete_state=perm.DeleteState,
+        navigate_state=perm.NavigateState,
+        optimistic_lock_field=perm.OptimisticLockField,
+        gc_record=perm.GCRecord if hasattr(perm, 'GCRecord') else None
+    )
+
+
+def _to_object_permission_response(perm) -> ObjectPermissionResponseDto:
+    """Convert a SysSecObjectPermission ORM row to the response DTO."""
+    return ObjectPermissionResponseDto(
+        oid=perm.oid,
+        criteria=perm.Criteria or "",
+        read_state=perm.ReadState or 0,
+        write_state=perm.WriteState or 0,
+        delete_state=perm.DeleteState or 0,
+        navigate_state=perm.NavigateState or 0,
+        type_permission_object=perm.TypePermissionObject,
+        optimistic_lock_field=perm.OptimisticLockField,
+        gc_record=perm.GCRecord
+    )
 
 
 # ==================== ACTION PERMISSIONS ====================
@@ -51,35 +111,15 @@ async def create_action_permission(
     """
     logger.info(f"Creating action permission: {permission_request.action_id} for role {permission_request.role_id}")
 
-    # Validate role exists
-    role = SysSecRoleRepository.fetch_by_id(db, permission_request.role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
+    get_role_or_404(db, permission_request.role_id)
 
-    try:
+    with crud_guard(logger, 'Error creating action permission'):
         permission = SysSecActionPermissionRepository.create(
             db,
             permission_request.role_id,
             permission_request.action_id
         )
-
-        return ActionPermissionResponseDto(
-            oid=permission.Oid,
-            action_id=permission.ActionId,
-            role_id=permission.Role,
-            optimistic_lock_field=permission.OptimisticLockField,
-            gc_record=permission.GCRecord if hasattr(permission, 'GCRecord') else None
-        )
-
-    except Exception as e:
-        logger.exception('Error creating action permission')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error creating action permission'
-        )
+        return _to_action_permission_response(permission)
 
 
 @sys_sec_permission_mgmt_router.get('/actions/role/{role_id}', response_model=List[ActionPermissionResponseDto])
@@ -87,33 +127,11 @@ def get_role_action_permissions(role_id: UUID, db: Session = Depends(get_db)):
     """
     Get all action permissions for a role
     """
-    # Validate role exists
-    role = SysSecRoleRepository.fetch_by_id(db, role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
+    get_role_or_404(db, role_id)
 
-    try:
+    with crud_guard(logger, 'Error fetching action permissions'):
         permissions = SysSecActionPermissionRepository.fetch_by_role(db, role_id)
-        return [
-            ActionPermissionResponseDto(
-                oid=perm.Oid,
-                action_id=perm.ActionId,
-                role_id=perm.Role,
-                optimistic_lock_field=perm.OptimisticLockField,
-                gc_record=perm.GCRecord if hasattr(perm, 'GCRecord') else None
-            )
-            for perm in permissions
-        ]
-
-    except Exception as e:
-        logger.exception('Error fetching action permissions')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching action permissions'
-        )
+        return [_to_action_permission_response(perm) for perm in permissions]
 
 
 @sys_sec_permission_mgmt_router.get('/actions/action/{action_id}')
@@ -121,19 +139,12 @@ def get_action_roles(action_id: str, db: Session = Depends(get_db)):
     """
     Get all roles that have a specific action permission
     """
-    try:
+    with crud_guard(logger, 'Error fetching action roles'):
         permissions = SysSecActionPermissionRepository.fetch_by_action(db, action_id)
         return {
             "action_id": action_id,
             "roles": permissions
         }
-
-    except Exception as e:
-        logger.exception('Error fetching action roles')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching action roles'
-        )
 
 
 @sys_sec_permission_mgmt_router.delete('/actions/{permission_id}')
@@ -145,23 +156,10 @@ async def delete_action_permission(
     """
     Delete an action permission
     """
-    try:
+    with crud_guard(logger, 'Error deleting action permission'):
         success = SysSecActionPermissionRepository.delete(db, permission_id)
-
-        if success:
-            return {"message": "Action permission deleted successfully"}
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error deleting action permission"
-            )
-
-    except Exception as e:
-        logger.exception('Error deleting action permission')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error deleting action permission'
-        )
+        ensure_success(success, "Error deleting action permission")
+        return {"message": "Action permission deleted successfully"}
 
 
 @sys_sec_permission_mgmt_router.post('/actions/bulk', response_model=PermissionBatchResponseDto)
@@ -173,15 +171,9 @@ async def bulk_create_action_permissions(
     """
     Create multiple action permissions for a role at once
     """
-    # Validate role exists
-    role = SysSecRoleRepository.fetch_by_id(db, bulk_request.role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
+    get_role_or_404(db, bulk_request.role_id)
 
-    try:
+    with crud_guard(logger, 'Error in bulk create action permissions'):
         created_actions = SysSecActionPermissionRepository.bulk_create(
             db,
             bulk_request.role_id,
@@ -192,13 +184,6 @@ async def bulk_create_action_permissions(
             created_count=len(created_actions),
             failed_count=len(bulk_request.permissions) - len(created_actions),
             errors=None
-        )
-
-    except Exception as e:
-        logger.exception('Error in bulk create action permissions')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error in bulk create action permissions'
         )
 
 
@@ -215,37 +200,16 @@ async def create_navigation_permission(
     """
     logger.info(f"Creating navigation permission: {permission_request.item_path} for role {permission_request.role_id}")
 
-    # Validate role exists
-    role = SysSecRoleRepository.fetch_by_id(db, permission_request.role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
+    get_role_or_404(db, permission_request.role_id)
 
-    try:
+    with crud_guard(logger, 'Error creating navigation permission'):
         permission = SysSecNavigationPermissionRepository.create(
             db,
             permission_request.role_id,
             permission_request.item_path,
             permission_request.navigate_state
         )
-
-        return NavigationPermissionResponseDto(
-            oid=permission.Oid,
-            item_path=permission.ItemPath,
-            navigate_state=permission.NavigateState,
-            role_id=permission.Role,
-            optimistic_lock_field=permission.OptimisticLockField,
-            gc_record=permission.GCRecord if hasattr(permission, 'GCRecord') else None
-        )
-
-    except Exception as e:
-        logger.exception('Error creating navigation permission')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error creating navigation permission'
-        )
+        return _to_navigation_permission_response(permission)
 
 
 @sys_sec_permission_mgmt_router.put('/navigation/{permission_id}', response_model=NavigationPermissionResponseDto)
@@ -258,32 +222,10 @@ async def update_navigation_permission(
     """
     Update navigation permission state
     """
-    try:
+    with crud_guard(logger, 'Error updating navigation permission', reraise_http=True):
         permission = SysSecNavigationPermissionRepository.update(db, permission_id, navigate_state)
-
-        if not permission:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Navigation permission not found"
-            )
-
-        return NavigationPermissionResponseDto(
-            oid=permission.Oid,
-            item_path=permission.ItemPath,
-            navigate_state=permission.NavigateState,
-            role_id=permission.Role,
-            optimistic_lock_field=permission.OptimisticLockField,
-            gc_record=permission.GCRecord if hasattr(permission, 'GCRecord') else None
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception('Error updating navigation permission')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error updating navigation permission'
-        )
+        found_or_404(permission, "Navigation permission not found")
+        return _to_navigation_permission_response(permission)
 
 
 @sys_sec_permission_mgmt_router.get('/navigation/role/{role_id}', response_model=List[NavigationPermissionResponseDto])
@@ -291,34 +233,11 @@ def get_role_navigation_permissions(role_id: UUID, db: Session = Depends(get_db)
     """
     Get all navigation permissions for a role
     """
-    # Validate role exists
-    role = SysSecRoleRepository.fetch_by_id(db, role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
+    get_role_or_404(db, role_id)
 
-    try:
+    with crud_guard(logger, 'Error fetching navigation permissions'):
         permissions = SysSecNavigationPermissionRepository.fetch_by_role(db, role_id)
-        return [
-            NavigationPermissionResponseDto(
-                oid=perm.Oid,
-                item_path=perm.ItemPath,
-                navigate_state=perm.NavigateState,
-                role_id=perm.Role,
-                optimistic_lock_field=perm.OptimisticLockField,
-                gc_record=perm.GCRecord if hasattr(perm, 'GCRecord') else None
-            )
-            for perm in permissions
-        ]
-
-    except Exception as e:
-        logger.exception('Error fetching navigation permissions')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching navigation permissions'
-        )
+        return [_to_navigation_permission_response(perm) for perm in permissions]
 
 
 @sys_sec_permission_mgmt_router.get('/navigation/path')
@@ -329,19 +248,12 @@ def get_path_roles(
     """
     Get all roles that have permission for a specific navigation path
     """
-    try:
+    with crud_guard(logger, 'Error fetching path roles'):
         permissions = SysSecNavigationPermissionRepository.fetch_by_path(db, item_path)
         return {
             "item_path": item_path,
             "roles": permissions
         }
-
-    except Exception as e:
-        logger.exception('Error fetching path roles')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching path roles'
-        )
 
 
 @sys_sec_permission_mgmt_router.delete('/navigation/{permission_id}')
@@ -353,23 +265,10 @@ async def delete_navigation_permission(
     """
     Delete a navigation permission
     """
-    try:
+    with crud_guard(logger, 'Error deleting navigation permission'):
         success = SysSecNavigationPermissionRepository.delete(db, permission_id)
-
-        if success:
-            return {"message": "Navigation permission deleted successfully"}
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error deleting navigation permission"
-            )
-
-    except Exception as e:
-        logger.exception('Error deleting navigation permission')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error deleting navigation permission'
-        )
+        ensure_success(success, "Error deleting navigation permission")
+        return {"message": "Navigation permission deleted successfully"}
 
 
 @sys_sec_permission_mgmt_router.post('/navigation/bulk', response_model=PermissionBatchResponseDto)
@@ -382,15 +281,9 @@ async def bulk_create_navigation_permissions(
     """
     Create multiple navigation permissions for a role at once
     """
-    # Validate role exists
-    role = SysSecRoleRepository.fetch_by_id(db, bulk_request.role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
+    get_role_or_404(db, bulk_request.role_id)
 
-    try:
+    with crud_guard(logger, 'Error in bulk create navigation permissions'):
         created_paths = SysSecNavigationPermissionRepository.bulk_create(
             db,
             bulk_request.role_id,
@@ -402,13 +295,6 @@ async def bulk_create_navigation_permissions(
             created_count=len(created_paths),
             failed_count=len(bulk_request.permissions) - len(created_paths),
             errors=None
-        )
-
-    except Exception as e:
-        logger.exception('Error in bulk create navigation permissions')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error in bulk create navigation permissions'
         )
 
 
@@ -425,15 +311,9 @@ async def create_type_permission(
     """
     logger.info(f"Creating type permission: {permission_request.target_type} for role {permission_request.role}")
 
-    # Validate role exists
-    role = SysSecRoleRepository.fetch_by_id(db, permission_request.role)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
+    get_role_or_404(db, permission_request.role)
 
-    try:
+    with crud_guard(logger, 'Error creating type permission'):
         permission = SysSecTypePermissionRepository.create(
             db,
             permission_request.role,
@@ -444,26 +324,7 @@ async def create_type_permission(
             permission_request.delete_state,
             permission_request.navigate_state
         )
-
-        return TypePermissionResponseDto(
-            oid=permission.Oid,
-            target_type=permission.TargetType,
-            role=permission.Role,
-            read_state=permission.ReadState,
-            write_state=permission.WriteState,
-            create_state=permission.CreateState,
-            delete_state=permission.DeleteState,
-            navigate_state=permission.NavigateState,
-            optimistic_lock_field=permission.OptimisticLockField,
-            gc_record=permission.GCRecord if hasattr(permission, 'GCRecord') else None
-        )
-
-    except Exception as e:
-        logger.exception('Error creating type permission')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error creating type permission'
-        )
+        return _to_type_permission_response(permission)
 
 
 @sys_sec_permission_mgmt_router.put('/types/{permission_id}', response_model=TypePermissionResponseDto)
@@ -480,39 +341,13 @@ async def update_type_permission(
     """
     Update type permission states
     """
-    try:
+    with crud_guard(logger, 'Error updating type permission', reraise_http=True):
         permission = SysSecTypePermissionRepository.update(
             db, permission_id,
             read_state, write_state, create_state, delete_state, navigate_state
         )
-
-        if not permission:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Type permission not found"
-            )
-
-        return TypePermissionResponseDto(
-            oid=permission.Oid,
-            target_type=permission.TargetType,
-            role=permission.Role,
-            read_state=permission.ReadState,
-            write_state=permission.WriteState,
-            create_state=permission.CreateState,
-            delete_state=permission.DeleteState,
-            navigate_state=permission.NavigateState,
-            optimistic_lock_field=permission.OptimisticLockField,
-            gc_record=permission.GCRecord if hasattr(permission, 'GCRecord') else None
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception('Error updating type permission')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error updating type permission'
-        )
+        found_or_404(permission, "Type permission not found")
+        return _to_type_permission_response(permission)
 
 
 @sys_sec_permission_mgmt_router.get('/types/role/{role_id}', response_model=List[TypePermissionResponseDto])
@@ -520,38 +355,11 @@ def get_role_type_permissions(role_id: UUID, db: Session = Depends(get_db)):
     """
     Get all type permissions for a role
     """
-    # Validate role exists
-    role = SysSecRoleRepository.fetch_by_id(db, role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
+    get_role_or_404(db, role_id)
 
-    try:
+    with crud_guard(logger, 'Error fetching type permissions'):
         permissions = SysSecTypePermissionRepository.fetch_by_role(db, role_id)
-        return [
-            TypePermissionResponseDto(
-                oid=perm.Oid,
-                target_type=perm.TargetType,
-                role=perm.Role,
-                read_state=perm.ReadState,
-                write_state=perm.WriteState,
-                create_state=perm.CreateState,
-                delete_state=perm.DeleteState,
-                navigate_state=perm.NavigateState,
-                optimistic_lock_field=perm.OptimisticLockField,
-                gc_record=perm.GCRecord if hasattr(perm, 'GCRecord') else None
-            )
-            for perm in permissions
-        ]
-
-    except Exception as e:
-        logger.exception('Error fetching type permissions')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching type permissions'
-        )
+        return [_to_type_permission_response(perm) for perm in permissions]
 
 
 @sys_sec_permission_mgmt_router.get('/types/type/{target_type}')
@@ -559,19 +367,12 @@ def get_type_roles(target_type: str, db: Session = Depends(get_db)):
     """
     Get all roles that have permissions for a specific type
     """
-    try:
+    with crud_guard(logger, 'Error fetching type roles'):
         permissions = SysSecTypePermissionRepository.fetch_by_type(db, target_type)
         return {
             "target_type": target_type,
             "roles": permissions
         }
-
-    except Exception as e:
-        logger.exception('Error fetching type roles')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching type roles'
-        )
 
 
 @sys_sec_permission_mgmt_router.delete('/types/{permission_id}')
@@ -583,23 +384,10 @@ async def delete_type_permission(
     """
     Delete a type permission
     """
-    try:
+    with crud_guard(logger, 'Error deleting type permission'):
         success = SysSecTypePermissionRepository.delete(db, permission_id)
-
-        if success:
-            return {"message": "Type permission deleted successfully"}
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error deleting type permission"
-            )
-
-    except Exception as e:
-        logger.exception('Error deleting type permission')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error deleting type permission'
-        )
+        ensure_success(success, "Error deleting type permission")
+        return {"message": "Type permission deleted successfully"}
 
 
 @sys_sec_permission_mgmt_router.post('/types/grant-full-access/{role_id}/{target_type}', response_model=TypePermissionResponseDto)
@@ -612,35 +400,11 @@ async def grant_full_access(
     """
     Grant full access (all CRUD operations) for a type to a role
     """
-    # Validate role exists
-    role = SysSecRoleRepository.fetch_by_id(db, role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
+    get_role_or_404(db, role_id)
 
-    try:
+    with crud_guard(logger, 'Error granting full access'):
         permission = SysSecTypePermissionRepository.grant_full_access(db, role_id, target_type)
-        return TypePermissionResponseDto(
-            oid=permission.Oid,
-            target_type=permission.TargetType,
-            role=permission.Role,
-            read_state=permission.ReadState,
-            write_state=permission.WriteState,
-            create_state=permission.CreateState,
-            delete_state=permission.DeleteState,
-            navigate_state=permission.NavigateState,
-            optimistic_lock_field=permission.OptimisticLockField,
-            gc_record=permission.GCRecord if hasattr(permission, 'GCRecord') else None
-        )
-
-    except Exception as e:
-        logger.exception('Error granting full access')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error granting full access'
-        )
+        return _to_type_permission_response(permission)
 
 
 @sys_sec_permission_mgmt_router.post('/types/grant-read-only/{role_id}/{target_type}', response_model=TypePermissionResponseDto)
@@ -653,35 +417,11 @@ async def grant_read_only(
     """
     Grant read-only access for a type to a role
     """
-    # Validate role exists
-    role = SysSecRoleRepository.fetch_by_id(db, role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
+    get_role_or_404(db, role_id)
 
-    try:
+    with crud_guard(logger, 'Error granting read-only access'):
         permission = SysSecTypePermissionRepository.grant_read_only(db, role_id, target_type)
-        return TypePermissionResponseDto(
-            oid=permission.Oid,
-            target_type=permission.TargetType,
-            role=permission.Role,
-            read_state=permission.ReadState,
-            write_state=permission.WriteState,
-            create_state=permission.CreateState,
-            delete_state=permission.DeleteState,
-            navigate_state=permission.NavigateState,
-            optimistic_lock_field=permission.OptimisticLockField,
-            gc_record=permission.GCRecord if hasattr(permission, 'GCRecord') else None
-        )
-
-    except Exception as e:
-        logger.exception('Error granting read-only access')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error granting read-only access'
-        )
+        return _to_type_permission_response(permission)
 
 
 # ==================== UTILITY ENDPOINTS ====================
@@ -691,16 +431,9 @@ def get_all_actions(db: Session = Depends(get_db)):
     """
     Get all distinct action IDs in the system
     """
-    try:
+    with crud_guard(logger, 'Error fetching all actions'):
         actions = SysSecActionPermissionRepository.fetch_all_actions(db)
         return {"actions": actions}
-
-    except Exception as e:
-        logger.exception('Error fetching all actions')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching all actions'
-        )
 
 
 @sys_sec_permission_mgmt_router.get('/all-paths')
@@ -708,16 +441,9 @@ def get_all_paths(db: Session = Depends(get_db)):
     """
     Get all distinct navigation paths in the system
     """
-    try:
+    with crud_guard(logger, 'Error fetching all paths'):
         paths = SysSecNavigationPermissionRepository.fetch_all_paths(db)
         return {"paths": paths}
-
-    except Exception as e:
-        logger.exception('Error fetching all paths')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching all paths'
-        )
 
 
 @sys_sec_permission_mgmt_router.get('/all-types')
@@ -725,16 +451,9 @@ def get_all_types(db: Session = Depends(get_db)):
     """
     Get all distinct target types in the system
     """
-    try:
+    with crud_guard(logger, 'Error fetching all types'):
         types = SysSecTypePermissionRepository.fetch_all_types(db)
         return {"types": types}
-
-    except Exception as e:
-        logger.exception('Error fetching all types')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching all types'
-        )
 
 
 @sys_sec_permission_mgmt_router.get('/role/{role_id}/summary')
@@ -742,15 +461,9 @@ def get_role_permissions_summary(role_id: UUID, db: Session = Depends(get_db)):
     """
     Get comprehensive permissions summary for a role
     """
-    # Validate role exists
-    role = SysSecRoleRepository.fetch_by_id(db, role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
+    role = get_role_or_404(db, role_id)
 
-    try:
+    with crud_guard(logger, 'Error fetching role permissions summary'):
         action_perms = SysSecActionPermissionRepository.fetch_by_role(db, role_id)
         nav_perms = SysSecNavigationPermissionRepository.fetch_by_role(db, role_id)
         type_perms = SysSecTypePermissionRepository.fetch_by_role(db, role_id)
@@ -787,13 +500,6 @@ def get_role_permissions_summary(role_id: UUID, db: Session = Depends(get_db)):
             }
         }
 
-    except Exception as e:
-        logger.exception('Error fetching role permissions summary')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error fetching role permissions summary'
-        )
-
 
 # ==================== OBJECT PERMISSIONS (Record-Based) ====================
 
@@ -812,30 +518,9 @@ async def get_type_object_permissions(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    from repositories.security.sys_sec_object_permission_repository import SysSecObjectPermissionRepository
-
-    try:
+    with crud_guard(logger, 'Error fetching object permissions', append_error=True):
         permissions = SysSecObjectPermissionRepository.fetch_by_type_permission(db, type_permission_id)
-        return [
-            ObjectPermissionResponseDto(
-                oid=perm.oid,
-                criteria=perm.Criteria or "",
-                read_state=perm.ReadState or 0,
-                write_state=perm.WriteState or 0,
-                delete_state=perm.DeleteState or 0,
-                navigate_state=perm.NavigateState or 0,
-                type_permission_object=perm.TypePermissionObject,
-                optimistic_lock_field=perm.OptimisticLockField,
-                gc_record=perm.GCRecord
-            )
-            for perm in permissions
-        ]
-    except Exception as e:
-        logger.exception('Error fetching object permissions')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Error fetching object permissions: {str(e)}'
-        )
+        return [_to_object_permission_response(perm) for perm in permissions]
 
 
 @sys_sec_permission_mgmt_router.post('/permissions/objects', response_model=ObjectPermissionResponseDto, status_code=201)
@@ -858,20 +543,15 @@ async def create_object_permission(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    from repositories.security.sys_sec_object_permission_repository import SysSecObjectPermissionRepository
-    from repositories.security.sys_sec_type_permission_repository import SysSecTypePermissionRepository
-
     logger.info(f"Creating object permission for type permission {permission_request.type_permission_object}")
 
     # Validate type permission exists
-    type_perm = SysSecTypePermissionRepository.fetch_by_id(db, permission_request.type_permission_object)
-    if not type_perm:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Type permission not found"
-        )
+    found_or_404(
+        SysSecTypePermissionRepository.fetch_by_id(db, permission_request.type_permission_object),
+        "Type permission not found"
+    )
 
-    try:
+    with crud_guard(logger, 'Error creating object permission', append_error=True):
         permission = SysSecObjectPermissionRepository.create(
             db=db,
             type_permission_id=permission_request.type_permission_object,
@@ -881,24 +561,7 @@ async def create_object_permission(
             delete_state=permission_request.delete_state,
             navigate_state=permission_request.navigate_state
         )
-
-        return ObjectPermissionResponseDto(
-            oid=permission.oid,
-            criteria=permission.Criteria or "",
-            read_state=permission.ReadState or 0,
-            write_state=permission.WriteState or 0,
-            delete_state=permission.DeleteState or 0,
-            navigate_state=permission.NavigateState or 0,
-            type_permission_object=permission.TypePermissionObject,
-            optimistic_lock_field=permission.OptimisticLockField,
-            gc_record=permission.GCRecord
-        )
-    except Exception as e:
-        logger.exception('Error creating object permission')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Error creating object permission: {str(e)}'
-        )
+        return _to_object_permission_response(permission)
 
 
 @sys_sec_permission_mgmt_router.put('/permissions/objects/{permission_id}', response_model=ObjectPermissionResponseDto)
@@ -916,9 +579,7 @@ async def update_object_permission(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    from repositories.security.sys_sec_object_permission_repository import SysSecObjectPermissionRepository
-
-    try:
+    with crud_guard(logger, 'Error updating object permission', reraise_http=True, append_error=True):
         permission = SysSecObjectPermissionRepository.update(
             db=db,
             permission_id=permission_id,
@@ -929,31 +590,8 @@ async def update_object_permission(
             navigate_state=permission_request.navigate_state
         )
 
-        if not permission:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Object permission not found"
-            )
-
-        return ObjectPermissionResponseDto(
-            oid=permission.oid,
-            criteria=permission.Criteria or "",
-            read_state=permission.ReadState or 0,
-            write_state=permission.WriteState or 0,
-            delete_state=permission.DeleteState or 0,
-            navigate_state=permission.NavigateState or 0,
-            type_permission_object=permission.TypePermissionObject,
-            optimistic_lock_field=permission.OptimisticLockField,
-            gc_record=permission.GCRecord
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception('Error updating object permission')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Error updating object permission: {str(e)}'
-        )
+        found_or_404(permission, "Object permission not found")
+        return _to_object_permission_response(permission)
 
 
 @sys_sec_permission_mgmt_router.delete('/permissions/objects/{permission_id}')
@@ -971,24 +609,10 @@ async def delete_object_permission(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    from repositories.security.sys_sec_object_permission_repository import SysSecObjectPermissionRepository
-
-    try:
+    with crud_guard(logger, 'Error deleting object permission', reraise_http=True, append_error=True):
         success = SysSecObjectPermissionRepository.delete(db, permission_id, hard_delete=hard_delete)
 
-        if success:
-            return {"message": "Object permission deleted successfully"}
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Object permission not found"
-            )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception('Error deleting object permission')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Error deleting object permission: {str(e)}'
-        )
-
+        # Unlike the other delete routes, a falsy result here means the row
+        # did not exist, so it maps to 404 (passed through by reraise_http).
+        found_or_404(success, "Object permission not found")
+        return {"message": "Object permission deleted successfully"}

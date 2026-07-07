@@ -1,13 +1,13 @@
 """
 Controller for Permission Checking API endpoints
 """
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from starlette import status
 
+from controllers.security._crud_helpers import crud_guard, get_user_or_404
 from database import get_db
 from dependencies.auth import get_current_user_id
 from dependencies.permissions import require_role
@@ -17,7 +17,6 @@ from models.security.security_models import (
     UserPermissionsSummaryDto
 )
 from services.authorization_service import AuthorizationService
-from repositories.security.sys_sec_user_repository import SysSecUserRepository
 
 import logging
 
@@ -40,14 +39,8 @@ async def check_permission(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    try:
-        # Validate user exists
-        user = SysSecUserRepository.fetch_by_id(db, permission_request.user_id)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
+    with crud_guard(logger, 'Error checking permission', reraise_http=True):
+        get_user_or_404(db, permission_request.user_id)
 
         has_permission, reason = AuthorizationService.check_permission(
             db=db,
@@ -60,15 +53,6 @@ async def check_permission(
         return PermissionCheckResponse(
             has_permission=has_permission,
             reason=reason
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception('Error checking permission')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error checking permission'
         )
 
 
@@ -86,20 +70,14 @@ async def get_user_permissions_summary(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    try:
-        # Validate user exists
-        user = SysSecUserRepository.fetch_by_id(db, user_id)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
+    with crud_guard(logger, 'Error getting user permissions summary', reraise_http=True):
+        user = get_user_or_404(db, user_id)
 
         summary = AuthorizationService.get_user_permissions_summary(db, user_id)
-        
+
         # Convert to response DTO
         from models.security.security_models import RoleResponseDto, ActionPermissionResponseDto, NavigationPermissionResponseDto
-        
+
         return {
             "user_id": user_id,
             "username": user.USERNAME,
@@ -134,15 +112,6 @@ async def get_user_permissions_summary(
             "is_admin": summary['is_admin']
         }
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception('Error getting user permissions summary')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error getting user permissions summary'
-        )
-
 
 @sys_sec_permission_router.get('/user/{user_id}/has-role/{role_name}')
 async def check_user_has_role(
@@ -159,20 +128,13 @@ async def check_user_has_role(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    try:
+    with crud_guard(logger, 'Error checking user role'):
         has_role = AuthorizationService.user_has_role(db, user_id, role_name)
         return {
             "user_id": str(user_id),
             "role_name": role_name,
             "has_role": has_role
         }
-
-    except Exception as e:
-        logger.exception('Error checking user role')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error checking user role'
-        )
 
 
 @sys_sec_permission_router.get('/user/{user_id}/is-admin')
@@ -189,19 +151,12 @@ async def check_user_is_admin(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    try:
+    with crud_guard(logger, 'Error checking admin status'):
         is_admin = AuthorizationService.user_is_admin(db, user_id)
         return {
             "user_id": str(user_id),
             "is_admin": is_admin
         }
-
-    except Exception as e:
-        logger.exception('Error checking admin status')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error checking admin status'
-        )
 
 
 @sys_sec_permission_router.get('/user/{user_id}/action/{action_id}')
@@ -219,20 +174,13 @@ async def check_action_permission(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    try:
+    with crud_guard(logger, 'Error checking action permission'):
         has_permission = AuthorizationService.user_has_action_permission(db, user_id, action_id)
         return {
             "user_id": str(user_id),
             "action_id": action_id,
             "has_permission": has_permission
         }
-
-    except Exception as e:
-        logger.exception('Error checking action permission')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error checking action permission'
-        )
 
 
 @sys_sec_permission_router.get('/user/{user_id}/navigation')
@@ -250,20 +198,13 @@ async def check_navigation_permission(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    try:
+    with crud_guard(logger, 'Error checking navigation permission'):
         has_permission = AuthorizationService.user_has_navigation_permission(db, user_id, item_path)
         return {
             "user_id": str(user_id),
             "item_path": item_path,
             "has_permission": has_permission
         }
-
-    except Exception as e:
-        logger.exception('Error checking navigation permission')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error checking navigation permission'
-        )
 
 
 @sys_sec_permission_router.get('/user/{user_id}/type/{target_type}')
@@ -282,7 +223,7 @@ async def check_type_permission(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    try:
+    with crud_guard(logger, 'Error checking type permission', reraise_http=True):
         if operation not in ['read', 'write', 'create', 'delete', 'navigate']:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -292,22 +233,13 @@ async def check_type_permission(
         has_permission = AuthorizationService.user_has_type_permission(
             db, user_id, target_type, operation
         )
-        
+
         return {
             "user_id": str(user_id),
             "target_type": target_type,
             "operation": operation,
             "has_permission": has_permission
         }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception('Error checking type permission')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error checking type permission'
-        )
 
 
 @sys_sec_permission_router.get('/user/{user_id}/roles')
@@ -324,7 +256,7 @@ async def get_user_roles(
     - Authentication: Bearer token
     - Permission: Administrator role
     """
-    try:
+    with crud_guard(logger, 'Error getting user roles'):
         roles = AuthorizationService.get_user_roles(db, user_id)
         return {
             "user_id": str(user_id),
@@ -338,10 +270,3 @@ async def get_user_roles(
                 for role in roles
             ]
         }
-
-    except Exception as e:
-        logger.exception('Error getting user roles')
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail='Error getting user roles'
-        )

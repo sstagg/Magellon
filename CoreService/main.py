@@ -47,7 +47,7 @@ from controllers.security.sys_sec_role_controller import sys_sec_role_router
 from controllers.security.sys_sec_user_role_controller import sys_sec_user_role_router
 from controllers.security.sys_sec_permission_controller import sys_sec_permission_router
 from controllers.security.sys_sec_permission_mgmt_controller import sys_sec_permission_mgmt_router
-from controllers.security.session_access_controller_v2 import session_access_router
+from controllers.security.session_access_controller import session_access_router
 from controllers.schema_controller import schema_router
 
 
@@ -162,6 +162,21 @@ def verify_docs_credentials(
         headers={"WWW-Authenticate": "Basic"},
     )
 
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    """Modern replacement for the deprecated @app.on_event hooks.
+
+    startup_event / shutdown_event are defined further down (forward
+    references resolve at runtime, when the module is fully loaded).
+    """
+    await startup_event()
+    yield
+    await shutdown_event()
+
+
 # Disable default docs and openapi endpoints
 app = FastAPI(
     title="Magellon Core Service",
@@ -169,7 +184,8 @@ app = FastAPI(
     version="1.0.0",
     docs_url=None,  # Disable default docs
     redoc_url=None,  # Disable default redoc
-    openapi_url=None  # Disable default openapi.json
+    openapi_url=None,  # Disable default openapi.json
+    lifespan=_lifespan,
 )
 
 register_exception_handlers(app, is_production=_is_production)
@@ -384,9 +400,8 @@ app.mount('/socket.io', socketio.ASGIApp(sio, socketio_path=''))
 
 
 
-@app.on_event("startup")
 async def startup_event():
-    """Initialize services on application startup"""
+    """Initialize services on application startup (runs via _lifespan)."""
     import threading
     from core.background_services import ensure_background_registry
 
@@ -399,7 +414,7 @@ async def startup_event():
     # Capture the asgi event loop so sync callers (RMQ result consumer,
     # outgoing dispatch audit) can schedule Socket.IO emits via
     # run_coroutine_threadsafe. Same trick the RMQ step-event forwarder
-    # already uses (loop=asyncio.get_running_loop() at :474).
+    # already uses (it captures the running loop at startup).
     try:
         from core.socketio_server import set_asgi_loop
         set_asgi_loop(asyncio.get_running_loop())
@@ -600,9 +615,8 @@ async def startup_event():
     logger.info("=" * 60)
 
 
-@app.on_event("shutdown")
 async def shutdown_event():
-    """Cleanup on application shutdown"""
+    """Cleanup on application shutdown (runs via _lifespan)."""
     from core.background_services import ensure_background_registry
 
     background_services = ensure_background_registry(app)

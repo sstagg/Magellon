@@ -17,7 +17,7 @@ class BaseRepository(Generic[T]):
     def _pk_column(self):
         return getattr(self.model, self.pk_field)
 
-    async def create(self, db: Session, entity: T) -> T:
+    def create(self, db: Session, entity: T) -> T:
         db.add(entity)
         db.commit()
         db.refresh(entity)
@@ -32,12 +32,12 @@ class BaseRepository(Generic[T]):
     def fetch_all(self, db: Session, skip: int = 0, limit: int = 100) -> List[T]:
         return db.query(self.model).offset(skip).limit(limit).all()
 
-    async def delete(self, db: Session, _id: UUID) -> None:
+    def delete(self, db: Session, _id: UUID) -> None:
         entity = db.query(self.model).filter(self._pk_column() == _id).first()
         if entity:
             db.delete(entity)
             db.commit()
 
-    async def update(self, db: Session, entity) -> None:
+    def update(self, db: Session, entity) -> None:
         db.merge(entity)
         db.commit()

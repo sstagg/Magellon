@@ -46,7 +46,7 @@ async def create_image_meta_data_category(
         raise HTTPException(status_code=400, detail="Metadata category already exists!")
 
     try:
-        created_category = await ImageMetaDataCategoryRepository.create(
+        created_category = ImageMetaDataCategoryRepository.create(
             db=db,
             image_meta_data_category_dto=image_meta_data_category_request
         )
@@ -75,7 +75,7 @@ async def update_image_meta_data_category(
     """
     logger.info(f"User {user_id} updating metadata category: {image_meta_data_category_request.oid}")
     try:
-        updated_category = await ImageMetaDataCategoryRepository.update(
+        updated_category = ImageMetaDataCategoryRepository.update(
             db=db,
             image_meta_data_category_dto=image_meta_data_category_request
         )
@@ -151,7 +151,7 @@ async def delete_image_meta_data_category(
     if db_image_meta_data_category is None:
         raise HTTPException(status_code=404, detail="Metadata category not found with the given ID")
 
-    await ImageMetaDataCategoryRepository.delete(db, oid)
+    ImageMetaDataCategoryRepository.delete(db, oid)
     logger.info(f"Metadata category {oid} deleted by user {user_id}")
     return {"message": "Metadata category deleted successfully", "deleted_by": str(user_id)}
 

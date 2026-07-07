@@ -15,13 +15,13 @@ class _ImageMetaDataRepository(BaseRepository[ImageMetaData]):
     def __init__(self):
         super().__init__(ImageMetaData)
 
-    async def create(self, db: Session, image_meta_data_dto: ImageMetaDataDto) -> ImageMetaData:
+    def create(self, db: Session, image_meta_data_dto: ImageMetaDataDto) -> ImageMetaData:
         if image_meta_data_dto.oid is None:
             image_meta_data_dto.oid = str(uuid.uuid4())
         entity = ImageMetaData(**image_meta_data_dto.dict())
-        return await super().create(db, entity)
+        return super().create(db, entity)
 
-    async def update(self, db: Session, oid: UUID = None, image_meta_data_dto: ImageMetaDataDto = None) -> ImageMetaData:
+    def update(self, db: Session, oid: UUID = None, image_meta_data_dto: ImageMetaDataDto = None) -> ImageMetaData:
         if oid:
             entity = db.query(ImageMetaData).filter(ImageMetaData.oid == oid).first()
             if entity:
@@ -36,7 +36,7 @@ class _ImageMetaDataRepository(BaseRepository[ImageMetaData]):
             db.merge(image_meta_data_dto)
             db.commit()
 
-    async def update_by_data(self, db: Session, _id: UUID, req_body: str):
+    def update_by_data(self, db: Session, _id: UUID, req_body: str):
         db_item = db.query(ImageMetaData).filter(ImageMetaData.oid == _id).first()
         if not db_item:
             raise EntityNotFoundError("ImageMetaData", oid)

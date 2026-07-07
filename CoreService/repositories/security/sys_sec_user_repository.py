@@ -17,7 +17,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 class SysSecUserRepository:
 
     @staticmethod
-    async def create(db: Session, user_dto: SysSecUserCreateDto, created_by: Optional[UUID] = None) -> SysSecUser:
+    def create(db: Session, user_dto: SysSecUserCreateDto, created_by: Optional[UUID] = None) -> SysSecUser:
         """
         Create a new user record
 
@@ -137,7 +137,7 @@ class SysSecUserRepository:
         ).offset(skip).limit(limit).all()
 
     @staticmethod
-    async def update(db: Session, user_dto: SysSecUserUpdateDto, updated_by: Optional[UUID] = None) -> Optional[SysSecUser]:
+    def update(db: Session, user_dto: SysSecUserUpdateDto, updated_by: Optional[UUID] = None) -> Optional[SysSecUser]:
         """Update user record"""
         user = db.query(SysSecUser).filter(
             and_(
@@ -188,7 +188,7 @@ class SysSecUserRepository:
         return user
 
     @staticmethod
-    async def soft_delete(db: Session, user_id: UUID, deleted_by: Optional[UUID] = None) -> bool:
+    def soft_delete(db: Session, user_id: UUID, deleted_by: Optional[UUID] = None) -> bool:
         """Soft delete user by setting GCRecord"""
         user = db.query(SysSecUser).filter(
             and_(
@@ -211,7 +211,7 @@ class SysSecUserRepository:
         return True
 
     @staticmethod
-    async def hard_delete(db: Session, user_id: UUID) -> bool:
+    def hard_delete(db: Session, user_id: UUID) -> bool:
         """Permanently delete user record"""
         user = db.query(SysSecUser).filter(SysSecUser.oid == user_id).first()
 
@@ -223,7 +223,7 @@ class SysSecUserRepository:
         return True
 
     @staticmethod
-    async def increment_failed_access(db: Session, user_id: UUID) -> Optional[SysSecUser]:
+    def increment_failed_access(db: Session, user_id: UUID) -> Optional[SysSecUser]:
         """Increment failed access count"""
         user = db.query(SysSecUser).filter(
             and_(
@@ -243,7 +243,7 @@ class SysSecUserRepository:
         return user
 
     @staticmethod
-    async def reset_failed_access(db: Session, user_id: UUID) -> Optional[SysSecUser]:
+    def reset_failed_access(db: Session, user_id: UUID) -> Optional[SysSecUser]:
         """Reset failed access count"""
         user = db.query(SysSecUser).filter(
             and_(
@@ -264,7 +264,7 @@ class SysSecUserRepository:
         return user
 
     @staticmethod
-    async def set_lockout(db: Session, user_id: UUID, lockout_end: datetime) -> Optional[SysSecUser]:
+    def set_lockout(db: Session, user_id: UUID, lockout_end: datetime) -> Optional[SysSecUser]:
         """Set user lockout end time"""
         user = db.query(SysSecUser).filter(
             and_(
