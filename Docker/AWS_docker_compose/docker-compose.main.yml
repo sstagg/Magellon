@@ -38,6 +38,7 @@ services:
         awslogs-region: ${AWS_REGION}
         awslogs-group: /magellon/prod/mysql
         awslogs-stream: mysql
+        awslogs-create-group: "true"
 
   dragonfly:
     image: docker.dragonflydb.io/dragonflydb/dragonfly
@@ -63,6 +64,7 @@ services:
         awslogs-region: ${AWS_REGION}
         awslogs-group: /magellon/prod/dragonfly
         awslogs-stream: dragonfly
+        awslogs-create-group: "true"
 
   nats:
     image: nats:latest
@@ -100,6 +102,7 @@ services:
         awslogs-region: ${AWS_REGION}
         awslogs-group: /magellon/prod/rabbitmq
         awslogs-stream: rabbitmq
+        awslogs-create-group: "true"
 
   prometheus:
     image: prom/prometheus:latest
@@ -176,6 +179,7 @@ services:
         awslogs-region: ${AWS_REGION}
         awslogs-group: /magellon/prod/backend
         awslogs-stream: backend
+        awslogs-create-group: "true"
 
   web:
     build:
@@ -203,6 +207,7 @@ services:
         awslogs-region: ${AWS_REGION}
         awslogs-group: /magellon/prod/web
         awslogs-stream: web
+        awslogs-create-group: "true"
 
   magellon_ctf_plugin:
     build:
@@ -233,6 +238,7 @@ services:
         awslogs-region: ${AWS_REGION}
         awslogs-group: /magellon/prod/ctf-plugin
         awslogs-stream: ctf-plugin
+        awslogs-create-group: "true"
 
 volumes:
   rabbitmq-data: {}

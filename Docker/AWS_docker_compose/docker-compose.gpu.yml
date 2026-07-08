@@ -58,6 +58,7 @@ services:
         awslogs-region: ${AWS_REGION}
         awslogs-group: /magellon/prod/motioncor-plugin
         awslogs-stream: motioncor
+        awslogs-create-group: "true"
 
 networks:
   default:
