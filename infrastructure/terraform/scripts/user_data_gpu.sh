@@ -17,9 +17,13 @@ RABBITMQ_USER="${rabbitmq_user}"
 CUDA_IMAGE="${cuda_image}"
 MOTIONCOR_BINARY="${motioncor_binary}"
 
+REPO_URL="https://github.com/sstagg/Magellon.git"
+REPO_DIR=/opt/magellon-repo
+MAGELLON_DIR=/opt/magellon-gpu
+
 # ── System packages ───────────────────────────────────────────────────────────
 apt-get update -y
-apt-get install -y nfs-common amazon-efs-utils jq awscli
+apt-get install -y nfs-common amazon-efs-utils jq awscli git
 
 # ── Docker Compose plugin (DLAMI has Docker but may lack compose v2) ──────────
 apt-get install -y docker-compose-plugin 2>/dev/null || \
@@ -49,6 +53,9 @@ mkdir -p /mnt/efs
 mount -t efs -o tls,iam "$EFS_ID":/ /mnt/efs
 echo "$EFS_ID:/ /mnt/efs efs _netdev,tls,iam 0 0" >> /etc/fstab
 
+# ── Clone application repository ──────────────────────────────────────────────
+git clone "$REPO_URL" "$REPO_DIR"
+
 # ── Fetch secrets ─────────────────────────────────────────────────────────────
 SECRETS=$(aws secretsmanager get-secret-value \
   --secret-id "$SECRET_ARN" \
@@ -60,7 +67,8 @@ RABBITMQ_PASSWORD=$(echo "$SECRETS"  | jq -r .RABBITMQ_DEFAULT_PASS)
 DRAGONFLY_PASSWORD=$(echo "$SECRETS" | jq -r .DRAGONFLY_PASSWORD)
 
 # ── Write .env ────────────────────────────────────────────────────────────────
-MAGELLON_DIR=/opt/magellon-gpu
+# Variable names must match exactly what docker-compose.gpu.yml interpolates
+# via compose variable interpolation in the environment: section.
 mkdir -p "$MAGELLON_DIR"
 
 cat > "$MAGELLON_DIR/.env" <<EOF
@@ -70,7 +78,7 @@ MAGELLON_HOME_PATH=/mnt/efs/magellon
 MAGELLON_GPFS_PATH=/mnt/efs/gpfs
 MAGELLON_JOBS_PATH=/mnt/efs/jobs
 
-# Main instance connectivity
+# Main instance connectivity (names match docker-compose.gpu.yml variable names)
 RABBITMQ_HOST=$MAIN_PRIVATE_IP
 RABBITMQ_PORT=5672
 RABBITMQ_USER=$RABBITMQ_USER
@@ -87,12 +95,12 @@ MOTIONCOR_BINARY=$MOTIONCOR_BINARY
 MAGELLON_MOTIONCOR_PLUGIN_PORT=8036
 APP_ENV=production
 RUN_ENV=docker
+AWS_REGION=$AWS_REGION
 EOF
 chmod 600 "$MAGELLON_DIR/.env"
 
-# ── Write SDK settings override for RabbitMQ (SDK reads YAML, not env vars) ──
-# The magellon SDK BaseAppSettings reads a settings_prod.yml when RUN_ENV=docker.
-# We mount this override file into the container at the expected path.
+# ── Write SDK settings override (SDK reads YAML when RUN_ENV=docker) ──────────
+# Mounted into the container at /app/settings_prod.yml (see docker-compose.gpu.yml).
 cat > "$MAGELLON_DIR/settings_prod.yml" <<EOF
 rabbitmq:
   host_name: $MAIN_PRIVATE_IP
@@ -111,11 +119,8 @@ dragonfly:
 EOF
 chmod 600 "$MAGELLON_DIR/settings_prod.yml"
 
-# ── Pull docker-compose.gpu.yml ──────────────────────────────────────────────
-# Source: Docker/AWS_docker_compose/docker-compose.gpu.yml in the repo.
-# aws s3 cp s3://magellon-terraform-state/config/docker-compose.gpu.yml ./docker-compose.gpu.yml
-
 # ── Systemd service ───────────────────────────────────────────────────────────
+# Uses the compose file from the cloned repo; .env provides runtime secrets.
 cat > /etc/systemd/system/magellon-gpu.service <<'UNIT'
 [Unit]
 Description=Magellon GPU Worker (MotionCor Plugin)
@@ -125,10 +130,15 @@ Requires=docker.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=/opt/magellon-gpu
+WorkingDirectory=/opt/magellon-repo
 EnvironmentFile=/opt/magellon-gpu/.env
-ExecStart=/usr/bin/docker compose -f docker-compose.gpu.yml up -d --pull always
-ExecStop=/usr/bin/docker compose -f docker-compose.gpu.yml down
+ExecStart=/usr/bin/docker compose \
+  -f Docker/AWS_docker_compose/docker-compose.gpu.yml \
+  --env-file /opt/magellon-gpu/.env \
+  up -d --build
+ExecStop=/usr/bin/docker compose \
+  -f Docker/AWS_docker_compose/docker-compose.gpu.yml \
+  down
 TimeoutStartSec=600
 
 [Install]
@@ -137,5 +147,6 @@ UNIT
 
 systemctl daemon-reload
 systemctl enable magellon-gpu.service
+systemctl start magellon-gpu.service
 
-echo "=== GPU bootstrap complete $(date). GPU worker will start once compose file is deployed. ==="
+echo "=== GPU bootstrap complete $(date). Check 'journalctl -u magellon-gpu.service' for status. ==="

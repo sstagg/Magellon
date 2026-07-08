@@ -11,7 +11,7 @@ services:
 
   magellon_motioncor_plugin:
     build:
-      context: ../plugins/magellon_motioncor_plugin
+      context: ../../plugins/magellon_motioncor_plugin
       dockerfile: Dockerfile
       args:
         CUDA_IMAGE: ${CUDA_IMAGE}

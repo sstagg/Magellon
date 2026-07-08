@@ -50,7 +50,7 @@ COPY CoreService/database.py ./database.py
 COPY CoreService/alembic ./alembic
 COPY CoreService/alembic.ini ./alembic.ini
 COPY CoreService/entrypoint.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh
+RUN sed -i 's/\r$//' ./entrypoint.sh && chmod +x ./entrypoint.sh
 
 # Run as a non-root user; port 8000 (unprivileged) — compose maps it.
 RUN useradd --create-home --uid 10001 magellon  && mkdir -p /app/CoreService/data /magellon /gpfs  && chown -R magellon:magellon /app /magellon /gpfs

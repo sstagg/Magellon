@@ -1,0 +1,7 @@
+# Always use LF for shell scripts — CRLF causes "not found" errors on Linux EC2.
+*.sh text eol=lf
+
+# Enforce LF for other Linux-target config files
+*.yml text eol=lf
+*.yaml text eol=lf
+Dockerfile text eol=lf

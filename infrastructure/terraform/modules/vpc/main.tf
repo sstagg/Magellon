@@ -47,9 +47,15 @@ resource "aws_internet_gateway" "this" {
   tags   = merge(var.tags, { Name = "${var.name_prefix}-igw" })
 }
 
-# ── Elastic IPs for NAT Gateways (one per AZ for HA) ─────────────────────────
+locals {
+  # single_nat_gateway = true  → 1 EIP + 1 NAT GW in first AZ (saves cost and EIPs)
+  # single_nat_gateway = false → 1 EIP + 1 NAT GW per AZ (full HA)
+  nat_count = var.single_nat_gateway ? 1 : length(var.azs)
+}
+
+# ── Elastic IPs for NAT Gateways ─────────────────────────────────────────────
 resource "aws_eip" "nat" {
-  count  = length(var.azs)
+  count  = local.nat_count
   domain = "vpc"
   tags   = merge(var.tags, { Name = "${var.name_prefix}-nat-eip-${count.index + 1}" })
   depends_on = [aws_internet_gateway.this]
@@ -57,7 +63,7 @@ resource "aws_eip" "nat" {
 
 # ── NAT Gateways ──────────────────────────────────────────────────────────────
 resource "aws_nat_gateway" "this" {
-  count         = length(var.azs)
+  count         = local.nat_count
   allocation_id = aws_eip.nat[count.index].id
   subnet_id     = aws_subnet.public[count.index].id
   tags          = merge(var.tags, { Name = "${var.name_prefix}-nat-${count.index + 1}" })
@@ -80,13 +86,14 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# ── Route tables: private subnets → NAT GW (one per AZ) ──────────────────────
+# ── Route tables: private subnets → NAT GW ────────────────────────────────────
+# When single_nat_gateway=true all private subnets route through NAT GW [0].
 resource "aws_route_table" "private" {
   count  = length(var.azs)
   vpc_id = aws_vpc.this.id
   route {
     cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.this[count.index].id
+    nat_gateway_id = aws_nat_gateway.this[var.single_nat_gateway ? 0 : count.index].id
   }
   tags = merge(var.tags, { Name = "${var.name_prefix}-private-rt-${count.index + 1}" })
 }

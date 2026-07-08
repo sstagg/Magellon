@@ -20,17 +20,17 @@ HOST_JOBS_DIR: /gpfs/jobs
 
 database_settings:
   DB_Driver: mysql+pymysql
-  DB_HOST: host.docker.internal
-  DB_NAME: magellon02
-  DB_PASSWORD: behd1d#3454!2
+  DB_HOST: mysql
+  DB_NAME: magellon01
+  DB_PASSWORD: behd1d2
   DB_Port: 3306
-  DB_USER: behdad
+  DB_USER: magellon_user
 
 rabbitmq_settings:
   HOST_NAME: rabbitmq
   PORT: 5672
   USER_NAME: rabbit
-  PASSWORD: change_me
+  PASSWORD: behd1d2
   VIRTUAL_HOST: /
   SSL_ENABLED: false
   CONNECTION_TIMEOUT: 30

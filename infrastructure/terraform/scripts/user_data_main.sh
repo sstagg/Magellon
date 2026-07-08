@@ -24,7 +24,7 @@ MAGELLON_DIR=/opt/magellon
 apt-get update -y
 apt-get install -y \
   apt-transport-https ca-certificates curl gnupg lsb-release \
-  nfs-common amazon-efs-utils jq awscli unzip git
+  nfs-common amazon-efs-utils jq awscli unzip git openssl
 
 # ── CloudWatch Agent ──────────────────────────────────────────────────────────
 wget -q https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
@@ -59,7 +59,6 @@ git clone "$REPO_URL" "$REPO_DIR"
 mkdir -p "$MAGELLON_DIR/services/mysql/"{data,conf,init}
 mkdir -p "$MAGELLON_DIR/services/prometheus"
 
-# Copy config files from the cloned repo
 cp "$REPO_DIR/Docker/services/mysql/init/magellon01db.sql" \
    "$MAGELLON_DIR/services/mysql/init/" 2>/dev/null || true
 cp "$REPO_DIR/Docker/services/prometheus/prometheus.yml" \
@@ -78,10 +77,12 @@ RABBITMQ_PASSWORD=$(echo "$SECRETS"   | jq -r .RABBITMQ_DEFAULT_PASS)
 DRAGONFLY_PASSWORD=$(echo "$SECRETS"  | jq -r .DRAGONFLY_PASSWORD)
 GRAFANA_PASSWORD=$(echo "$SECRETS"    | jq -r .GRAFANA_USER_PASS)
 
+# ── Generate a fresh JWT secret for this deployment ───────────────────────────
+JWT_SECRET_KEY=$(openssl rand -hex 32)
+
 # ── Write .env file ───────────────────────────────────────────────────────────
 cat > "$MAGELLON_DIR/.env" <<EOF
 AWS_REGION=$AWS_REGION
-DOMAIN_NAME=
 
 MAGELLON_HOME_PATH=/mnt/efs/magellon
 MAGELLON_GPFS_PATH=/mnt/efs/gpfs
@@ -104,6 +105,13 @@ DRAGONFLY_PORT=6379
 
 GRAFANA_USER_NAME=$GRAFANA_USER
 GRAFANA_USER_PASS=$GRAFANA_PASSWORD
+
+JWT_SECRET_KEY=$JWT_SECRET_KEY
+
+# Frontend uses relative API paths (/web/..., /auth/...) so nginx inside the
+# web container can proxy them to the backend container — no CORS, one ALB TG.
+API_URL=
+MAGELLON_CORS_ALLOWED_ORIGINS=
 
 MAGELLON_FRONTEND_PORT=8080
 MAGELLON_BACKEND_PORT=8000

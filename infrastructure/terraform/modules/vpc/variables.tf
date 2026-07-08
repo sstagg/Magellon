@@ -23,6 +23,12 @@ variable "private_subnet_cidrs" {
   type        = list(string)
 }
 
+variable "single_nat_gateway" {
+  description = "Use one NAT gateway in the first AZ instead of one per AZ. Saves EIPs and cost; slight HA reduction acceptable for dev/prod single-region."
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   description = "Tags merged onto every resource"
   type        = map(string)

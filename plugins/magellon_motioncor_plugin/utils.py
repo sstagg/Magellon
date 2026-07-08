@@ -682,10 +682,16 @@ def convertToMRC(file, directorypath):
         convert_eer_to_mrc(file, output_file)
     elif ext in ["tif", "tiff"]:
         convert_tiff_to_mrc(file, output_file)
-    # elif ext =="gain":
-    #     convert_gain_to_mrc(file, output_file)
+    elif ext == "gain":
+        if is_tiff_file(file):
+            convert_tiff_to_mrc(file, output_file)
+        elif is_mrc(file):
+            import shutil
+            shutil.copy2(file, output_file)
+        else:
+            raise ValueError("Error:Gain convertToMRC .gain file is neither TIFF nor MRC. File may be corrupted.")
     else:
-        raise ValueError("Error:Gain convertToMRC Unsupported file type. Only MRC, EER, and TIFF are allowed. OR Gain File can be Corrupted")
+        raise ValueError("Error:Gain convertToMRC Unsupported file type. Only MRC, EER, TIFF, and GAIN are allowed. OR Gain File can be Corrupted")
     
     return output_file
 
