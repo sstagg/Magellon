@@ -235,8 +235,8 @@ export const SystemStatsCards: React.FC = () => {
         );
     }
 
-    const cpuPercent = data?.cpu.percent ?? 0;
-    const ramPercent = data?.ram.percent ?? 0;
+    const cpuPercent = data?.cpu?.percent ?? 0;
+    const ramPercent = data?.ram?.percent ?? 0;
     const gpuFirst = data?.gpu?.devices?.[0];
     const gpuPercent =
         data?.gpu?.available && gpuFirst ? gpuFirst.util_percent ?? 0 : null;
@@ -274,8 +274,8 @@ export const SystemStatsCards: React.FC = () => {
                         cpuPercent={cpuPercent}
                         ramPercent={ramPercent}
                         gpuPercent={gpuPercent}
-                        rxRate={data?.network.rx_bytes_per_sec ?? 0}
-                        txRate={data?.network.tx_bytes_per_sec ?? 0}
+                        rxRate={data?.network?.rx_bytes_per_sec ?? 0}
+                        txRate={data?.network?.tx_bytes_per_sec ?? 0}
                     />
                     <Tooltip title={expanded ? 'Hide system stats' : 'Show system stats'}>
                         <IconButton
@@ -306,8 +306,8 @@ export const SystemStatsCards: React.FC = () => {
                             primary={`${cpuPercent.toFixed(0)}%`}
                             secondary={
                                 <>
-                                    {data?.cpu.cores ?? 0} cores
-                                    {data?.cpu.load_avg && data.cpu.load_avg.length > 0 && (
+                                    {data?.cpu?.cores ?? 0} cores
+                                    {data?.cpu?.load_avg && data.cpu.load_avg.length > 0 && (
                                         <> · load {data.cpu.load_avg.map((v) => v.toFixed(2)).join(' / ')}</>
                                     )}
                                 </>
@@ -321,8 +321,8 @@ export const SystemStatsCards: React.FC = () => {
                             primary={`${ramPercent.toFixed(0)}%`}
                             secondary={
                                 <>
-                                    {formatBytes(data?.ram.used_bytes ?? 0)} of{' '}
-                                    {formatBytes(data?.ram.total_bytes ?? 0)}
+                                    {formatBytes(data?.ram?.used_bytes ?? 0)} of{' '}
+                                    {formatBytes(data?.ram?.total_bytes ?? 0)}
                                 </>
                             }
                             progress={ramPercent}
@@ -332,13 +332,13 @@ export const SystemStatsCards: React.FC = () => {
                         <StatCard
                             icon={<Activity size={18} />}
                             title="Network"
-                            primary={<>↓ {formatRate(data?.network.rx_bytes_per_sec ?? 0)}</>}
+                            primary={<>↓ {formatRate(data?.network?.rx_bytes_per_sec ?? 0)}</>}
                             secondary={
                                 <>
-                                    ↑ {formatRate(data?.network.tx_bytes_per_sec ?? 0)}
+                                    ↑ {formatRate(data?.network?.tx_bytes_per_sec ?? 0)}
                                     {' · '}
-                                    total {formatBytes(data?.network.rx_total_bytes ?? 0)} in /{' '}
-                                    {formatBytes(data?.network.tx_total_bytes ?? 0)} out
+                                    total {formatBytes(data?.network?.rx_total_bytes ?? 0)} in /{' '}
+                                    {formatBytes(data?.network?.tx_total_bytes ?? 0)} out
                                 </>
                             }
                         />
