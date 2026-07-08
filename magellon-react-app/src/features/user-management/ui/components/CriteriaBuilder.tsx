@@ -52,8 +52,10 @@ interface CriteriaBuilderProps {
   onChange: (criteria: string) => void;
 }
 
+import { settings } from '../../../../shared/config/settings';
+
 // Create axios instance for API calls
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = settings.ConfigData.SERVER_API_URL;
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

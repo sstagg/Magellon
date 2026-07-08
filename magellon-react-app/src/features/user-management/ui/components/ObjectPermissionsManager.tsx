@@ -38,8 +38,9 @@ import axios from 'axios';
 import CriteriaBuilder from './CriteriaBuilder';
 import { useSchema } from '../../hooks/useSchema';
 import { toApiError } from '../../../../shared/api/apiError.ts';
+import { settings } from '../../../../shared/config/settings';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = settings.ConfigData.SERVER_API_URL;
 
 // Create axios instance
 const apiClient = axios.create({

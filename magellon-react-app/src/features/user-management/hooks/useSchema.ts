@@ -8,11 +8,12 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import type { DatabaseSchema } from '../types/databaseSchema';
 import { toApiError } from '../../../shared/api/apiError.ts';
+import { settings } from '../../../shared/config/settings';
 
 const SCHEMA_CACHE_KEY = 'magellon_schema_cache';
 const SCHEMA_CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = settings.ConfigData.SERVER_API_URL;
 
 // Create axios instance
 const apiClient = axios.create({

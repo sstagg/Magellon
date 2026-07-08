@@ -122,7 +122,8 @@ export default function SessionAccessManagementTab({
             const axios = (await import('axios')).default;
             const token = localStorage.getItem('access_token');
 
-            const response = await axios.get('http://localhost:8000/db/security/users/', {
+            const { settings } = await import('../../../shared/config/settings');
+            const response = await axios.get(`${settings.ConfigData.SERVER_API_URL}/db/security/users/`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                 },

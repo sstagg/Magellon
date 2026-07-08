@@ -5,9 +5,10 @@
 
 import type { AxiosInstance } from 'axios';
 import axios from 'axios';
+import { settings } from '../../../shared/config/settings';
 
 // Base configuration
-const API_BASE_URL =  'http://localhost:8000';
+const API_BASE_URL = settings.ConfigData.SERVER_API_URL;
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
