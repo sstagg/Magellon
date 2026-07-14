@@ -122,9 +122,10 @@ directory_settings:
   FRAMES_SUFFIX: _frame
   IMAGES_DIR: null
   MAGELLON_GPFS_PATH: /gpfs
-  # Relative — resolved against MAGELLON_GPFS_PATH at config load.
-  MAGELLON_HOME_DIR: home
-  MAGELLON_JOBS_DIR: jobs
+  # Absolute path — matches the docker-compose volume mount (MAGELLON_HOME_PATH → /magellon).
+  MAGELLON_HOME_DIR: /magellon
+  # Absolute path — matches the docker-compose volume mount (MAGELLON_JOBS_PATH → /jobs).
+  MAGELLON_JOBS_DIR: /jobs
   # Where the v1 install pipeline lays out per-plugin uv venvs / docker
   # container state. Relative resolves under MAGELLON_GPFS_PATH.
   PLUGINS_DIR: plugins
