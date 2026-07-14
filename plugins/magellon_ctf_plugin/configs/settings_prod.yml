@@ -1,8 +1,8 @@
 
 
 ENV_TYPE: production
-LOCAL_IP_ADDRESS: host.docker.internal
-PORT_NUMBER: 8035
+LOCAL_IP_ADDRESS: magellon_ctf_plugin_container
+PORT_NUMBER: 8000
 
 #we don't need and have not used root dir in app , it is just for allowing docker image access to outside
 #ROOT_DIR: /gpfs/
@@ -14,8 +14,8 @@ REPLACE_WITH: /gpfs
 
 MAGELLON_GPFS_PATH: /gpfs
 HOST_GPFS_PATH: /gpfs
-JOBS_DIR: /gpfs/jobs
-HOST_JOBS_DIR: /gpfs/jobs
+JOBS_DIR: /jobs
+HOST_JOBS_DIR: /jobs
 
 
 database_settings:
