@@ -214,8 +214,10 @@ class BaseImporter(ABC):
 
         if session:
             for key, value in session_data.items():
-                if hasattr(session, key) and key != 'oid':
+                if hasattr(session, key) and key not in ('oid', 'project_id'):
                     setattr(session, key, value)
+            if project_id is not None:
+                session.project_id = project_id
         else:
             session = Msession(
                 oid=uuid.UUID(session_data["oid"]) if "oid" in session_data else uuid.uuid4(),
