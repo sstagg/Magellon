@@ -1,8 +1,8 @@
 
 
 ENV_TYPE: production
-LOCAL_IP_ADDRESS: host.docker.internal
-PORT_NUMBER: 8181
+LOCAL_IP_ADDRESS: magellon_motioncor_plugin_container
+PORT_NUMBER: 8000
 
 # ROOT_DIR: /gpfs/
 # HOST_ROOT_DIR: C:\temp\gpfs
@@ -14,8 +14,8 @@ REPLACE_WITH: /gpfs
 
 MAGELLON_GPFS_PATH: /gpfs
 HOST_GPFS_PATH: /gpfs
-JOBS_DIR: /gpfs/jobs
-HOST_JOBS_DIR: /gpfs/jobs
+JOBS_DIR: /jobs
+HOST_JOBS_DIR: /jobs
 
 
 database_settings:
