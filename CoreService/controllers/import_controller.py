@@ -88,8 +88,8 @@ def _run_magellon_import(
         result = importer.process(db)
         if result.get("status") == "failure":
             logger.error(
-                "Magellon import job %s (user %s) failed: %s",
-                job_id, user_id, result.get("message"),
+                "Magellon import job %s (user %s) failed: %s | error: %s",
+                job_id, user_id, result.get("message"), result.get("error"),
             )
             try:
                 _jm.fail_job(str(job_id), error=result.get("message") or "Import failed")
