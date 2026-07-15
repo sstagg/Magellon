@@ -215,6 +215,9 @@ services:
       dockerfile: Dockerfile
     image: magellon_ctf_plugin_image
     container_name: magellon_ctf_plugin_container
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
     environment:
       - APP_ENV=production
       - RUN_ENV=docker
