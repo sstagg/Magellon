@@ -10,12 +10,22 @@ echo "=== Magellon GPU bootstrap started $(date) ==="
 
 # ── Template variables (injected by Terraform templatefile()) ─────────────────
 EFS_ID="${efs_id}"
+AP_MAGELLON="${ap_magellon_id}"
+AP_GPFS="${ap_gpfs_id}"
+AP_JOBS="${ap_jobs_id}"
 AWS_REGION="${aws_region}"
 SECRET_ARN="${secret_arn}"
-MAIN_PRIVATE_IP="${main_private_ip}"
 RABBITMQ_USER="${rabbitmq_user}"
 CUDA_IMAGE="${cuda_image}"
 MOTIONCOR_BINARY="${motioncor_binary}"
+REPO_BRANCH="${repo_branch}"
+
+# Broker hosts are resolved via Route 53 private hosted zone (magellon.internal).
+# When the main EC2 is replaced, only the DNS A record changes — this file
+# stays the same on every GPU instance, allowing unlimited horizontal scaling.
+RABBITMQ_HOST="rabbitmq.magellon.internal"
+NATS_HOST="nats.magellon.internal"
+DRAGONFLY_HOST="dragonfly.magellon.internal"
 
 REPO_URL="https://github.com/sstagg/Magellon.git"
 REPO_DIR=/opt/magellon-repo
@@ -23,38 +33,35 @@ MAGELLON_DIR=/opt/magellon-gpu
 
 # ── System packages ───────────────────────────────────────────────────────────
 apt-get update -y
-apt-get install -y nfs-common amazon-efs-utils jq awscli git
+apt-get install -y nfs-common jq awscli git
 
-# ── Docker Compose plugin (DLAMI has Docker but may lack compose v2) ──────────
-apt-get install -y docker-compose-plugin 2>/dev/null || \
-  curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" \
-    -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose
+# ── Docker + NVIDIA runtime (DLAMI pre-installs both) ────────────────────────
+# Upgrade compose plugin if a newer version is available; fall back to
+# standalone binary only if the plugin is completely absent.
+apt-get install -y docker-compose-plugin 2>/dev/null || true
 
+# DLAMI pre-configures nvidia-container-runtime. Re-run configure to ensure
+# /etc/docker/daemon.json has the correct runtime entry, then restart Docker.
+nvidia-ctk runtime configure --runtime=docker 2>/dev/null || true
 systemctl enable docker
-systemctl start docker
-
-# ── NVIDIA Container Toolkit (ensure GPU access from Docker) ─────────────────
-distribution=$(. /etc/os-release; echo $ID$VERSION_ID)
-curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor \
-  -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-curl -s -L "https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list" | \
-  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
-  > /etc/apt/sources.list.d/nvidia-container-toolkit.list
-apt-get update -y
-apt-get install -y nvidia-container-toolkit
-nvidia-ctk runtime configure --runtime=docker
 systemctl restart docker
+sleep 5
 
 # ── Verify GPU ────────────────────────────────────────────────────────────────
 nvidia-smi || { echo "ERROR: nvidia-smi failed — GPU not available"; exit 1; }
 
-# ── Mount EFS ─────────────────────────────────────────────────────────────────
+# ── Mount EFS via NFS4 ────────────────────────────────────────────────────────
 mkdir -p /mnt/efs
-mount -t efs -o tls,iam "$EFS_ID":/ /mnt/efs
-echo "$EFS_ID:/ /mnt/efs efs _netdev,tls,iam 0 0" >> /etc/fstab
+EFS_DNS="$EFS_ID.efs.$AWS_REGION.amazonaws.com"
+mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport \
+  "$EFS_DNS":/ /mnt/efs
+echo "$EFS_DNS:/ /mnt/efs nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport,_netdev 0 0" >> /etc/fstab
+
+mkdir -p /mnt/efs/magellon /mnt/efs/gpfs /mnt/efs/jobs
+chmod 777 /mnt/efs/magellon /mnt/efs/gpfs /mnt/efs/jobs
 
 # ── Clone application repository ──────────────────────────────────────────────
-git clone "$REPO_URL" "$REPO_DIR"
+git clone --branch "$REPO_BRANCH" "$REPO_URL" "$REPO_DIR"
 
 # ── Fetch secrets ─────────────────────────────────────────────────────────────
 SECRETS=$(aws secretsmanager get-secret-value \
@@ -66,29 +73,36 @@ SECRETS=$(aws secretsmanager get-secret-value \
 RABBITMQ_PASSWORD=$(echo "$SECRETS"  | jq -r .RABBITMQ_DEFAULT_PASS)
 DRAGONFLY_PASSWORD=$(echo "$SECRETS" | jq -r .DRAGONFLY_PASSWORD)
 
+# ── Resolve broker IP at boot via explicit VPC DNS query ──────────────────────
+# Docker containers cannot resolve *.magellon.internal because systemd-resolved
+# only routes *.ec2.internal to 10.0.0.2. Resolve once at boot and embed the
+# IP directly in configs so no container-level DNS is required.
+BROKER_IP=$(dig @10.0.0.2 +short rabbitmq.magellon.internal | tail -1)
+if [ -z "$BROKER_IP" ]; then
+  echo "ERROR: Could not resolve rabbitmq.magellon.internal via VPC DNS — main EC2 not up yet?"
+  exit 1
+fi
+echo "Broker IP resolved to $BROKER_IP"
+
 # ── Write .env ────────────────────────────────────────────────────────────────
-# Variable names must match exactly what docker-compose.gpu.yml interpolates
-# via compose variable interpolation in the environment: section.
 mkdir -p "$MAGELLON_DIR"
 
 cat > "$MAGELLON_DIR/.env" <<EOF
-# GPU instance .env – all broker/cache hosts point to main instance private IP
-
 MAGELLON_HOME_PATH=/mnt/efs/magellon
 MAGELLON_GPFS_PATH=/mnt/efs/gpfs
 MAGELLON_JOBS_PATH=/mnt/efs/jobs
 
-# Main instance connectivity (names match docker-compose.gpu.yml variable names)
-RABBITMQ_HOST=$MAIN_PRIVATE_IP
+# Broker connectivity — IP resolved at boot from Route 53 private zone
+RABBITMQ_HOST=$BROKER_IP
 RABBITMQ_PORT=5672
 RABBITMQ_USER=$RABBITMQ_USER
 RABBITMQ_PASSWORD=$RABBITMQ_PASSWORD
-DRAGONFLY_HOST=$MAIN_PRIVATE_IP
+DRAGONFLY_HOST=$BROKER_IP
 DRAGONFLY_PORT=6379
 DRAGONFLY_PASSWORD=$DRAGONFLY_PASSWORD
-NATS_URL=nats://$MAIN_PRIVATE_IP:4222
+NATS_URL=nats://$BROKER_IP:4222
 
-# MotionCor specifics
+# MotionCor
 CUDA_IMAGE=$CUDA_IMAGE
 MOTIONCOR_BINARY=$MOTIONCOR_BINARY
 
@@ -99,23 +113,28 @@ AWS_REGION=$AWS_REGION
 EOF
 chmod 600 "$MAGELLON_DIR/.env"
 
-# ── Write SDK settings override (SDK reads YAML when RUN_ENV=docker) ──────────
-# Mounted into the container at /app/settings_prod.yml (see docker-compose.gpu.yml).
+# ── Write SDK settings override (mounted into container at /app/settings_prod.yml)
 cat > "$MAGELLON_DIR/settings_prod.yml" <<EOF
-rabbitmq:
-  host_name: $MAIN_PRIVATE_IP
-  port: 5672
-  user_name: $RABBITMQ_USER
-  password: $RABBITMQ_PASSWORD
-  virtual_host: /
+ENV_TYPE: production
+LOCAL_IP_ADDRESS: magellon_motioncor_plugin_container
+PORT_NUMBER: 8000
 
-nats:
-  url: nats://$MAIN_PRIVATE_IP:4222
+MAGELLON_GPFS_PATH: /gpfs
+HOST_GPFS_PATH: /gpfs
+JOBS_DIR: /jobs
+HOST_JOBS_DIR: /jobs
 
-dragonfly:
-  host: $MAIN_PRIVATE_IP
-  port: 6379
-  password: $DRAGONFLY_PASSWORD
+rabbitmq_settings:
+  HOST_NAME: $BROKER_IP
+  PORT: 5672
+  USER_NAME: $RABBITMQ_USER
+  PASSWORD: $RABBITMQ_PASSWORD
+  VIRTUAL_HOST: /
+  SSL_ENABLED: false
+  CONNECTION_TIMEOUT: 30
+  PREFETCH_COUNT: 10
+  QUEUE_NAME: motioncor_tasks_queue
+  OUT_QUEUE_NAME: motioncor_out_tasks_queue
 EOF
 chmod 600 "$MAGELLON_DIR/settings_prod.yml"
 
