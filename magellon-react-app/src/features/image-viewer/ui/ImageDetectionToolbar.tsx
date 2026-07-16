@@ -50,7 +50,7 @@ function imageNameWithExtension(name: string): string {
 function buildImagePath(image: ImageInfoDto, sessionName: string): string | null {
     if (image.path) return image.path;
     if (!image.name || !sessionName) return null;
-    return `/gpfs/home/${sessionName.toLowerCase()}/original/${imageNameWithExtension(image.name)}`;
+    return `/gpfs/${sessionName.toLowerCase()}/home/original/${imageNameWithExtension(image.name)}`;
 }
 
 const MODE_LABEL: Record<PtolemyDetectionMode, string> = {
