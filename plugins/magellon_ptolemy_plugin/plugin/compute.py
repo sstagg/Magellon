@@ -275,6 +275,25 @@ def run_hole_detection(input_file: str) -> tuple[list[dict], list[int], float, f
     except Exception:
         pass
 
+    # If the image had to be downscaled heavily for the native pass, individual
+    # holes are too small for the UNet to find — this is likely a square-level
+    # image sent to hole detection by mistake. Tiled detection won't help and
+    # will hang on CPU for many minutes, so fail fast with a clear message.
+    if native_scale < 0.5:
+        raise ValueError(
+            f"Image too large for hole detection ({img_h}×{img_w} px, "
+            f"native scale {native_scale:.2f}). "
+            "Use a med-mag image where individual holes are visible, "
+            "not a square-level overview."
+        )
+
     # --- attempt 2: tiled detection (handles small holes / dense grids) ---
     dets, angle, pitch = _tiled_hole_detection(image, grid=2)
+
+    if not _dets_sane(dets, img_h, img_w):
+        raise ValueError(
+            f"Hole detection produced no plausible results on {img_h}×{img_w} px image. "
+            "Check that the image is a med-mag view with individual holes visible."
+        )
+
     return dets, [img_h, img_w], angle, pitch
