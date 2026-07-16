@@ -125,16 +125,30 @@ class MotionCorDispatchStep(ImportTaskActivity):
     activity_type = ActivityType.DISPATCH_ANALYSIS
 
     def should_run(self, context: ImportTaskContext) -> bool:
-        return bool(getattr(context.task_dto, "frame_name", None))
+        frame_name = getattr(context.task_dto, "frame_name", None)
+        import logging
+        logging.getLogger(__name__).info(
+            "[MOTIONCOR-1] should_run check: frame_name=%r → will_run=%s",
+            frame_name, bool(frame_name),
+        )
+        return bool(frame_name)
 
     def skip_message(self, context: ImportTaskContext) -> str:
         return "Skipping motion correction (no frame)"
 
     def run(self, context: ImportTaskContext) -> None:
-        context.results[self.name] = context.importer.compute_motioncor(
-            context.current_image_path(),
-            context.task_dto,
+        import logging
+        log = logging.getLogger(__name__)
+        image_path = context.current_image_path()
+        frame_name = getattr(context.task_dto, "frame_name", None)
+        frame_path = getattr(context.task_dto, "frame_path", None)
+        log.info(
+            "[MOTIONCOR-2] MotionCorDispatchStep.run: image_path=%r frame_name=%r frame_path=%r",
+            image_path, frame_name, frame_path,
         )
+        result = context.importer.compute_motioncor(image_path, context.task_dto)
+        log.info("[MOTIONCOR-3] compute_motioncor returned: %r", result)
+        context.results[self.name] = result
 
 
 class TopazPickStep(ImportTaskActivity):

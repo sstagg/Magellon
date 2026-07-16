@@ -104,12 +104,20 @@ def create_motioncor_task(image_path=None,
     """
 
     try:
-        # Use provided paths or defaults
-        # Create task data
-        base_path = os.path.dirname(task_dto.frame_path)
-        matching_file = find_matching_file(base_path, task_dto.frame_name)
+        frame_path = getattr(task_dto, 'frame_path', None)
+        frame_name = getattr(task_dto, 'frame_name', None)
+        base_path = os.path.dirname(frame_path) if frame_path else None
+        logger.info(
+            "[MOTIONCOR-8] create_motioncor_task: frame_path=%r frame_name=%r base_path=%r",
+            frame_path, frame_name, base_path,
+        )
+
+        matching_file = find_matching_file(base_path, frame_name)
+        logger.info("[MOTIONCOR-9] find_matching_file result: %r", matching_file)
+
         if not matching_file:
-            raise ValueError(f"motioncor input File not found: {task_dto.frame_path}")
+            raise ValueError(f"motioncor input File not found: base_path={base_path!r} frame_name={frame_name!r}")
+
         motioncor_task_data = create_motioncor_task_data(
             image_path=matching_file,
             gain_path=gain_path,
@@ -127,12 +135,15 @@ def create_motioncor_task(image_path=None,
             ptype=MOTIONCOR_TASK,
             pstatus=PENDING
         )
-        # Set session name from task data if not explicitly provided
         motioncor_task.session_name = session_name or motioncor_task_data.image_name.split("_")[0]
-
+        logger.info(
+            "[MOTIONCOR-10] task created: id=%r session=%r inputFile=%r",
+            motioncor_task.id, motioncor_task.session_name,
+            motioncor_task_data.inputFile,
+        )
         return motioncor_task
     except Exception as e:
-        logger.error(f"Error publishing message: {e}")
+        logger.error("[MOTIONCOR-ERR] create_motioncor_task failed: %s", e, exc_info=True)
         return False
 
 
@@ -155,6 +166,11 @@ def dispatch_motioncor_task(task_id,
     Returns:
         bool: True if task was successfully pushed to queue
     """
+    logger.info(
+        "[MOTIONCOR-A] dispatch_motioncor_task entry: task_id=%r full_image_path=%r gain_path=%r",
+        task_id, full_image_path, gain_path,
+    )
+
     job_id = None
 
     if task_dto is not None:
@@ -162,6 +178,8 @@ def dispatch_motioncor_task(task_id,
             job_id = task_dto.job_id
         elif hasattr(task_dto, 'job_dto') and task_dto.job_dto is not None:
             job_id = getattr(task_dto.job_dto, 'job_id', None)
+
+    logger.info("[MOTIONCOR-B] job_id resolved: %r", job_id)
 
         # Handle debug CTF path replacement if needed
     if app_settings.DEBUG_CTF:
@@ -172,8 +190,15 @@ def dispatch_motioncor_task(task_id,
     full_image_path = to_canonical_gpfs_path(full_image_path)
     gain_path = to_canonical_gpfs_path(gain_path)
     defects_path = to_canonical_gpfs_path(defects_path)
+    logger.info(
+        "[MOTIONCOR-C] canonical paths: full_image_path=%r gain_path=%r defects_path=%r",
+        full_image_path, gain_path, defects_path,
+    )
+
     if hasattr(task_dto, 'job_dto') and task_dto.job_dto and hasattr(task_dto.job_dto, 'session_name') and task_dto.job_dto.session_name:
         session_name = task_dto.job_dto.session_name
+    logger.info("[MOTIONCOR-D] session_name=%r", session_name)
+
     motioncor_task = create_motioncor_task(
         image_path=full_image_path,
         task_id=task_id,
@@ -186,5 +211,10 @@ def dispatch_motioncor_task(task_id,
     )
 
     if motioncor_task:
-        return push_task_to_task_queue(motioncor_task)
+        logger.info("[MOTIONCOR-E] task created OK — pushing to queue")
+        result = push_task_to_task_queue(motioncor_task)
+        logger.info("[MOTIONCOR-F] push_task_to_task_queue returned: %r", result)
+        return result
+
+    logger.error("[MOTIONCOR-ERR] create_motioncor_task returned False — task not pushed")
     return False

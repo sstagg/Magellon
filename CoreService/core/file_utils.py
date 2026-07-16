@@ -66,12 +66,16 @@ def custom_replace(input_string, replace_type, replace_pattern, replace_with):
 
 
 def find_matching_file(base_path, frame_name):
-    # Priority order
+    import logging
+    log = logging.getLogger(__name__)
     extensions_priority = [".eer", ".tiff", ".tif", ".mrc"]
 
+    log.info("[MOTIONCOR-9a] find_matching_file: base_path=%r frame_name=%r", base_path, frame_name)
     for ext in extensions_priority:
         pattern = os.path.join(base_path, frame_name + "*" + ext)
         files = glob.glob(pattern)
+        log.info("[MOTIONCOR-9b] pattern=%r → matches=%r", pattern, files)
         if files:
-            return files[0]  # return first file matching in priority
+            return files[0]
+    log.warning("[MOTIONCOR-9c] find_matching_file: no file found for base_path=%r frame_name=%r", base_path, frame_name)
     return None

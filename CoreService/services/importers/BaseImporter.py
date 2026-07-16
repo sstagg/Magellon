@@ -743,8 +743,13 @@ class BaseImporter(ABC):
         try:
             # Check if frame exists
             frame_name = getattr(task_dto, 'frame_name', None)
+            frame_path = getattr(task_dto, 'frame_path', None)
+            logger.info(
+                "[MOTIONCOR-4] compute_motioncor entry: abs_file_path=%r frame_name=%r frame_path=%r",
+                abs_file_path, frame_name, frame_path,
+            )
             if not frame_name:
-                logger.info("No frame available for motion correction")
+                logger.info("[MOTIONCOR-4a] No frame_name — skipping motion correction")
                 return {"message": "Skipping motion correction (no frame)"}
 
             # Setup motioncor settings
@@ -762,9 +767,10 @@ class BaseImporter(ABC):
             if not defects_path:
                 defects_path = self._find_defects_reference()
 
-            # if not gain_path:
-            #     logger.warning("No gain reference found for motion correction")
-            #     return {"message": "Skipping motion correction (no gain reference)"}
+            logger.info(
+                "[MOTIONCOR-5] gain_path=%r defects_path=%r",
+                gain_path, defects_path,
+            )
 
             # Ensure file extension for full_image_path
             if not abs_file_path.endswith('.tif'):
@@ -772,9 +778,11 @@ class BaseImporter(ABC):
             else:
                 full_image_path = abs_file_path
 
+            logger.info("[MOTIONCOR-6] full_image_path=%r (before dispatch)", full_image_path)
+
             # Dispatch motion correction task
             task_id = getattr(task_dto, 'task_id', uuid.uuid4())
-            dispatch_motioncor_task(
+            ok = dispatch_motioncor_task(
                 task_id=task_id,
                 gain_path=gain_path,
                 defects_path=defects_path,
@@ -782,11 +790,12 @@ class BaseImporter(ABC):
                 task_dto=task_dto,
                 motioncor_settings=settings
             )
+            logger.info("[MOTIONCOR-7] dispatch_motioncor_task returned: %r", ok)
 
             return {"message": f"Motion correction dispatched for {abs_file_path}"}
 
         except Exception as e:
-            logger.error(f"Error dispatching motion correction: {str(e)}")
+            logger.error(f"[MOTIONCOR-ERR] Error dispatching motion correction: {str(e)}", exc_info=True)
             return {"error": str(e)}
 
     def _find_gain_reference(self) -> Optional[str]:
