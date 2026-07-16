@@ -9,12 +9,16 @@ echo "=== Magellon main bootstrap started $(date) ==="
 
 # ── Template variables (injected by Terraform templatefile()) ─────────────────
 EFS_ID="${efs_id}"
+AP_MAGELLON="${ap_magellon_id}"
+AP_GPFS="${ap_gpfs_id}"
+AP_JOBS="${ap_jobs_id}"
 AWS_REGION="${aws_region}"
 SECRET_ARN="${secret_arn}"
 MYSQL_DATABASE="${mysql_database}"
 MYSQL_USER="${mysql_user}"
 RABBITMQ_USER="${rabbitmq_user}"
 GRAFANA_USER="${grafana_user}"
+REPO_BRANCH="${repo_branch}"
 
 REPO_URL="https://github.com/sstagg/Magellon.git"
 REPO_DIR=/opt/magellon-repo
@@ -22,9 +26,10 @@ MAGELLON_DIR=/opt/magellon
 
 # ── System updates ────────────────────────────────────────────────────────────
 apt-get update -y
+# nfs-common provides NFS4 support (replaces amazon-efs-utils which isn't in Ubuntu repos)
 apt-get install -y \
   apt-transport-https ca-certificates curl gnupg lsb-release \
-  nfs-common amazon-efs-utils jq awscli unzip git openssl
+  nfs-common jq awscli unzip git openssl
 
 # ── CloudWatch Agent ──────────────────────────────────────────────────────────
 wget -q https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
@@ -44,16 +49,18 @@ apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 systemctl enable docker
 systemctl start docker
 
-# ── Mount EFS at /mnt/efs ─────────────────────────────────────────────────────
+# ── Mount EFS via NFS4 (nfs-common installed above, no extra packages needed) ─
 mkdir -p /mnt/efs
-mount -t efs -o tls,iam "$EFS_ID":/ /mnt/efs
-echo "$EFS_ID:/ /mnt/efs efs _netdev,tls,iam 0 0" >> /etc/fstab
+EFS_DNS="$EFS_ID.efs.$AWS_REGION.amazonaws.com"
+mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport \
+  "$EFS_DNS":/ /mnt/efs
+echo "$EFS_DNS:/ /mnt/efs nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport,_netdev 0 0" >> /etc/fstab
 
 mkdir -p /mnt/efs/magellon /mnt/efs/gpfs /mnt/efs/jobs
-chmod 755 /mnt/efs/magellon /mnt/efs/gpfs /mnt/efs/jobs
+chmod 777 /mnt/efs/magellon /mnt/efs/gpfs /mnt/efs/jobs
 
 # ── Clone application repository ──────────────────────────────────────────────
-git clone "$REPO_URL" "$REPO_DIR"
+git clone --branch "$REPO_BRANCH" "$REPO_URL" "$REPO_DIR"
 
 # ── Set up service config files ───────────────────────────────────────────────
 mkdir -p "$MAGELLON_DIR/services/mysql/"{data,conf,init}
@@ -116,6 +123,12 @@ MAGELLON_CORS_ALLOWED_ORIGINS=
 MAGELLON_FRONTEND_PORT=8080
 MAGELLON_BACKEND_PORT=8000
 MAGELLON_CTF_PLUGIN_PORT=8035
+MAGELLON_FFT_PLUGIN_PORT=8037
+MAGELLON_PTOLEMY_PLUGIN_PORT=8038
+MAGELLON_TOPAZ_PLUGIN_PORT=8039
+MAGELLON_STACK_MAKER_PLUGIN_PORT=8040
+MAGELLON_CAN_CLASSIFIER_PLUGIN_PORT=8041
+MAGELLON_TEMPLATE_PICKER_PLUGIN_PORT=8042
 
 MAGELLON_RMQ_STEP_EVENTS_FORWARDER=1
 MAGELLON_STEP_EVENTS_FORWARDER=1
@@ -154,5 +167,36 @@ UNIT
 systemctl daemon-reload
 systemctl enable magellon.service
 systemctl start magellon.service
+
+# ── Restore preserved data (accounts, roles, config) from EFS if present ─────
+# export_preserve_data.sh (run on the old instance before migration) writes
+# a mysqldump to this path. We import it once, then rename it so a reboot
+# doesn't re-import stale data.
+MIGRATION_FILE="/mnt/efs/magellon/db-migration/preserve_data.sql"
+if [ -f "$MIGRATION_FILE" ]; then
+  echo "Found preserved migration at $MIGRATION_FILE — waiting for MySQL..."
+
+  TIMEOUT=300; ELAPSED=0
+  until docker exec magellon-mysql_container \
+      mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "SELECT 1" >/dev/null 2>&1; do
+    if [ "$ELAPSED" -ge "$TIMEOUT" ]; then
+      echo "WARNING: MySQL not ready after $TIMEOUT s — skipping migration import"
+      break
+    fi
+    sleep 5; ELAPSED=$((ELAPSED + 5))
+  done
+
+  if docker exec magellon-mysql_container \
+      mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "SELECT 1" >/dev/null 2>&1; then
+
+    echo "Importing preserved data (accounts, permissions, config)..."
+    docker exec -i magellon-mysql_container \
+      mysql -u root -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" < "$MIGRATION_FILE"
+
+    # Rename so a reboot doesn't re-import
+    mv "$MIGRATION_FILE" "$MIGRATION_FILE.imported-$(date +%Y%m%d%H%M%S)"
+    echo "Migration import complete. Import tables (sessions/images) start empty."
+  fi
+fi
 
 echo "=== Bootstrap complete $(date). Check 'journalctl -u magellon.service' for status. ==="

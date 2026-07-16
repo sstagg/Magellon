@@ -243,6 +243,234 @@ services:
         awslogs-stream: ctf-plugin
         awslogs-create-group: "true"
 
+  magellon_fft_plugin:
+    build:
+      context: ../..
+      dockerfile: plugins/magellon_fft_plugin/Dockerfile
+    image: magellon_fft_plugin_image
+    container_name: magellon_fft_plugin_container
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
+      - nats
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_FFT_PLUGIN_PORT:-8037}:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.23
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION}
+        awslogs-group: /magellon/prod/fft-plugin
+        awslogs-stream: fft-plugin
+        awslogs-create-group: "true"
+
+  magellon_ptolemy_plugin:
+    build:
+      context: ../..
+      dockerfile: plugins/magellon_ptolemy_plugin/Dockerfile
+    image: magellon_ptolemy_plugin_image
+    container_name: magellon_ptolemy_plugin_container
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
+      - nats
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_PTOLEMY_PLUGIN_PORT:-8038}:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.24
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION}
+        awslogs-group: /magellon/prod/ptolemy-plugin
+        awslogs-stream: ptolemy-plugin
+        awslogs-create-group: "true"
+
+  magellon_topaz_plugin:
+    build:
+      context: ../..
+      dockerfile: plugins/magellon_topaz_plugin/Dockerfile
+    image: magellon_topaz_plugin_image
+    container_name: magellon_topaz_plugin_container
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
+      - nats
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_TOPAZ_PLUGIN_PORT:-8039}:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.25
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION}
+        awslogs-group: /magellon/prod/topaz-plugin
+        awslogs-stream: topaz-plugin
+        awslogs-create-group: "true"
+
+  magellon_stack_maker_plugin:
+    build:
+      context: ../..
+      dockerfile: plugins/magellon_stack_maker_plugin/Dockerfile
+    image: magellon_stack_maker_plugin_image
+    container_name: magellon_stack_maker_plugin_container
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
+      - nats
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_STACK_MAKER_PLUGIN_PORT:-8040}:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.26
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION}
+        awslogs-group: /magellon/prod/stack-maker-plugin
+        awslogs-stream: stack-maker-plugin
+        awslogs-create-group: "true"
+
+  magellon_can_classifier_plugin:
+    build:
+      context: ../..
+      dockerfile: plugins/magellon_can_classifier_plugin/Dockerfile
+    image: magellon_can_classifier_plugin_image
+    container_name: magellon_can_classifier_plugin_container
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
+      - nats
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_CAN_CLASSIFIER_PLUGIN_PORT:-8041}:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.27
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION}
+        awslogs-group: /magellon/prod/can-classifier-plugin
+        awslogs-stream: can-classifier-plugin
+        awslogs-create-group: "true"
+
+  magellon_template_picker_plugin:
+    build:
+      context: ../..
+      dockerfile: plugins/magellon_template_picker_plugin/Dockerfile
+    image: magellon_template_picker_plugin_image
+    container_name: magellon_template_picker_plugin_container
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
+      - nats
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_TEMPLATE_PICKER_PLUGIN_PORT:-8042}:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.28
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION}
+        awslogs-group: /magellon/prod/template-picker-plugin
+        awslogs-stream: template-picker-plugin
+        awslogs-create-group: "true"
+
 volumes:
   rabbitmq-data: {}
   nats-data: {}
