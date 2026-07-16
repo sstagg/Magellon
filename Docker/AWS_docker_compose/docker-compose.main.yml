@@ -245,8 +245,8 @@ services:
 
   magellon_fft_plugin:
     build:
-      context: ../..
-      dockerfile: plugins/magellon_fft_plugin/Dockerfile
+      context: ../../plugins/magellon_fft_plugin
+      dockerfile: Dockerfile
     image: magellon_fft_plugin_image
     container_name: magellon_fft_plugin_container
     restart: unless-stopped
@@ -283,8 +283,8 @@ services:
 
   magellon_ptolemy_plugin:
     build:
-      context: ../..
-      dockerfile: plugins/magellon_ptolemy_plugin/Dockerfile
+      context: ../../plugins/magellon_ptolemy_plugin
+      dockerfile: Dockerfile
     image: magellon_ptolemy_plugin_image
     container_name: magellon_ptolemy_plugin_container
     restart: unless-stopped
@@ -321,8 +321,8 @@ services:
 
   magellon_topaz_plugin:
     build:
-      context: ../..
-      dockerfile: plugins/magellon_topaz_plugin/Dockerfile
+      context: ../../plugins/magellon_topaz_plugin
+      dockerfile: Dockerfile
     image: magellon_topaz_plugin_image
     container_name: magellon_topaz_plugin_container
     restart: unless-stopped
@@ -359,8 +359,8 @@ services:
 
   magellon_stack_maker_plugin:
     build:
-      context: ../..
-      dockerfile: plugins/magellon_stack_maker_plugin/Dockerfile
+      context: ../../plugins/magellon_stack_maker_plugin
+      dockerfile: Dockerfile
     image: magellon_stack_maker_plugin_image
     container_name: magellon_stack_maker_plugin_container
     restart: unless-stopped
@@ -397,8 +397,8 @@ services:
 
   magellon_can_classifier_plugin:
     build:
-      context: ../..
-      dockerfile: plugins/magellon_can_classifier_plugin/Dockerfile
+      context: ../../plugins/magellon_can_classifier_plugin
+      dockerfile: Dockerfile
     image: magellon_can_classifier_plugin_image
     container_name: magellon_can_classifier_plugin_container
     restart: unless-stopped
@@ -435,8 +435,8 @@ services:
 
   magellon_template_picker_plugin:
     build:
-      context: ../..
-      dockerfile: plugins/magellon_template_picker_plugin/Dockerfile
+      context: ../../plugins/magellon_template_picker_plugin
+      dockerfile: Dockerfile
     image: magellon_template_picker_plugin_image
     container_name: magellon_template_picker_plugin_container
     restart: unless-stopped
