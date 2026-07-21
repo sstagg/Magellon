@@ -503,10 +503,71 @@ def validate_epu_directory(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _run_serialem_import(
+    request: SerialEMImportJobDto,
+    job_id: UUID,
+    user_id: UUID,
+) -> None:
+    """Run SerialEmImporter in a background task so the HTTP response returns immediately.
+
+    Opens its own DB session (the request-scoped session is already closed).
+    Exceptions are caught and logged; failure surfaces on the job row and server log.
+    """
+    def _notify(event: str, **extra):
+        try:
+            from core.socketio_server import schedule_import_progress
+            schedule_import_progress(str(job_id), {"job_id": str(job_id), "event": event, **extra})
+        except Exception:
+            pass
+
+    from services.importers.SerialEmImporter import SerialEmImporter
+    from services.job_manager import job_manager as _jm
+
+    db = session_local()
+    try:
+        _notify("started")
+        importer = SerialEmImporter()
+        importer.pre_assigned_job_id = job_id
+        importer.setup(request, db)
+        result = importer.process(db)
+        if result.get("status") == "failure":
+            logger.error(
+                "SerialEM import job %s (user %s) failed: %s | error: %s",
+                job_id, user_id, result.get("message"), result.get("error"),
+            )
+            try:
+                _jm.fail_job(str(job_id), error=result.get("message") or "Import failed")
+            except Exception:
+                logger.exception("Could not mark SerialEM import job %s as failed", job_id)
+            _notify("failed", message=result.get("message"))
+        else:
+            logger.info(
+                "SerialEM import job %s (user %s) completed: session=%s",
+                job_id, user_id, result.get("session_name"),
+            )
+            try:
+                _jm.complete_job(str(job_id), result={"session_name": result.get("session_name")})
+            except Exception:
+                logger.exception("Could not mark SerialEM import job %s as completed", job_id)
+            _notify("dispatched", session_name=result.get("session_name"))
+    except Exception:
+        logger.exception("SerialEM import job %s (user %s) raised unhandled exception", job_id, user_id)
+        try:
+            _jm.fail_job(str(job_id), error="Unhandled exception during import")
+        except Exception:
+            logger.exception("Could not mark SerialEM import job %s as failed after exception", job_id)
+        _notify("failed", message="Unhandled exception during import")
+    finally:
+        try:
+            db.close()
+        except Exception:
+            logger.exception("Failed to close SerialEM import background db session")
+
+
 @import_router.post("/serialem-import")
 def import_serialem_directory(
     request: SerialEMImportJobDto,
-    db_session: Session = Depends(get_db),
+    background_tasks: BackgroundTasks,
     _: None = Depends(require_permission('msession', 'create')),  # ✅ Permission check
     user_id: UUID = Depends(get_current_user_id)  # ✅ Audit trail
 ):
@@ -516,52 +577,21 @@ def import_serialem_directory(
     **Requires:** 'create' permission on 'msession' resource
     **Security:** Only users with session creation permission can import SerialEM data
 
-    Directory structure should be a SerialEM session directory containing .mdoc files
-    and associated TIFF/EER image files.
-
-    Parameters:
-    - request: SerialEM import job parameters including directory path
-
-    Returns:
-    - Dict with import status and session information
+    Returns immediately with a job_id; the import runs in the background.
+    Poll /export/job/{job_id}/summary for progress.
     """
-    try:
-        logger.warning(f"User {user_id} importing SerialEM data from: {request.serial_em_dir_path}")
-        # Validate source directory exists
-        if not os.path.exists(request.serial_em_dir_path):
-            raise HTTPException(
-                status_code=404,
-                detail=f"SerialEM directory not found: {request.serial_em_dir_path}"
-            )
+    if not os.path.exists(request.serial_em_dir_path):
+        raise HTTPException(
+            status_code=404,
+            detail=f"SerialEM directory not found: {request.serial_em_dir_path}"
+        )
 
-        # Initialize and run importer
-        from services.importers.SerialEmImporter import SerialEmImporter
-        importer = SerialEmImporter()
-        importer.setup(request, db_session)
-        result = importer.process(db_session)
+    job_id = uuid.uuid4()
+    logger.warning("User %s scheduling SerialEM import from %s (job=%s)", user_id, request.serial_em_dir_path, job_id)
+    background_tasks.add_task(_run_serialem_import, request, job_id, user_id)
 
-        if result.get('status') == 'failure':
-            raise HTTPException(
-                status_code=500,
-                detail=result.get('message', 'SerialEM Import failed')
-            )
-
-        logger.info(f"User {user_id} completed SerialEM import: {result.get('session_name')}")
-        return {
-            "message": "SerialEM session imported successfully",
-            "session_name": result.get('session_name'),
-            "job_id": result.get('job_id'),
-            "imported_by": str(user_id)
-        }
-
-    except HTTPException:
-        raise
-    except FileNotFoundError as e:
-        logger.error(f"SerialEM import failed for user {user_id}: File not found - {str(e)}")
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        logger.error(f"SerialEM import failed for user {user_id}: Invalid value - {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error during SerialEM import by user {user_id}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+    return {
+        "message": "Import scheduled",
+        "job_id": str(job_id),
+        "imported_by": str(user_id),
+    }
