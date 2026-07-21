@@ -439,6 +439,29 @@ async def startup_event():
         logger.error(f"[ERROR] Failed to initialize Casbin: {e}")
         logger.warning("[WARNING] Application will start but authorization may not work correctly!")
 
+    # Mark any import jobs that were still running when the server last
+    # died as aborted (status_id=3). Background import threads cannot
+    # survive a restart — leaving them at status_id=1 makes them appear
+    # stuck forever in the UI with no way to recover.
+    try:
+        from sqlalchemy import text as _text
+        _db = session_local()
+        try:
+            _result = _db.execute(
+                _text("UPDATE image_job SET status_id = 3 WHERE status_id = 1")
+            )
+            _db.commit()
+            if _result.rowcount:
+                logger.warning(
+                    "[STARTUP] Marked %d orphaned import job(s) as aborted "
+                    "(status_id 1→3): they were running when the server last restarted.",
+                    _result.rowcount,
+                )
+        finally:
+            _db.close()
+    except Exception as _e:
+        logger.error("[STARTUP] Failed to mark orphaned import jobs: %s", _e)
+
     # Install the process-wide MessageBus before any consumer thread
     # spawns. Result consumer, step-event forwarder, and liveness
     # listener all call get_bus() on their threads — without this the
@@ -624,6 +647,26 @@ async def shutdown_event():
     logger.info("=" * 60)
     logger.info("Shutting down Magellon Core Service...")
     logger.info("=" * 60)
+
+    # Mark any in-progress import jobs as aborted immediately on graceful
+    # shutdown so they show as failed in the UI rather than stuck as running.
+    try:
+        from sqlalchemy import text as _text
+        _db = session_local()
+        try:
+            _result = _db.execute(
+                _text("UPDATE image_job SET status_id = 3 WHERE status_id = 1")
+            )
+            _db.commit()
+            if _result.rowcount:
+                logger.warning(
+                    "[SHUTDOWN] Marked %d running import job(s) as aborted (status_id=3).",
+                    _result.rowcount,
+                )
+        finally:
+            _db.close()
+    except Exception as _e:
+        logger.error("[SHUTDOWN] Failed to mark orphaned import jobs: %s", _e)
 
     forwarder = getattr(app.state, "step_event_forwarder", None)
     if forwarder is not None:
