@@ -6,6 +6,26 @@ import { useSocket } from "../../../shared/lib/useSocket.ts";
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
+// ---------------------------------------------------------------------------
+// Cross-instance dismissal coordination
+//
+// All four importer tabs are kept mounted simultaneously by MUI TabPanel
+// (display:none when inactive, but never unmounted). Each has its own hook
+// instance. When the user closes the dialog on one tab we must also reset
+// the other three — otherwise the dialog reappears as soon as they navigate
+// to that tab.
+//
+// We use a window-level custom event so hook instances coordinate without
+// needing a shared React context.
+// ---------------------------------------------------------------------------
+const DISMISS_EVENT = "magellon:import-job-dismissed";
+const _dismissed = new Set<string>();
+
+function _broadcastDismissal(jobId: string) {
+    _dismissed.add(jobId);
+    window.dispatchEvent(new CustomEvent(DISMISS_EVENT, { detail: { jobId } }));
+}
+
 export type ImportStatus = "idle" | "scheduling" | "running" | "success" | "error";
 
 // Step keys the Magellon importer reports. Other importers may emit a
@@ -74,8 +94,10 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
     const [elapsedMs, setElapsedMs] = useState<number>(0);
     const { emit: socketEmit, on: socketOn, connected: socketConnected } = useSocket();
     const statusRef = useRef(status);
+    const jobIdRef = useRef(jobId);
 
     useEffect(() => { statusRef.current = status; }, [status]);
+    useEffect(() => { jobIdRef.current = jobId; }, [jobId]);
 
     const fetchSummary = useCallback(async (id: string) => {
         try {
@@ -105,11 +127,31 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
         apiClient.get<{ job_id: string; name?: string }>("/export/jobs/active")
             .then(({ data }) => {
                 if (!data.name?.startsWith(jobNamePrefix)) return;
+                if (_dismissed.has(data.job_id)) return;  // user already closed this
                 setJobId(data.job_id);
                 return fetchSummary(data.job_id);
             })
             .catch(() => {});
     }, [fetchSummary, jobNamePrefix]);
+
+    // Listen for dismissals broadcast by any other hook instance on this page.
+    // Resets this instance when another tab's Close button was clicked.
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const dismissedId = (e as CustomEvent<{ jobId: string }>).detail.jobId;
+            if (dismissedId === jobId) {
+                setStatus("idle");
+                setError(null);
+                setJobId(null);
+                setSummary(null);
+                setStepCounts(null);
+                setStepTotals(null);
+                setElapsedMs(0);
+            }
+        };
+        window.addEventListener(DISMISS_EVENT, handler);
+        return () => window.removeEventListener(DISMISS_EVENT, handler);
+    }, [jobId]);
 
     // Socket.IO: join the job room, listen for live progress events.
     // Depend on `socketConnected` so a reconnect re-runs the effect and
@@ -156,6 +198,9 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
 
     const reset = useCallback(() => {
         if (["scheduling", "running"].includes(statusRef.current)) return;
+        // Broadcast so every other mounted hook instance (hidden tabs) also closes.
+        const currentJobId = jobIdRef.current;
+        if (currentJobId) _broadcastDismissal(currentJobId);
         setStatus("idle");
         setError(null);
         setJobId(null);
