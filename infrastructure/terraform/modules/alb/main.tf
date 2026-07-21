@@ -95,6 +95,7 @@ resource "aws_lb" "this" {
   subnets                    = var.public_subnet_ids
   drop_invalid_header_fields = true
   enable_deletion_protection = var.enable_deletion_protection
+  idle_timeout               = 4000
 
   access_logs {
     bucket  = aws_s3_bucket.alb_logs.bucket
