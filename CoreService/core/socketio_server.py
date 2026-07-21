@@ -39,8 +39,8 @@ sio = socketio.AsyncServer(
     cors_allowed_origins=allowed_origins(),
     logger=False,
     engineio_logger=False,
-    ping_interval=25,   # send keepalive every 25s — keeps ALB connection alive
-    ping_timeout=60,    # allow 60s for client to respond before disconnecting
+    ping_interval=25,    # send keepalive every 25s — keeps ALB connection alive
+    ping_timeout=3600,  # never drop a slow client during a long import (1 hour)
 )
 
 
