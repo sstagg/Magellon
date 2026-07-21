@@ -8,7 +8,8 @@ from uuid import UUID
 
 import mrcfile
 import numpy as np
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
+import io
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks
 from pydantic import BaseModel
 from starlette.responses import FileResponse
 from typing import Optional
@@ -21,7 +22,7 @@ from models.pydantic_models import LeginonFrameTransferJobBase, LeginonFrameTran
 from services.importers.EPUImporter import EPUImporter
 from services.leginon_frame_transfer_job_service import LeginonFrameTransferJobService
 from sqlalchemy.orm import Session
-from database import get_db
+from database import get_db, session_local
 from services.mrc_image_service import MrcImageService
 from dependencies.auth import get_current_user_id
 from dependencies.permissions import require_permission
@@ -709,6 +710,37 @@ class LeginonImportResponse(BaseModel):
     job_id: uuid.UUID = None
 
 
+class _UploadProxy:
+    """Thin UploadFile-compatible wrapper so file bytes survive past the request."""
+    def __init__(self, filename: str, content: bytes):
+        self.filename = filename
+        self.file = io.BytesIO(content)
+
+
+def _run_leginon_import(job_dto, user_id: UUID) -> None:
+    def _notify(event: str, **extra):
+        try:
+            from core.socketio_server import schedule_import_progress
+            schedule_import_progress(str(job_dto.job_id), {"job_id": str(job_dto.job_id), "event": event, **extra})
+        except Exception:
+            pass
+
+    db = session_local()
+    try:
+        logger.warning("[Leginon] background import started: job=%s user=%s session=%s", job_dto.job_id, user_id, job_dto.magellon_session_name)
+        _notify("started")
+        svc = LeginonFrameTransferJobService()
+        svc.setup_data(job_dto)
+        result = svc.process(db)
+        _notify("dispatched", session_name=job_dto.magellon_session_name)
+        logger.info("[Leginon] background import completed: job=%s", job_dto.job_id)
+    except Exception:
+        logger.exception("[Leginon] unhandled exception in background import for job=%s", job_dto.job_id)
+        _notify("failed", message="Unhandled exception during Leginon import")
+    finally:
+        db.close()
+
+
 @image_processing_router.post("/import_leginon_job")
 def process_image_job(
     magellon_project_name: str = Form(...),
@@ -731,19 +763,16 @@ def process_image_job(
     defects_file: Optional[UploadFile] = File(None),
     gains_file: Optional[UploadFile] = File(None),
 
-    db: Session = Depends(get_db),
-    _: None = Depends(require_permission('msession', 'create')),  # ✅ Permission check
-    user_id: UUID = Depends(get_current_user_id)  # ✅ Audit trail
+    background_tasks: BackgroundTasks,
+    _: None = Depends(require_permission('msession', 'create')),
+    user_id: UUID = Depends(get_current_user_id)
 ):
-    """
-    Import data from Leginon system.
+    # Read uploaded file bytes now — UploadFile streams close after the request returns.
+    defects_proxy = _UploadProxy(defects_file.filename, defects_file.file.read()) if defects_file else None
+    gains_proxy = _UploadProxy(gains_file.filename, gains_file.file.read()) if gains_file else None
 
-    **Requires:** 'create' permission on 'msession' resource
-    **Security:** Creates new sessions/images, requires creation permission
-    """
-
-    # ✅ Create your Pydantic model manually
-    input_data = LeginonFrameTransferJobBase(
+    job_id = uuid.uuid4()
+    job_dto = LeginonFrameTransferJobDto(
         magellon_project_name=magellon_project_name,
         magellon_session_name=magellon_session_name,
         camera_directory=camera_directory,
@@ -758,58 +787,51 @@ def process_image_job(
         replace_type=replace_type,
         replace_pattern=replace_pattern,
         replace_with=replace_with,
-    )
-
-    job_id = uuid.uuid4()
-    job_dto = LeginonFrameTransferJobDto(
-        magellon_project_name=input_data.magellon_project_name,
-        magellon_session_name=input_data.magellon_session_name,
-        camera_directory=input_data.camera_directory,
-        session_name=input_data.session_name,
-        copy_images=input_data.copy_images,
-        retries=input_data.retries,
-        leginon_mysql_host=input_data.leginon_mysql_host,
-        leginon_mysql_port=input_data.leginon_mysql_port,
-        leginon_mysql_db=input_data.leginon_mysql_db,
-        leginon_mysql_user=input_data.leginon_mysql_user,
-        leginon_mysql_pass=input_data.leginon_mysql_pass,
-        replace_type=input_data.replace_type,
-        replace_pattern=input_data.replace_pattern,
-        replace_with=input_data.replace_with,
         job_id=job_id,
-        target_directory=os.path.join(MAGELLON_HOME_DIR, input_data.magellon_session_name),
-        defects_file=defects_file,
-        gains_file=gains_file,
+        target_directory=os.path.join(MAGELLON_HOME_DIR, magellon_session_name),
+        defects_file=defects_proxy,
+        gains_file=gains_proxy,
         task_list=[],
     )
 
-
-    logger.warning(f"User {user_id} importing Leginon job: session={magellon_session_name}")
-
-    lft_service.setup_data(job_dto)
-    result = lft_service.process(db)
-
-    logger.info(f"User {user_id} completed Leginon import: job_id={job_id}")
-    return {**result, "imported_by": str(user_id)}
+    logger.warning("[Leginon] scheduling background import: job=%s user=%s session=%s", job_id, user_id, magellon_session_name)
+    background_tasks.add_task(_run_leginon_import, job_dto, user_id)
+    return {"message": "Import scheduled", "job_id": str(job_id), "imported_by": str(user_id)}
 
 
+
+
+def _run_epu_job_import(job_dto: EpuImportJobDto, user_id: UUID) -> None:
+    def _notify(event: str, **extra):
+        try:
+            from core.socketio_server import schedule_import_progress
+            schedule_import_progress(str(job_dto.job_id), {"job_id": str(job_dto.job_id), "event": event, **extra})
+        except Exception:
+            pass
+
+    db = session_local()
+    try:
+        logger.warning("[EPU-old] background import started: job=%s user=%s session=%s", job_dto.job_id, user_id, job_dto.magellon_session_name)
+        _notify("started")
+        epu_importer = EPUImporter()
+        epu_importer.setup_data(job_dto)
+        result = epu_importer.process(db)
+        _notify("dispatched", session_name=job_dto.session_name)
+        logger.info("[EPU-old] background import completed: job=%s", job_dto.job_id)
+    except Exception:
+        logger.exception("[EPU-old] unhandled exception in background import for job=%s", job_dto.job_id)
+        _notify("failed", message="Unhandled exception during EPU import")
+    finally:
+        db.close()
 
 
 @image_processing_router.post("/import_epu_job")
 def import_epu_job(
     input_data: EpuImportJobBase,
-    db: Session = Depends(get_db),
-    _: None = Depends(require_permission('msession', 'create')),  # ✅ Permission check
-    user_id: UUID = Depends(get_current_user_id)  # ✅ Audit trail
+    background_tasks: BackgroundTasks,
+    _: None = Depends(require_permission('msession', 'create')),
+    user_id: UUID = Depends(get_current_user_id)
 ):
-    """
-    Import data from EPU system.
-
-    **Requires:** 'create' permission on 'msession' resource
-    **Security:** Creates new sessions/images, requires creation permission
-    """
-    # Generate a unique job ID
-
     job_id = uuid.uuid4()
     job_dto = EpuImportJobDto(
         magellon_project_name=input_data.magellon_project_name,
@@ -818,27 +840,17 @@ def import_epu_job(
         session_name=input_data.session_name,
         copy_images=input_data.copy_images,
         retries=input_data.retries,
-
         epu_dir_path=input_data.epu_dir_path,
-
         replace_type=input_data.replace_type,
         replace_pattern=input_data.replace_pattern,
         replace_with=input_data.replace_with,
-
         job_id=job_id,
-        target_directory=os.path.join(MAGELLON_HOME_DIR, input_data.magellon_session_name),
-        task_list=[]  # You can set this to None or any desired value
+        target_directory=os.path.join(MAGELLON_HOME_DIR, input_data.session_name),
+        task_list=[]
     )
-
-    logger.warning(f"User {user_id} importing EPU job: session={input_data.magellon_session_name}")
-
-    job_dto.target_directory = os.path.join(MAGELLON_HOME_DIR, job_dto.session_name)
-    epu_importer = EPUImporter()
-    epu_importer.setup_data(job_dto)
-    result = epu_importer.process(db)
-
-    logger.info(f"User {user_id} completed EPU import: job_id={job_id}")
-    return {**result, "imported_by": str(user_id)}
+    logger.warning("[EPU-old] scheduling background import: job=%s user=%s session=%s", job_id, user_id, input_data.magellon_session_name)
+    background_tasks.add_task(_run_epu_job_import, job_dto, user_id)
+    return {"message": "Import scheduled", "job_id": str(job_id), "imported_by": str(user_id)}
 
 
 def do_low_pass_filter(file_path: str, output_path: str, p_resolution:float) -> Dict:

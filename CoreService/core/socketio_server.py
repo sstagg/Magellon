@@ -18,6 +18,9 @@ logger = logging.getLogger(__name__)
 
 _asgi_loop: Optional[asyncio.AbstractEventLoop] = None
 
+# Latest import_progress payload per job_id — used to replay on reconnect.
+_import_progress_cache: dict[str, dict] = {}
+
 
 def set_asgi_loop(loop: asyncio.AbstractEventLoop) -> None:
     """Capture the asgi event loop so :func:`schedule_test_envelope` and
@@ -217,6 +220,10 @@ async def join_job_room(sid, data):
     await sio.enter_room(sid, _job_room(job_id))
     logger.info(f"sid={sid} joined {_job_room(job_id)}")
     await _replay_persisted_events(sid, job_id)
+    cached = _import_progress_cache.get(str(job_id))
+    if cached:
+        await sio.emit("import_progress", cached, room=sid)
+        logger.info("replayed import_progress snapshot to sid=%s for job=%s", sid, job_id)
     return {"ok": True, "room": _job_room(job_id)}
 
 
@@ -461,7 +468,11 @@ def schedule_import_progress(job_id: str, data: dict) -> None:
     when the ASGI loop hasn't been captured yet (early boot, tests).
     ``data`` must be JSON-serialisable; callers should include at minimum
     ``{"job_id": ..., "event": ...}``.
+
+    The latest payload is cached in ``_import_progress_cache`` so reconnecting
+    clients receive the most recent progress snapshot via ``join_job_room``.
     """
+    _import_progress_cache[str(job_id)] = data
     if _asgi_loop is None:
         return
     coro = sio.emit("import_progress", data, room=_job_room(str(job_id)))

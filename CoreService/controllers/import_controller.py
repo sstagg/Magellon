@@ -385,68 +385,61 @@ def get_job_summary(
         )
 
 
+def _run_epu_import(request: EpuImportJobDto, job_id: UUID, user_id: UUID) -> None:
+    def _notify(event: str, **extra):
+        try:
+            from core.socketio_server import schedule_import_progress
+            schedule_import_progress(str(job_id), {"job_id": str(job_id), "event": event, **extra})
+        except Exception:
+            pass
+
+    from services.importers.EPUImporter import EPUImporter
+    from services.job_manager import job_manager as _jm
+    db = session_local()
+    try:
+        logger.warning("[EPU] background import started: job=%s user=%s path=%s", job_id, user_id, request.epu_dir_path)
+        _notify("started")
+        importer = EPUImporter()
+        importer.pre_assigned_job_id = job_id
+        importer.setup(request, db)
+        result = importer.process(db)
+        if result.get("status") == "failure":
+            _jm.fail_job(str(job_id), error=result.get("message") or "EPU import failed")
+            _notify("failed", message=result.get("message"))
+        else:
+            _jm.complete_job(str(job_id), result={"session_name": result.get("session_name")})
+            _notify("dispatched", session_name=result.get("session_name"))
+            logger.info("[EPU] background import completed: job=%s session=%s", job_id, result.get("session_name"))
+    except Exception:
+        logger.exception("[EPU] unhandled exception in background import for job=%s", job_id)
+        try:
+            from services.job_manager import job_manager as _jm2
+            _jm2.fail_job(str(job_id), error="Unhandled exception during EPU import")
+        except Exception:
+            pass
+        _notify("failed", message="Unhandled exception during EPU import")
+    finally:
+        db.close()
+
+
 @import_router.post("/epu-import")
 def import_epu_directory(
     request: EpuImportJobDto,
-    db_session: Session = Depends(get_db),
-    _: None = Depends(require_permission('msession', 'create')),  # ✅ Permission check
-    user_id: UUID = Depends(get_current_user_id)  # ✅ Audit trail
+    background_tasks: BackgroundTasks,
+    _: None = Depends(require_permission('msession', 'create')),
+    user_id: UUID = Depends(get_current_user_id)
 ):
-    """
-    Import EPU data from a directory containing XML metadata and image files.
+    if not os.path.exists(request.epu_dir_path):
+        raise HTTPException(
+            status_code=404,
+            detail=f"EPU directory not found: {request.epu_dir_path}"
+        )
+    job_id = uuid.uuid4()
+    logger.warning("[EPU] scheduling background import: job=%s user=%s", job_id, user_id)
+    background_tasks.add_task(_run_epu_import, request, job_id, user_id)
+    return {"message": "Import scheduled", "job_id": str(job_id), "imported_by": str(user_id)}
 
-    **Requires:** 'create' permission on 'msession' resource
-    **Security:** Only users with session creation permission can import EPU data
 
-    Directory structure should be an EPU session directory containing XML metadata files
-    and associated TIFF/EER image files.
-
-    Parameters:
-    - request: EPU import job parameters including directory path
-
-    Returns:
-    - Dict with import status and session information
-    """
-    try:
-        logger.warning(f"User {user_id} importing EPU data from: {request.epu_dir_path}")
-        # Validate source directory exists
-        if not os.path.exists(request.epu_dir_path):
-            raise HTTPException(
-                status_code=404,
-                detail=f"EPU directory not found: {request.epu_dir_path}"
-            )
-
-        # Initialize and run importer
-        from services.importers.EPUImporter import EPUImporter
-        importer = EPUImporter()
-        importer.setup(request, db_session)
-        result = importer.process(db_session)
-
-        if result.get('status') == 'failure':
-            raise HTTPException(
-                status_code=500,
-                detail=result.get('message', 'EPU Import failed')
-            )
-
-        logger.info(f"User {user_id} completed EPU import: {result.get('session_name')}")
-        return {
-            "message": "EPU session imported successfully",
-            "session_name": result.get('session_name'),
-            "job_id": result.get('job_id'),
-            "imported_by": str(user_id)
-        }
-
-    except HTTPException:
-        raise
-    except FileNotFoundError as e:
-        logger.error(f"EPU import failed for user {user_id}: File not found - {str(e)}")
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        logger.error(f"EPU import failed for user {user_id}: Invalid value - {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error during EPU import by user {user_id}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @import_router.get("/validate-epu-directory")
