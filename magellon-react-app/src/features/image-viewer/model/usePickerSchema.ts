@@ -24,7 +24,9 @@ export function usePickerSchema({ open, selectedBackend, onPickerParamsChange, s
         setSchemaLoading(true);
         setTrainedModel(null);
         const url = `${API_URL}${TEMPLATE_PICKER_PATH}/schema/input?backend=${encodeURIComponent(selectedBackend)}`;
-        fetch(url)
+        const token = localStorage.getItem('access_token');
+        const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+        fetch(url, { headers: authHeaders })
             .then((res) => { if (!res.ok) throw new Error(`${res.status}`); return res.json(); })
             .then((data) => {
                 setSchema(data);

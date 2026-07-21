@@ -18,7 +18,9 @@ export function useParticleBackends(open: boolean) {
     useEffect(() => {
         if (!open) return;
         setBackendsLoading(true);
-        fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/backends`, { cache: 'no-store' })
+        const token = localStorage.getItem('access_token');
+        const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+        fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/backends`, { cache: 'no-store', headers: authHeaders })
             .then((res) => res.ok ? res.json() : Promise.resolve([]))
             .then((data: BackendInfo[]) => {
                 // Topaz always sorts to the top; otherwise preserve server order.
