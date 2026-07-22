@@ -211,13 +211,12 @@ def _output_from_plugin(
 def _resolve_pp_category(backend: Optional[str]) -> str:
     """Map a UI backend id to the dispatch category.
 
-    Topaz lives under its own ``topaz_particle_picking`` category;
-    everything else uses ``particle_picking``. The category alone
-    disambiguates the target plugin — no backend-id pin needed (and
-    pinning is fragile: the announced backend_id is the SDK-derived
-    ``topaz-particle-picking``, not the manifest's ``topaz``)."""
+    The Topaz plugin announces itself as ``topazparticlepicking`` (no
+    underscore/space) — that is the literal string parsed from the
+    heartbeat subject ``magellon.plugins.heartbeat.topazparticlepicking.*``.
+    Everything else uses ``particle_picking``."""
     if backend and "topaz" in backend.lower():
-        return "topaz_particle_picking"
+        return "topazparticlepicking"
     return _CATEGORY
 
 
