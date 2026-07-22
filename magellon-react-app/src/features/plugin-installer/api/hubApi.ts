@@ -104,15 +104,21 @@ export const downloadArchiveAsFile = async (
     }
     const buffer = await res.arrayBuffer();
 
-    const digest = await crypto.subtle.digest('SHA-256', buffer);
-    const actualSha = Array.from(new Uint8Array(digest))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
-    if (actualSha !== version.sha256) {
-        throw new Error(
-            `SHA256 mismatch — hub manifest claims ${version.sha256} ` +
-            `but downloaded bytes hash to ${actualSha}. Aborting.`,
-        );
+    // crypto.subtle is only available in secure contexts (HTTPS / localhost).
+    // Skip the integrity check on plain-HTTP deployments rather than crashing.
+    if (crypto.subtle) {
+        const digest = await crypto.subtle.digest('SHA-256', buffer);
+        const actualSha = Array.from(new Uint8Array(digest))
+            .map((b) => b.toString(16).padStart(2, '0'))
+            .join('');
+        if (actualSha !== version.sha256) {
+            throw new Error(
+                `SHA256 mismatch — hub manifest claims ${version.sha256} ` +
+                `but downloaded bytes hash to ${actualSha}. Aborting.`,
+            );
+        }
+    } else {
+        console.warn('SHA256 verification skipped: crypto.subtle not available (HTTP context)');
     }
 
     const filename = version.url.split('/').pop() ?? `${plugin.plugin_id}-${version.version}.mpn`;
