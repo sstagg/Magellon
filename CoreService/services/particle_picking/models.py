@@ -44,7 +44,7 @@ Validation hints:
 
 from __future__ import annotations
 
-from typing import List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -446,16 +446,18 @@ class BatchImageEntry(BaseModel):
 
 
 class BatchPickRequest(BaseModel):
-    """Body for /template-pick/batch — picker params plus a fixed image list.
+    """Body for /particle-picking/batch — picker params plus a fixed image list.
 
-    The frontend resolves the image set (typically by magnification within a
-    session) and posts the concrete list to keep the backend stateless.
+    Backend-agnostic: picker_params carries whatever the selected plugin
+    expects (Template Picker fields OR Topaz fields).  The controller routes
+    to the correct plugin category via the ``backend`` field.
     """
     model_config = ConfigDict(extra="forbid")
 
     session_name: str
     images: List[BatchImageEntry]
-    picker_params: "TemplatePickerInput"
+    picker_params: Dict[str, Any] = Field(default_factory=dict)
+    backend: Optional[str] = None
     ipp_name: str = Field(
         default="Auto-pick batch",
         description="Name to use for the saved ParticlePicking metadata row",

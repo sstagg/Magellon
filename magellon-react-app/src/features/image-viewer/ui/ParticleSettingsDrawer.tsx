@@ -240,7 +240,7 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
                         onRunBatch={onRunBatch ? () => {
                             if (!isValid) { setShowErrors(true); return; }
                             setShowErrors(false);
-                            onRunBatch();
+                            onRunBatch(selectedBackend);
                         } : undefined}
                     />
                 )}

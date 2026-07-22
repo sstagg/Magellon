@@ -45,7 +45,7 @@ export interface ParticleSettingsDrawerProps {
     /** Dispatch a picking task via RMQ for the given backend and IPP name. */
     onDispatch: (targetBackend: string, ippName: string) => Promise<PickDispatchResponse | null>;
     /** Opens the batch-run modal so the user can pick the cohort of images. */
-    onRunBatch?: () => void;
+    onRunBatch?: (backend: string) => void;
     isRunning: boolean;
     onPreviewParticles: (particles: Point[]) => void;
     onAcceptParticles: () => void;

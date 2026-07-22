@@ -86,6 +86,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [helpOpen, setHelpOpen] = useState(false);
     const [batchDialogOpen, setBatchDialogOpen] = useState(false);
+    const [batchBackend, setBatchBackend] = useState<string>('');
     const [activeClass, setActiveClass] = useState('1');
     const [customParticleRadius, setCustomParticleRadius] = useState<number | null>(null);
 
@@ -275,7 +276,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 onPickerParamsChange={setPickerParams}
                 onRun={runAutoPicking}
                 onDispatch={(targetBackend, ippName) => dispatchPick({ targetBackend, ippName })}
-                onRunBatch={sessionName ? () => setBatchDialogOpen(true) : undefined}
+                onRunBatch={sessionName ? (backend) => { setBatchBackend(backend); setBatchDialogOpen(true); } : undefined}
                 isRunning={isAutoPickingRunning}
                 onPreviewParticles={(pts) => {
                     setPreviewParticles(pts);
@@ -517,6 +518,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 onClose={() => setBatchDialogOpen(false)}
                 sessionName={sessionName}
                 currentImage={selectedImage}
+                selectedBackend={batchBackend}
                 pickerParams={pickerParams}
                 onComplete={(res) => {
                     showSnackbar(

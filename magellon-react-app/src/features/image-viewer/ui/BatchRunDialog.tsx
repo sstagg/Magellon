@@ -57,6 +57,7 @@ interface BatchRunDialogProps {
     onClose: () => void;
     sessionName: string;
     currentImage: ImageInfoDto | null;
+    selectedBackend: string;
     pickerParams: Record<string, unknown>;
     onComplete?: (result: { succeeded: number; failed: number; total: number }) => void;
 }
@@ -66,6 +67,7 @@ export const BatchRunDialog: React.FC<BatchRunDialogProps> = ({
     onClose,
     sessionName,
     currentImage,
+    selectedBackend,
     pickerParams,
     onComplete,
 }) => {
@@ -235,6 +237,7 @@ export const BatchRunDialog: React.FC<BatchRunDialogProps> = ({
             session_name: sessionName,
             images: selectedList.map((img) => ({ oid: img.oid, name: img.name })),
             picker_params,
+            backend: selectedBackend || undefined,
             ipp_name: ippName,
         };
 

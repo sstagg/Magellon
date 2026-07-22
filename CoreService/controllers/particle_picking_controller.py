@@ -1185,7 +1185,7 @@ async def template_pick_batch(
             "session_name": req.session_name,
             "num_images": len(req.images),
             "ipp_name": req.ipp_name,
-            "picker_params": req.picker_params.model_dump(mode="json"),
+            "picker_params": req.picker_params,
         },
         image_ids=[e.oid for e in req.images],
         user_id=str(user_id),
@@ -1407,10 +1407,29 @@ async def _run_batch_job(
                     continue
 
                 try:
-                    picker = req.picker_params.model_copy(update={"image_path": mrc_path})
-                    body = await _run_plugin_execute(picker)
+                    is_topaz = bool(req.backend and "topaz" in req.backend.lower())
+                    category = _resolve_pp_category(req.backend)
+                    loop = asyncio.get_running_loop()
+                    if is_topaz:
+                        payload: Dict[str, Any] = {
+                            "input_file": mrc_path,
+                            "image_path": mrc_path,
+                            "engine_opts": req.picker_params,
+                        }
+                        threshold = float(req.picker_params.get("threshold", -3.0))
+                    else:
+                        tp = TemplatePickerInput.model_validate(
+                            {"image_path": mrc_path, **req.picker_params}
+                        )
+                        payload = _plugin_payload(tp)
+                        threshold = tp.threshold
+                    body = await loop.run_in_executor(
+                        None,
+                        lambda: dispatch_capability(
+                            category, Capability.SYNC, "POST", "/execute", body=payload
+                        ),
+                    )
                     raw_particles = _load_particles_from_plugin_output(body)
-                    threshold = picker.threshold
                     now_ts = int(datetime.now().timestamp() * 1000)
                     points = [
                         _point_from_raw_pick(p, idx, now_ts, threshold)
@@ -1418,7 +1437,6 @@ async def _run_batch_job(
                     ]
 
                     batch_image_shape = body.get("image_shape")
-                    loop = asyncio.get_running_loop()
                     await loop.run_in_executor(
                         None, _save_particle_picking, db, image_oid, req.ipp_name, points, batch_image_shape,
                     )

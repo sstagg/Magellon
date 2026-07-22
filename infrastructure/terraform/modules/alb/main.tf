@@ -237,6 +237,25 @@ resource "aws_wafv2_web_acl" "this" {
       managed_rule_group_statement {
         name        = "AWSManagedRulesCommonRuleSet"
         vendor_name = "AWS"
+        # All SizeRestrictions_* rules are set to COUNT so the WAF does not
+        # block large scientific API payloads (batch particle picking, preview,
+        # etc.).  Nginx enforces client_max_body_size 500m as the actual limit.
+        rule_action_override {
+          name = "SizeRestrictions_BODY"
+          action_to_use { count {} }
+        }
+        rule_action_override {
+          name = "SizeRestrictions_Cookie"
+          action_to_use { count {} }
+        }
+        rule_action_override {
+          name = "SizeRestrictions_QUERYSTRING"
+          action_to_use { count {} }
+        }
+        rule_action_override {
+          name = "SizeRestrictions_URIPATH"
+          action_to_use { count {} }
+        }
       }
     }
     visibility_config {
