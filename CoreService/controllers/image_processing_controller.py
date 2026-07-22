@@ -743,6 +743,7 @@ def _run_leginon_import(job_dto, user_id: UUID) -> None:
 
 @image_processing_router.post("/import_leginon_job")
 def process_image_job(
+    background_tasks: BackgroundTasks,
     magellon_project_name: str = Form(...),
     magellon_session_name: str = Form(...),
     camera_directory: str = Form(...),
@@ -763,7 +764,6 @@ def process_image_job(
     defects_file: Optional[UploadFile] = File(None),
     gains_file: Optional[UploadFile] = File(None),
 
-    background_tasks: BackgroundTasks,
     _: None = Depends(require_permission('msession', 'create')),
     user_id: UUID = Depends(get_current_user_id)
 ):
