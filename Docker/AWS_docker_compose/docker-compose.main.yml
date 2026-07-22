@@ -457,6 +457,7 @@ services:
       - MAGELLON_STEP_EVENTS_ENABLED=1
       - MAGELLON_STEP_EVENTS_RMQ=1
       - NATS_URL=nats://nats:4222
+      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_template_picker_plugin:80
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
