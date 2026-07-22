@@ -6,8 +6,8 @@ durable ``plugin``/``plugin_state`` tables. The invariant is:
 
 * local install/upgrade success writes a catalog row;
 * uninstall soft-deletes that row;
-* broker-discovered plugins are cataloged as disabled until an operator
-  explicitly enables them.
+* broker-discovered plugins are cataloged as enabled so they are
+  immediately available for dispatch without manual operator action.
 """
 from __future__ import annotations
 
@@ -237,23 +237,12 @@ class PluginCatalogPersistence:
                     db.add(existing)
                 row = existing
             state_repo.touch_heartbeat(row.oid, seen_at)
-            if created:
-                state_repo.set_enabled(row.oid, False)
             db.commit()
         except Exception:
             db.rollback()
             raise
         finally:
             db.close()
-        if created:
-            try:
-                from core.plugin_state import get_state_store
-                get_state_store().set_enabled(plugin_id, False)
-            except Exception:
-                logger.exception(
-                    "could not update in-memory disabled state for %s",
-                    plugin_id,
-                )
 
     def rehydrate_announces(self, registry: Any) -> int:
         """Seed the in-memory liveness registry from persisted announces.
