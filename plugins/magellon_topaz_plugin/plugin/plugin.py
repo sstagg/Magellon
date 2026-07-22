@@ -195,7 +195,7 @@ class TopazPickPlugin(PluginBase[TopazPickInput, ParticlePickingOutput]):
     # PREVIEW lets the React panel run an interactive preview-and-tune
     # loop: the CNN runs once, then threshold/radius retuning re-runs
     # only NMS. Only the picker serves it — denoise has no preview.
-    capabilities = _CAPABILITIES + [Capability.PREVIEW]
+    capabilities = _CAPABILITIES + [Capability.PREVIEW, Capability.SYNC]
     supported_transports = _TRANSPORTS
     default_transport = Transport.RMQ
     isolation = IsolationLevel.CONTAINER
@@ -226,6 +226,9 @@ class TopazPickPlugin(PluginBase[TopazPickInput, ParticlePickingOutput]):
         return _TOPAZ_PICK_UI_SCHEMA
 
     # --- PREVIEW capability — see plugin/preview.py ----------------------
+
+    def execute_sync(self, input_data: TopazPickInput) -> ParticlePickingOutput:
+        return self.execute(input_data, reporter=NullReporter())
 
     def preview(self, input_data: TopazPickInput) -> "PickingPreviewResult":
         from plugin.preview import run_preview

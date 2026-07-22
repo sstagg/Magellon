@@ -270,7 +270,7 @@ def _preview_payload(req: PreviewRequest, is_topaz: bool) -> Dict[str, Any]:
 )
 async def template_pick_preview(req: PreviewRequest) -> PreviewResult:
     category = _resolve_pp_category(req.backend)
-    is_topaz = category == "topaz_particle_picking"
+    is_topaz = bool(req.backend and "topaz" in req.backend.lower())
     try:
         payload = _preview_payload(req, is_topaz=is_topaz)
     except ValidationError as exc:

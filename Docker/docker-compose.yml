@@ -125,6 +125,9 @@ services:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
       - ${MAGELLON_JOBS_PATH}:/jobs
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID:-993}"
     environment:
       - APP_ENV=production
       - RUN_ENV=docker

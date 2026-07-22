@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     graphviz \
     nano \
     wget \
+    docker.io \
  && rm -rf /var/lib/apt/lists/*
 
 # SDK source first — pip's editable install in CoreService/requirements.txt
@@ -24,6 +25,7 @@ WORKDIR /app/CoreService
 COPY CoreService/requirements.txt ./
 
 RUN pip3 install --upgrade pip \
+ && pip3 install uv --no-cache-dir \
  && pip install psycopg2-binary --no-cache-dir \
  && pip3 install --no-cache-dir --upgrade -r ./requirements.txt
 
@@ -53,7 +55,9 @@ COPY CoreService/entrypoint.sh ./entrypoint.sh
 RUN sed -i 's/\r$//' ./entrypoint.sh && chmod +x ./entrypoint.sh
 
 # Run as a non-root user; port 8000 (unprivileged) — compose maps it.
-RUN useradd --create-home --uid 10001 magellon  && mkdir -p /app/CoreService/data /magellon /gpfs  && chown -R magellon:magellon /app /magellon /gpfs
+RUN useradd --create-home --uid 10001 magellon \
+ && mkdir -p /app/CoreService/data /magellon /gpfs \
+ && chown -R magellon:magellon /app /magellon /gpfs
 USER magellon
 
 VOLUME /magellon

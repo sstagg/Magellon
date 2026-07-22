@@ -31,7 +31,7 @@ from starlette.responses import JSONResponse
 
 from core.settings import AppSettingsSingleton
 from magellon_sdk.bus.bootstrap import install_rmq_bus
-from magellon_sdk.capabilities import make_preview_router
+from magellon_sdk.capabilities import make_preview_router, make_sync_router
 from magellon_sdk.categories.contract import DENOISE, TOPAZ_PICK
 from magellon_sdk.logging_config import setup_logging
 from magellon_sdk.models.manifest import Capability
@@ -167,6 +167,8 @@ Instrumentator().instrument(app).expose(app)
 # advertises PREVIEW. make_preview_router raises at import time if the
 # plugin is missing preview/retune/discard_preview, so a misconfigured
 # plugin fails to boot instead of 404-ing the contract.
+if Capability.SYNC in _pick_plugin.capabilities:
+    app.include_router(make_sync_router(_pick_plugin))
 if Capability.PREVIEW in _pick_plugin.capabilities:
     app.include_router(make_preview_router(_pick_plugin))
 
@@ -174,35 +176,6 @@ if Capability.PREVIEW in _pick_plugin.capabilities:
 @app.get("/health")
 async def health_check() -> dict:
     return {"status": "ok"}
-
-
-# ---------------------------------------------------------------------------
-# Synchronous /execute — same convention as ptolemy/CTF/MotionCor.
-# Routes by task.type.code; useful for contract tests + debugging.
-# ---------------------------------------------------------------------------
-
-from magellon_sdk.models import TaskMessage  # noqa: E402
-
-
-@app.post("/execute", summary="Execute Plugin Operation (sync)")
-async def execute_endpoint(task: TaskMessage):
-    type_code = task.type.code if task.type else None
-    if type_code == TOPAZ_PICK.category.code:
-        validated = _pick_plugin.input_schema().model_validate(task.data)
-        return build_pick_result(task, _pick_plugin.run(validated))
-    if type_code == DENOISE.category.code:
-        validated = _denoise_plugin.input_schema().model_validate(task.data)
-        return build_denoise_result(task, _denoise_plugin.run(validated))
-    return JSONResponse(
-        status_code=400,
-        content={
-            "message": (
-                f"Unsupported task.type.code={type_code}. "
-                f"Expected {TOPAZ_PICK.category.code} (TopazParticlePicking) "
-                f"or {DENOISE.category.code} (MicrographDenoising)."
-            )
-        },
-    )
 
 
 @app.exception_handler(Exception)
