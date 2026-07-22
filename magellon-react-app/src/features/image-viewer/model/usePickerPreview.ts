@@ -60,8 +60,10 @@ export function usePickerPreview({
             };
             Object.keys(payload).forEach(k => { if (payload[k] === null || payload[k] === undefined) delete payload[k]; });
 
+            const token = localStorage.getItem('access_token');
+            const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
             const res = await fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader },
                 body: JSON.stringify(payload),
             });
             if (!res.ok) {
@@ -165,10 +167,12 @@ export function usePickerPreview({
         retuneTimer.current = setTimeout(async () => {
             setRetuning(true);
             try {
+                const retuneToken = localStorage.getItem('access_token');
+                const retuneAuthHeader: Record<string, string> = retuneToken ? { Authorization: `Bearer ${retuneToken}` } : {};
                 const retuneUrl = `${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}/retune`
                     + `?backend=${encodeURIComponent(selectedBackend)}`;
                 const res = await fetch(retuneUrl, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json', ...retuneAuthHeader },
                     body: JSON.stringify({
                         threshold: newParams.threshold ?? 0.4,
                         radius: newParams.radius ?? newParams.min_distance ?? null,
@@ -197,7 +201,12 @@ export function usePickerPreview({
     /** Delete the server-side preview session, if any (run/accept/discard). */
     const clearPreview = () => {
         if (previewId) {
-            fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}?backend=${encodeURIComponent(selectedBackend)}`, { method: 'DELETE' }).catch(() => {});
+            const clearToken = localStorage.getItem('access_token');
+            const clearAuthHeader: Record<string, string> = clearToken ? { Authorization: `Bearer ${clearToken}` } : {};
+            fetch(`${API_URL}${TEMPLATE_PICKER_PATH}/preview/${previewId}?backend=${encodeURIComponent(selectedBackend)}`, {
+                method: 'DELETE',
+                headers: clearAuthHeader,
+            }).catch(() => {});
             setPreviewId(null);
         }
     };
