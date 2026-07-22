@@ -652,12 +652,15 @@ class PluginInstallManager:
         sup_name = getattr(self._supervisor, "name", "")
         if sup_name in ("systemd-user", "noop"):
             return None
-        return (
-            f"manifest declares restart_policy={policy!r} but the host's "
-            f"plugin supervisor ({sup_name!r}) cannot auto-restart. Either "
-            f"set lifecycle.restart_policy: 'no' in the manifest, or run "
-            f"on Linux with systemctl --user available."
+        # popen supervisor: allow the install; the process will run but won't
+        # be auto-restarted on failure.  The operator can restart manually or
+        # via the surrounding process manager (e.g. docker-compose restart).
+        logger.warning(
+            "installing %s via uv on supervisor=%r: restart_policy=%r will not "
+            "be honored — the process will not auto-restart on failure.",
+            manifest.plugin_id, sup_name, policy,
         )
+        return None
 
     def _find_installer_for(self, plugin_id: str) -> Optional[Installer]:
         for installer in self._installers.values():
