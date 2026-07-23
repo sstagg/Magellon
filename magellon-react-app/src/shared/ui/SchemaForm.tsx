@@ -25,7 +25,8 @@
  *   file_path, file_path_list, hidden
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import getAxiosClient from '../api/AxiosClient.ts';
 import {
     Box,
     Typography,
@@ -93,6 +94,7 @@ interface FieldSchema {
     ui_file_ext?: string[];
     ui_options?: unknown[];
     ui_tunable?: boolean;
+    ui_upload_dir?: string;
 }
 
 /** Callback signature for the GPFS file picker bridge. */
@@ -346,8 +348,12 @@ const FilePathListField: React.FC<{
     const theme = useTheme();
     const [newPath, setNewPath] = useState('');
     const [isDragOver, setIsDragOver] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const paths = useMemo(() => value || [], [value]);
     const exts = field.ui_file_ext || ['.mrc'];
+    const uploadDir = field.ui_upload_dir;
 
     const addPath = useCallback((p: string) => {
         const trimmed = p.trim();
@@ -356,46 +362,87 @@ const FilePathListField: React.FC<{
         }
     }, [paths, onChange]);
 
+    const uploadFiles = useCallback(async (files: File[]) => {
+        const accepted = files.filter(f => exts.some(ext => f.name.endsWith(ext)));
+        if (accepted.length === 0) return;
+
+        if (!uploadDir) {
+            // No server upload dir — fall back to adding bare filenames as before
+            const newPaths = accepted.map(f => f.name).filter(n => !paths.includes(n));
+            if (newPaths.length) onChange([...paths, ...newPaths]);
+            return;
+        }
+
+        setUploading(true);
+        setUploadError(null);
+        try {
+            const api = getAxiosClient();
+            const form = new FormData();
+            form.append('path', uploadDir);
+            form.append('overwrite', 'true');
+            for (const f of accepted) form.append('files', f, f.name);
+            const res = await api.post('/web/files/upload', form, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            const uploaded: Array<{ path: string }> = res.data;
+            const serverPaths = uploaded.map(u => u.path).filter(p => !paths.includes(p));
+            if (serverPaths.length) onChange([...paths, ...serverPaths]);
+        } catch (err: unknown) {
+            const msg = (err as { response?: { data?: { detail?: string } }; message?: string })
+                ?.response?.data?.detail ?? (err as { message?: string })?.message ?? 'Upload failed';
+            setUploadError(msg);
+        } finally {
+            setUploading(false);
+        }
+    }, [exts, uploadDir, paths, onChange]);
+
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragOver(false);
-        if (disabled) return;
-        const files = e.dataTransfer.files;
-        const newPaths: string[] = [];
-        for (let i = 0; i < files.length; i++) {
-            const name = files[i].name;
-            if (exts.some(ext => name.endsWith(ext))) {
-                newPaths.push(name);
-            }
-        }
-        if (newPaths.length) onChange([...paths, ...newPaths.filter(p => !paths.includes(p))]);
+        if (disabled || uploading) return;
         const text = e.dataTransfer.getData('text/plain');
-        if (text) text.split('\n').forEach(l => addPath(l));
+        if (text) { text.split('\n').forEach(l => addPath(l)); return; }
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length) uploadFiles(files);
     };
 
     return (
         <Stack spacing={1.5}>
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept={exts.join(',')}
+                multiple
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                    const files = e.target.files ? Array.from(e.target.files) : [];
+                    e.target.value = '';
+                    if (files.length) uploadFiles(files);
+                }}
+            />
             <Box
-                onDragOver={(e) => { e.preventDefault(); if (!disabled) setIsDragOver(true); }}
+                onDragOver={(e) => { e.preventDefault(); if (!disabled && !uploading) setIsDragOver(true); }}
                 onDragLeave={() => setIsDragOver(false)}
                 onDrop={handleDrop}
+                onClick={() => !disabled && !uploading && fileInputRef.current?.click()}
                 sx={{
                     border: `2px dashed ${isDragOver ? theme.palette.primary.main : alpha(theme.palette.text.secondary, 0.3)}`,
                     borderRadius: 2, p: 1.5, textAlign: 'center',
                     backgroundColor: isDragOver ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
                     transition: 'all 0.2s',
                     opacity: disabled ? 0.5 : 1,
+                    cursor: disabled ? 'default' : 'pointer',
                 }}
             >
                 <CloudUploadIcon sx={{ fontSize: 28, color: isDragOver ? 'primary.main' : 'text.secondary', mb: 0.5 }} />
-                <Typography
-                    variant="caption"
-                    sx={{
-                        color: "text.secondary",
-                        display: "block"
-                    }}>
-                    Drop {exts.join(' / ')} files here
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                    {uploading ? 'Uploading…' : `Drop or click to upload ${exts.join(' / ')} files`}
                 </Typography>
+                {uploadError && (
+                    <Typography variant="caption" sx={{ color: 'error.main', display: 'block', mt: 0.5 }}>
+                        {uploadError}
+                    </Typography>
+                )}
             </Box>
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                 <TextField

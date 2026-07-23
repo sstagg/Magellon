@@ -85,8 +85,9 @@ class TemplatePickerInput(CryoEmImageInput):
             "ui_group": "Templates",
             "ui_order": 2,
             "ui_file_ext": [".mrc", ".mrcs"],
+            "ui_upload_dir": "/gpfs/templates",
             "ui_placeholder": "/path/to/template.mrc",
-            "ui_help": "Drag and drop .mrc template files, or type server-side paths. "
+            "ui_help": "Drag and drop .mrc template files to upload them, or type server-side paths. "
                        "Multiple templates are matched independently and merged.",
             "ui_required_message": "At least one template is required for auto-picking.",
         },
