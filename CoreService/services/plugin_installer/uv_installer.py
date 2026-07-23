@@ -148,11 +148,14 @@ class UvInstaller:
                     )
                 logs.append("checksums verified")
 
-            # 3. Build the venv.
+            # 3. Patch any local SDK file:// references before venv build.
+            self._patch_sdk_local_reference(target, logs)
+
+            # 4. Build the venv.
             venv_dir = target / ".venv"
             self._uv_venv(venv_dir, logs)
 
-            # 4. Install dependencies. The manifest's pyproject path
+            # 5. Install dependencies. The manifest's pyproject path
             # is the canonical source; falls back to common defaults
             # for v0 plugins that don't declare it explicitly.
             self._uv_install_deps(target, venv_dir, install_spec.pyproject, logs)
@@ -375,6 +378,65 @@ class UvInstaller:
             if candidate.is_file():
                 return candidate_str
         return None
+
+    def _find_sdk_source_dir(self) -> Optional[Path]:
+        """Locate the magellon_sdk source tree for use in plugin builds.
+
+        Checks (in order): MAGELLON_SDK_SRC_DIR env override, the editable
+        install's source tree (derived from the installed package's __file__),
+        and the canonical container path /app/magellon-sdk.
+        """
+        env_override = os.environ.get("MAGELLON_SDK_SRC_DIR")
+        if env_override:
+            p = Path(env_override)
+            if p.is_dir():
+                return p
+        try:
+            import magellon_sdk as _sdk
+            candidate = Path(_sdk.__file__).parent.parent.parent
+            if (candidate / "pyproject.toml").is_file():
+                return candidate
+        except Exception:
+            pass
+        fallback = Path("/app/magellon-sdk")
+        if fallback.is_dir():
+            return fallback
+        return None
+
+    def _patch_sdk_local_reference(self, target: Path, logs: list[str]) -> None:
+        """Replace stale file:// SDK references with the real SDK path.
+
+        Archives built in a development checkout may pin the SDK as a local
+        file dependency (e.g. ``magellon-sdk @ file:///gpfs/magellon-sdk``).
+        That path doesn't exist in production; rewrite it to the path where
+        the SDK actually lives so uv sync can resolve the dependency.
+        """
+        sdk_dir = self._find_sdk_source_dir()
+        if sdk_dir is None:
+            logger.warning("uv_installer: SDK source dir not found; cannot patch local reference")
+            return
+
+        sdk_uri = sdk_dir.as_uri()
+        stale_patterns = [
+            "file:///gpfs/magellon-sdk",
+            "file:///app/magellon-sdk",
+        ]
+
+        for fname in ("pyproject.toml", "requirements.txt"):
+            fpath = target / fname
+            if not fpath.is_file():
+                continue
+            try:
+                text = fpath.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            new_text = text
+            for pattern in stale_patterns:
+                if pattern in new_text and pattern != sdk_uri:
+                    new_text = new_text.replace(pattern, sdk_uri)
+            if new_text != text:
+                fpath.write_text(new_text, encoding="utf-8")
+                logs.append(f"patched SDK path reference in {fname} → {sdk_uri}")
 
     def _uv_venv(self, venv_dir: Path, logs: list[str]) -> None:
         result = self._run_uv(

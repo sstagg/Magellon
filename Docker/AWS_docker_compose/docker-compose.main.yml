@@ -229,6 +229,7 @@ services:
       - DRAGONFLY_HOST=dragonfly
       - DRAGONFLY_PORT=6379
       - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_ctf_plugin:8000
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
@@ -267,6 +268,7 @@ services:
       - MAGELLON_STEP_EVENTS_ENABLED=1
       - MAGELLON_STEP_EVENTS_RMQ=1
       - NATS_URL=nats://nats:4222
+      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_fft_plugin:80
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
@@ -305,6 +307,7 @@ services:
       - MAGELLON_STEP_EVENTS_ENABLED=1
       - MAGELLON_STEP_EVENTS_RMQ=1
       - NATS_URL=nats://nats:4222
+      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_ptolemy_plugin:80
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
@@ -343,6 +346,7 @@ services:
       - MAGELLON_STEP_EVENTS_ENABLED=1
       - MAGELLON_STEP_EVENTS_RMQ=1
       - NATS_URL=nats://nats:4222
+      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_topaz_plugin:80
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
@@ -381,6 +385,7 @@ services:
       - MAGELLON_STEP_EVENTS_ENABLED=1
       - MAGELLON_STEP_EVENTS_RMQ=1
       - NATS_URL=nats://nats:4222
+      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_stack_maker_plugin:80
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
@@ -419,6 +424,7 @@ services:
       - MAGELLON_STEP_EVENTS_ENABLED=1
       - MAGELLON_STEP_EVENTS_RMQ=1
       - NATS_URL=nats://nats:4222
+      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_can_classifier_plugin:80
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs

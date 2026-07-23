@@ -161,8 +161,14 @@ class DockerInstaller:
                 self._docker_pull(image_ref, logs)
             elif install_spec.dockerfile:
                 image_ref = self._built_image_tag(manifest)
+                build_ctx_rel = install_spec.build_context or "."
+                self._inject_sdk_if_needed(
+                    target / build_ctx_rel,
+                    target / install_spec.dockerfile,
+                    logs,
+                )
                 self._docker_build(
-                    target, install_spec.dockerfile, install_spec.build_context or ".",
+                    target, install_spec.dockerfile, build_ctx_rel,
                     image_ref, logs,
                 )
                 image_was_built = True
@@ -579,6 +585,61 @@ class DockerInstaller:
         if len(normalized) > 1 and normalized[1] == ":":
             return "/gpfs"
         return normalized
+
+    def _find_sdk_source_dir(self) -> Optional[Path]:
+        """Locate the magellon_sdk source tree for injecting into Docker build contexts.
+
+        Checks (in order): MAGELLON_SDK_SRC_DIR env override, the editable
+        install's source tree, and the canonical container path /app/magellon-sdk.
+        """
+        env_override = __import__("os").environ.get("MAGELLON_SDK_SRC_DIR")
+        if env_override:
+            p = Path(env_override)
+            if p.is_dir():
+                return p
+        try:
+            import magellon_sdk as _sdk
+            candidate = Path(_sdk.__file__).parent.parent.parent
+            if (candidate / "pyproject.toml").is_file():
+                return candidate
+        except Exception:
+            pass
+        fallback = Path("/app/magellon-sdk")
+        if fallback.is_dir():
+            return fallback
+        return None
+
+    def _inject_sdk_if_needed(
+        self, build_context: Path, dockerfile: Path, logs: list[str],
+    ) -> None:
+        """Copy magellon-sdk into the build context when the Dockerfile references it.
+
+        Dockerfiles written against a development checkout include
+        ``COPY magellon-sdk /app/magellon-sdk`` and expect the SDK to be a
+        sibling of the plugin directory in the build context. In the installer
+        the build context is the extracted archive directory, so the SDK is
+        absent. Detect the directive and supply the SDK from its real location.
+        """
+        if not dockerfile.is_file():
+            return
+        try:
+            content = dockerfile.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            return
+        if "COPY magellon-sdk" not in content:
+            return
+        dest = build_context / "magellon-sdk"
+        if dest.exists():
+            return
+        sdk_dir = self._find_sdk_source_dir()
+        if sdk_dir is None:
+            logger.warning(
+                "docker_installer: Dockerfile needs 'magellon-sdk' in build "
+                "context but SDK source dir not found; build will likely fail"
+            )
+            return
+        shutil.copytree(sdk_dir, dest)
+        logs.append(f"injected SDK into build context: {sdk_dir} → {dest}")
 
     def _docker_stop_rm(self, container_name: str, *, swallow: bool) -> None:
         """``docker stop`` followed by ``docker rm``.
