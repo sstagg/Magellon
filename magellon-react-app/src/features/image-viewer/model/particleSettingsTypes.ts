@@ -40,7 +40,7 @@ export interface TrainedModel {
 export interface ParticleSettingsDrawerProps {
     open: boolean;
     pickerParams: Record<string, unknown>;
-    onPickerParamsChange: (params: Record<string, unknown>) => void;
+    onPickerParamsChange: (params: Record<string, unknown> | ((prev: Record<string, unknown>) => Record<string, unknown>)) => void;
     onRun: () => void;
     /** Dispatch a picking task via RMQ for the given backend and IPP name. */
     onDispatch: (targetBackend: string, ippName: string) => Promise<PickDispatchResponse | null>;

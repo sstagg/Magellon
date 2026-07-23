@@ -6,7 +6,7 @@ import type { ParamSchema, TrainedModel } from './particleSettingsTypes.ts';
 interface UsePickerSchemaArgs {
     open: boolean;
     selectedBackend: string;
-    onPickerParamsChange: (params: Record<string, unknown>) => void;
+    onPickerParamsChange: (params: Record<string, unknown> | ((prev: Record<string, unknown>) => Record<string, unknown>)) => void;
     /** Clears any session-trained model when a fresh schema loads. */
     setTrainedModel: (model: TrainedModel | null) => void;
 }
@@ -33,15 +33,20 @@ export function usePickerSchema({ open, selectedBackend, onPickerParamsChange, s
                 setSchemaError(null);
                 const defaults = schemaDefaults(data);
                 if (selectedBackend.replace('_', '-').toLowerCase().includes('topaz')) {
-                    onPickerParamsChange({
+                    const topazDefaults = {
                         ...defaults,
                         model: defaults.model ?? 'resnet16',
                         threshold: defaults.threshold ?? -3.0,
                         radius: defaults.radius ?? 14,
                         scale: defaults.scale ?? 8,
-                    });
+                    };
+                    // Merge: schema defaults fill missing fields, existing user values win.
+                    onPickerParamsChange((prev) => ({ ...topazDefaults, ...prev }));
                 } else {
-                    onPickerParamsChange(defaults);
+                    // Merge: schema defaults fill missing fields, existing user values win.
+                    // This preserves user-added template_paths across image navigation and
+                    // panel remounts caused by setContent firing when selectedImage changes.
+                    onPickerParamsChange((prev) => ({ ...defaults, ...prev }));
                 }
             })
             .catch((err) => setSchemaError(`Could not load: ${err.message}`))
