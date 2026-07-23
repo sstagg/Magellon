@@ -149,7 +149,7 @@ class UvInstaller:
                 logs.append("checksums verified")
 
             # 3. Patch any local SDK file:// references before venv build.
-            self._patch_sdk_local_reference(target, logs)
+            self._patch_sdk_local_reference(target, logs, install_spec.pyproject)
 
             # 4. Build the venv.
             venv_dir = target / ".venv"
@@ -403,40 +403,79 @@ class UvInstaller:
             return fallback
         return None
 
-    def _patch_sdk_local_reference(self, target: Path, logs: list[str]) -> None:
-        """Replace stale file:// SDK references with the real SDK path.
+    def _patch_sdk_local_reference(
+        self,
+        target: Path,
+        logs: list[str],
+        pyproject_rel: Optional[str] = None,
+    ) -> None:
+        """Replace stale SDK references with the real SDK path or wheel.
 
         Archives built in a development checkout may pin the SDK as a local
         file dependency (e.g. ``magellon-sdk @ file:///gpfs/magellon-sdk``).
         That path doesn't exist in production; rewrite it to the path where
         the SDK actually lives so uv sync can resolve the dependency.
-        """
-        sdk_dir = self._find_sdk_source_dir()
-        if sdk_dir is None:
-            logger.warning("uv_installer: SDK source dir not found; cannot patch local reference")
-            return
 
-        sdk_uri = sdk_dir.as_uri()
-        stale_patterns = [
+        Also fixes wheel version mismatches: if pyproject.toml references
+        ``wheels/magellon_sdk-X.Y.Z-py3-none-any.whl`` but the archive
+        contains a different version, rewrite the reference to the actual
+        wheel present.
+        """
+        import re
+
+        sdk_dir = self._find_sdk_source_dir()
+        sdk_uri = sdk_dir.as_uri() if sdk_dir else None
+        stale_uri_patterns = [
             "file:///gpfs/magellon-sdk",
             "file:///app/magellon-sdk",
         ]
 
-        for fname in ("pyproject.toml", "requirements.txt"):
-            fpath = target / fname
-            if not fpath.is_file():
+        # Build the list of candidate pyproject/requirements files to patch.
+        candidates: list[Path] = []
+        if pyproject_rel:
+            candidates.append(target / pyproject_rel)
+        candidates += [target / "pyproject.toml", target / "requirements.txt"]
+        seen: set[Path] = set()
+
+        for fpath in candidates:
+            if fpath in seen or not fpath.is_file():
                 continue
+            seen.add(fpath)
             try:
                 text = fpath.read_text(encoding="utf-8")
             except Exception:
                 continue
             new_text = text
-            for pattern in stale_patterns:
-                if pattern in new_text and pattern != sdk_uri:
-                    new_text = new_text.replace(pattern, sdk_uri)
+
+            # 1. Replace stale file:// URI references.
+            if sdk_uri:
+                for pattern in stale_uri_patterns:
+                    if pattern in new_text and pattern != sdk_uri:
+                        new_text = new_text.replace(pattern, sdk_uri)
+
+            # 2. Fix wheel-version mismatches in [tool.uv.sources].
+            #    Pattern: path = "wheels/magellon_sdk-X.Y.Z-py3-none-any.whl"
+            wheels_dir = target / "wheels"
+            if wheels_dir.is_dir():
+                actual_wheels = sorted(wheels_dir.glob("magellon_sdk-*-py3-none-any.whl"))
+                if actual_wheels:
+                    actual_name = actual_wheels[-1].name  # highest version
+
+                    def _fix_wheel_ref(m: re.Match) -> str:
+                        ref = m.group(1)
+                        if ref != actual_name:
+                            return m.group(0).replace(ref, actual_name)
+                        return m.group(0)
+
+                    new_text = re.sub(
+                        r'path\s*=\s*"wheels/(magellon_sdk-[^"]+\.whl)"',
+                        _fix_wheel_ref,
+                        new_text,
+                    )
+
             if new_text != text:
                 fpath.write_text(new_text, encoding="utf-8")
-                logs.append(f"patched SDK path reference in {fname} → {sdk_uri}")
+                logs.append(f"patched SDK reference in {fpath.name}")
 
     def _uv_venv(self, venv_dir: Path, logs: list[str]) -> None:
         result = self._run_uv(
