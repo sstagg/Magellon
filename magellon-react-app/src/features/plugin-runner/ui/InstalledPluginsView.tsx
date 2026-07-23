@@ -445,17 +445,17 @@ export const InstalledPluginsView: React.FC<InstalledPluginsViewProps> = ({
     }, [rows, query, subjectFilter, subjectsByCategory]);
 
     // Split rows into first-class installs vs orphan 'discovered' rows.
-    // A row with install_method='discovered' came from an announce
-    // envelope that hit an empty install_state — when the plugin's
-    // heartbeat later expires, the row hangs around with no operator
-    // action attached. Moving them into a collapsed "Inactive" group
-    // keeps the primary grid focused on real installs while still
-    // surfacing the orphans for cleanup.
+    // A row with install_method='discovered' AND is_live=false is an
+    // orphan announce — its heartbeat has expired and no operator action
+    // is attached. Move it to the collapsed "Inactive" group for cleanup.
+    // Discovered rows that ARE currently live (is_live=true) are real
+    // running plugins (e.g. Docker-compose plugins that announce via the
+    // broker) and belong in the primary grid.
     const { primaryRows, inactiveRows } = useMemo(() => {
         const primary: typeof filtered = [];
         const inactive: typeof filtered = [];
         for (const r of filtered) {
-            if (r.install_method === 'discovered') inactive.push(r);
+            if (r.install_method === 'discovered' && !r.is_live) inactive.push(r);
             else primary.push(r);
         }
         return { primaryRows: primary, inactiveRows: inactive };

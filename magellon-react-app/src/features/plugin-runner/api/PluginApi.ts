@@ -241,6 +241,8 @@ export interface InstalledPluginRow {
     port?: number | null;
     enabled: boolean;
     is_default_for_category: boolean;
+    /** True when the plugin is currently heartbeating in the liveness registry. */
+    is_live?: boolean;
 }
 
 export const fetchInstalledFromDb = async (): Promise<InstalledPluginRow[]> => {

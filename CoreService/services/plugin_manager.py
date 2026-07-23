@@ -153,6 +153,10 @@ class InstalledPluginView(BaseModel):
     """Numeric port from ``http_endpoint`` for at-a-glance display."""
     enabled: bool = True
     is_default_for_category: bool = False
+    is_live: bool = False
+    """True when at least one liveness-registry entry matches this plugin
+    (i.e. the plugin is currently heartbeating). Used by the UI to
+    distinguish discovered-and-live plugins from orphan announce rows."""
 
 
 class ReplicaInfo(BaseModel):
@@ -586,6 +590,7 @@ class PluginManagerService:
         manifest = plugin.manifest_json or {}
         category = (plugin.category or "").lower()
         plugin_id = f"{category}/{plugin.name}" if category else plugin.name
+        is_live = bool(self._matching_live_entries(plugin.name, plugin))
         return InstalledPluginView(
             plugin_id=plugin_id,
             manifest_plugin_id=plugin.manifest_plugin_id,
@@ -606,6 +611,7 @@ class PluginManagerService:
             is_default_for_category=(
                 self._state.get_default(category) == plugin.name
             ),
+            is_live=is_live,
         )
 
     def _view_from_plugin_row(self, plugin) -> PluginView:
