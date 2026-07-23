@@ -167,6 +167,11 @@ class DockerInstaller:
                     target / install_spec.dockerfile,
                     logs,
                 )
+                self._fix_stale_copy_paths(
+                    target / build_ctx_rel,
+                    target / install_spec.dockerfile,
+                    logs,
+                )
                 self._docker_build(
                     target, install_spec.dockerfile, build_ctx_rel,
                     image_ref, logs,
@@ -640,6 +645,46 @@ class DockerInstaller:
             return
         shutil.copytree(sdk_dir, dest)
         logs.append(f"injected SDK into build context: {sdk_dir} → {dest}")
+
+    def _fix_stale_copy_paths(
+        self, build_context: Path, dockerfile: Path, logs: list[str],
+    ) -> None:
+        """Rewrite old-style absolute COPY paths in the Dockerfile.
+
+        Archives packaged before the repo-root-context convention was
+        dropped contain Dockerfiles with lines like:
+            COPY plugins/magellon_topaz_plugin/main.py ./main.py
+
+        These fail when the build context is the extracted archive root
+        (which has main.py at ./main.py, not under plugins/<name>/). If
+        the source file already exists at the build context root, strip
+        the ``plugins/<name>/`` prefix so Docker can find it.
+        """
+        if not dockerfile.is_file():
+            return
+        try:
+            content = dockerfile.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            return
+
+        import re
+
+        def _rewrite(m: re.Match) -> str:
+            relpath = m.group(1)   # e.g. main.py or core
+            rest = m.group(2)      # e.g.  ./main.py  (with leading space)
+            if (build_context / relpath).exists():
+                return f"COPY {relpath}{rest}"
+            return m.group(0)
+
+        new_content = re.sub(
+            r"^COPY\s+plugins/\w+/(\S+)(\s+\S+)",
+            _rewrite,
+            content,
+            flags=re.MULTILINE,
+        )
+        if new_content != content:
+            dockerfile.write_text(new_content, encoding="utf-8")
+            logs.append("patched stale absolute COPY paths in Dockerfile → relative")
 
     def _docker_stop_rm(self, container_name: str, *, swallow: bool) -> None:
         """``docker stop`` followed by ``docker rm``.

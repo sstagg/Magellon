@@ -307,13 +307,13 @@ services:
       - MAGELLON_STEP_EVENTS_ENABLED=1
       - MAGELLON_STEP_EVENTS_RMQ=1
       - NATS_URL=nats://nats:4222
-      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_ptolemy_plugin:80
+      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_ptolemy_plugin:8000
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
       - ${MAGELLON_JOBS_PATH}:/jobs
     ports:
-      - "127.0.0.1:${MAGELLON_PTOLEMY_PLUGIN_PORT:-8038}:80"
+      - "127.0.0.1:${MAGELLON_PTOLEMY_PLUGIN_PORT:-8038}:8000"
     networks:
       magellon-network:
         ipv4_address: 172.16.238.24
@@ -346,13 +346,13 @@ services:
       - MAGELLON_STEP_EVENTS_ENABLED=1
       - MAGELLON_STEP_EVENTS_RMQ=1
       - NATS_URL=nats://nats:4222
-      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_topaz_plugin:80
+      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_topaz_plugin:8000
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
       - ${MAGELLON_JOBS_PATH}:/jobs
     ports:
-      - "127.0.0.1:${MAGELLON_TOPAZ_PLUGIN_PORT:-8039}:80"
+      - "127.0.0.1:${MAGELLON_TOPAZ_PLUGIN_PORT:-8039}:8000"
     networks:
       magellon-network:
         ipv4_address: 172.16.238.25
@@ -463,13 +463,13 @@ services:
       - MAGELLON_STEP_EVENTS_ENABLED=1
       - MAGELLON_STEP_EVENTS_RMQ=1
       - NATS_URL=nats://nats:4222
-      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_template_picker_plugin:80
+      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_template_picker_plugin:8000
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
       - ${MAGELLON_JOBS_PATH}:/jobs
     ports:
-      - "127.0.0.1:${MAGELLON_TEMPLATE_PICKER_PLUGIN_PORT:-8042}:80"
+      - "127.0.0.1:${MAGELLON_TEMPLATE_PICKER_PLUGIN_PORT:-8042}:8000"
     networks:
       magellon-network:
         ipv4_address: 172.16.238.28
