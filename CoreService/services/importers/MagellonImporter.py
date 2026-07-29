@@ -72,7 +72,10 @@ class MagellonImporter(BaseImporter):
             # return
 
             if os.path.exists(session_dir) and getattr(self.params, "replace_existing", False):
-                shutil.rmtree(session_dir)
+                def _rmtree_onerror(func, path, exc_info):
+                    # Skip files the container user can't delete (e.g. root-owned picks).
+                    logger.warning("rmtree: skipping unremovable path %s: %s", path, exc_info[1])
+                shutil.rmtree(session_dir, onerror=_rmtree_onerror)
             elif os.path.exists(session_dir):
                 return {'status': 'failure',"message": f"this project already exists: {session_dir}"}
 
@@ -142,6 +145,7 @@ class MagellonImporter(BaseImporter):
                 )
                 self.task_dto_list.append(task_dto)
 
+            self._autodetect_frames(source_frame_dir_path)
             self.run_tasks(db_session )
                 # self.file_service.process_image()
             # Mark any stage=0 tasks still at status=1 (images not CTF-eligible,
@@ -234,6 +238,47 @@ class MagellonImporter(BaseImporter):
 
         except Exception as e:
             raise TaskFailedException(f"Task failed with error: {str(e)}")
+
+    def _autodetect_frames(self, frames_dir: str) -> None:
+        """Assign frame files to tasks that have no frame_name from session.json.
+
+        When session.json lacks frame_name (e.g. legacy exports), we fall back
+        to sorted-position matching: exposure-level tasks are sorted by their
+        hierarchical name, frame files are sorted by SerialEM sequence number,
+        and they are paired positionally up to min(tasks, files). Tasks that
+        already have a frame_name are left unchanged.
+        """
+        if not os.path.isdir(frames_dir):
+            return
+
+        frame_exts = ('.eer', '.tiff', '.tif', '.mrc')
+        try:
+            all_frames = sorted(
+                [f for f in os.listdir(frames_dir) if f.lower().endswith(frame_exts)],
+            )
+        except OSError:
+            return
+
+        if not all_frames:
+            return
+
+        # Only fill tasks that genuinely lack a frame_name.
+        unassigned = [t for t in self.task_dto_list if not t.frame_name]
+        if not unassigned:
+            return
+
+        logger.info(
+            "_autodetect_frames: %d frame files, %d unassigned tasks — attempting sorted-position match",
+            len(all_frames), len(unassigned),
+        )
+
+        for task, frame_file in zip(unassigned, all_frames):
+            frame_stem = os.path.splitext(frame_file)[0]
+            # Strip double extensions like '.mrc.tif' → stem without the inner ext too.
+            frame_stem = os.path.splitext(frame_stem)[0] if '.' in frame_stem else frame_stem
+            task.frame_name = frame_stem
+            task.frame_path = os.path.join(frames_dir, frame_file)
+            logger.debug("_autodetect_frames: %s → %s", task.image_name, frame_file)
 
     def _has_motioncor_input(self, task_dto: ImportTaskDto) -> bool:
         """True when the image has a frame_name AND a matching file exists
