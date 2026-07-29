@@ -8,6 +8,7 @@ import time
 from typing import Dict, Any, List, Optional, Tuple
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 import shutil
 from core.exceptions import EntityNotFoundError, PermissionDeniedError, FileProcessingError
 from core.helper import custom_replace, dispatch_ctf_task
@@ -1404,7 +1405,19 @@ class SerialEmImporter(BaseImporter):
                     except Exception as e:
                         logger.error(f"Task execution failed: {e}", exc_info=True)
                         raise
-            
+
+                    # Mark tasks that will never receive plugin callbacks (e.g. montage
+                    # images that skipped CTF/MotionCor) as complete so the job reaches 100%.
+                    if job:
+                        db_session.execute(
+                            text(
+                                "UPDATE image_job_task SET status_id = 2 "
+                                "WHERE job_id = :job_id AND stage = 0 AND status_id = 1"
+                            ),
+                            {"job_id": job.oid.bytes},
+                        )
+                        db_session.commit()
+
             execution_time = time.time() - start_time
             logger.info(f"SerialEM import completed in {execution_time:.2f} seconds")
             
