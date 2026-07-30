@@ -243,6 +243,123 @@ resource "aws_instance" "main" {
   depends_on = [aws_secretsmanager_secret_version.app]
 }
 
+# ── GPU auto-restart on hardware failure ──────────────────────────────────────
+# G-family GPU instances don't support EC2 auto-recovery (C/M/R/T/X only).
+# Strategy: CloudWatch alarm on StatusCheckFailed_System stops the instance
+# (migrating off the bad host), then an EventBridge rule + Lambda restarts it
+# automatically on healthy hardware.  This replicates the manual stop→start fix.
+
+data "aws_caller_identity" "current" {}
+
+# Lambda code packaged via archive_file — no external tooling required
+data "archive_file" "gpu_restart" {
+  type        = "zip"
+  output_path = "${path.module}/gpu_restart_lambda.zip"
+  source {
+    filename = "index.py"
+    content  = <<-PYTHON
+      import boto3, os
+      def handler(event, context):
+          instance_id = os.environ['INSTANCE_ID']
+          ec2 = boto3.client('ec2')
+          ec2.start_instances(InstanceIds=[instance_id])
+          print(f"Restarted GPU instance {instance_id} after hardware failure")
+    PYTHON
+  }
+}
+
+resource "aws_iam_role" "gpu_restart" {
+  name               = "${var.name_prefix}-gpu-restart-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy" "gpu_restart" {
+  name = "${var.name_prefix}-gpu-restart-policy"
+  role = aws_iam_role.gpu_restart.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ec2:StartInstances", "ec2:DescribeInstances"]
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "arn:aws:logs:*:*:*"
+      }
+    ]
+  })
+}
+
+resource "aws_lambda_function" "gpu_restart" {
+  function_name    = "${var.name_prefix}-gpu-restart"
+  role             = aws_iam_role.gpu_restart.arn
+  runtime          = "python3.12"
+  handler          = "index.handler"
+  timeout          = 30
+  filename         = data.archive_file.gpu_restart.output_path
+  source_code_hash = data.archive_file.gpu_restart.output_base64sha256
+  environment {
+    variables = { INSTANCE_ID = aws_instance.gpu.id }
+  }
+  tags = var.tags
+}
+
+resource "aws_lambda_permission" "gpu_restart_eventbridge" {
+  statement_id  = "AllowEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.gpu_restart.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.gpu_stopped.arn
+}
+
+# Fires when the GPU instance reaches "stopped" state (triggered by the alarm below)
+resource "aws_cloudwatch_event_rule" "gpu_stopped" {
+  name        = "${var.name_prefix}-gpu-stopped"
+  description = "GPU instance stopped — Lambda restarts it on healthy hardware"
+  event_pattern = jsonencode({
+    source        = ["aws.ec2"]
+    "detail-type" = ["EC2 Instance State-change Notification"]
+    detail = {
+      state       = ["stopped"]
+      "instance-id" = [aws_instance.gpu.id]
+    }
+  })
+  tags = var.tags
+}
+
+resource "aws_cloudwatch_event_target" "gpu_restart" {
+  rule = aws_cloudwatch_event_rule.gpu_stopped.name
+  arn  = aws_lambda_function.gpu_restart.arn
+}
+
+# Alarm: 2 consecutive minutes of system check failure → stop the instance
+resource "aws_cloudwatch_metric_alarm" "gpu_hardware_failure" {
+  alarm_name          = "${var.name_prefix}-gpu-hardware-failure"
+  alarm_description   = "GPU system status check failed (hardware retirement/degradation). Stops instance; EventBridge+Lambda then restarts it on healthy hardware."
+  namespace           = "AWS/EC2"
+  metric_name         = "StatusCheckFailed_System"
+  dimensions          = { InstanceId = aws_instance.gpu.id }
+  statistic           = "Maximum"
+  period              = 60
+  evaluation_periods  = 2
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = ["arn:aws:automate:${var.aws_region}:ec2:stop"]
+  tags                = var.tags
+}
+
 # ── GPU Instance (on-demand) ──────────────────────────────────────────────────
 # GPU instances use DNS names (rabbitmq.magellon.internal etc.) — never
 # hardcoded IPs. On-demand avoids spot interruptions mid-job (MotionCor
