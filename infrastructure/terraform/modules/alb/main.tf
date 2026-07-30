@@ -242,19 +242,27 @@ resource "aws_wafv2_web_acl" "this" {
         # etc.).  Nginx enforces client_max_body_size 500m as the actual limit.
         rule_action_override {
           name = "SizeRestrictions_BODY"
-          action_to_use { count {} }
+          action_to_use {
+            count {}
+          }
         }
         rule_action_override {
           name = "SizeRestrictions_Cookie"
-          action_to_use { count {} }
+          action_to_use {
+            count {}
+          }
         }
         rule_action_override {
           name = "SizeRestrictions_QUERYSTRING"
-          action_to_use { count {} }
+          action_to_use {
+            count {}
+          }
         }
         rule_action_override {
           name = "SizeRestrictions_URIPATH"
-          action_to_use { count {} }
+          action_to_use {
+            count {}
+          }
         }
       }
     }

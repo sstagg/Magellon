@@ -3,6 +3,12 @@ variable "environment" {
   default = "prod"
 }
 
+variable "repo_branch" {
+  type        = string
+  description = "Git branch to deploy on all instances"
+  default     = "aws-deployment-fixes"
+}
+
 variable "domain_name" {
   type        = string
   description = "Apex domain (e.g. magellon.org). Leave empty to use the ALB's AWS DNS name over HTTP."

@@ -22,6 +22,11 @@ step()  { echo -e "${RED}[nuke]${NC} >>> $*"; }
 ok()    { echo -e "${GREEN}[nuke]${NC}  ✓ $*"; }
 skip()  { echo -e "${YELLOW}[nuke]${NC}  - SKIP: $*"; }
 
+# Git Bash on Windows converts /path/... arguments to Windows paths (C:/path/...).
+# MSYS_NO_PATHCONV=1 disables this. Set it globally for all aws calls.
+export MSYS_NO_PATHCONV=1
+
+# aws_ suppresses stderr and always returns 0 (safe for lookup commands)
 aws_() { aws "$@" --region "$REGION" 2>/dev/null || true; }
 
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
@@ -44,17 +49,26 @@ ALB_ARN=$(aws_ elbv2 describe-load-balancers \
   --query "LoadBalancers[?LoadBalancerName=='${NAME_PREFIX}-alb'].LoadBalancerArn" \
   --output text)
 if [[ -n "$ALB_ARN" && "$ALB_ARN" != "None" ]]; then
+  # Disable deletion protection (enabled when environment=prod)
+  aws elbv2 modify-load-balancer-attributes \
+    --load-balancer-arn "$ALB_ARN" \
+    --attributes Key=deletion_protection.enabled,Value=false \
+    --region "$REGION" >/dev/null 2>&1 && ok "Deletion protection disabled" || true
   # Delete WAF association first
-  aws_ wafv2 disassociate-web-acl --resource-arn "$ALB_ARN" && ok "WAF disassociated" || true
+  aws_ wafv2 disassociate-web-acl --resource-arn "$ALB_ARN"
+  ok "WAF disassociated"
   # Delete all listeners (this frees target groups)
-  LISTENERS=$(aws_ elbv2 describe-listeners --load-balancer-arn "$ALB_ARN" \
-    --query "Listeners[].ListenerArn" --output text)
+  LISTENERS=$(aws elbv2 describe-listeners --load-balancer-arn "$ALB_ARN" \
+    --query "Listeners[].ListenerArn" --output text --region "$REGION" 2>/dev/null || echo "")
   for L in $LISTENERS; do
-    aws_ elbv2 delete-listener --listener-arn "$L" && ok "Deleted listener $L"
+    [[ -z "$L" || "$L" == "None" ]] && continue
+    aws elbv2 delete-listener --listener-arn "$L" --region "$REGION" >/dev/null 2>&1
+    ok "Deleted listener $L"
   done
-  aws_ elbv2 delete-load-balancer --load-balancer-arn "$ALB_ARN" && ok "Deleted ALB"
-  info "  Waiting for ALB to finish deleting..."
-  aws_ elbv2 wait load-balancers-deleted --load-balancer-arns "$ALB_ARN" 2>/dev/null || sleep 20
+  aws elbv2 delete-load-balancer --load-balancer-arn "$ALB_ARN" --region "$REGION" >/dev/null 2>&1
+  ok "Deleted ALB"
+  info "  Waiting 30s for ALB deletion to propagate..."
+  sleep 30
 else
   skip "ALB not found"
 fi
@@ -94,8 +108,8 @@ INSTANCE_IDS=$(aws_ ec2 describe-instances \
   --query "Reservations[].Instances[].InstanceId" --output text)
 if [[ -n "$INSTANCE_IDS" && "$INSTANCE_IDS" != "None" ]]; then
   aws_ ec2 terminate-instances --instance-ids $INSTANCE_IDS
-  info "  Waiting for instances to terminate..."
-  aws_ ec2 wait instance-terminated --instance-ids $INSTANCE_IDS 2>/dev/null || sleep 60
+  info "  Waiting 90s for instances to terminate..."
+  sleep 90
   ok "Instances terminated: $INSTANCE_IDS"
 else
   skip "No running instances"

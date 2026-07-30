@@ -87,7 +87,11 @@ module "ec2_stack" {
   alb_sg_id             = module.alb.alb_sg_id
   instance_profile_name = module.iam.instance_profile_name
   efs_id                = module.efs.efs_id
+  ap_magellon_id        = module.efs.ap_magellon_id
+  ap_gpfs_id            = module.efs.ap_gpfs_id
+  ap_jobs_id            = module.efs.ap_jobs_id
 
+  repo_branch        = var.repo_branch
   main_instance_type = var.main_instance_type
   gpu_instance_type  = var.gpu_instance_type
   main_volume_size   = var.main_volume_size

@@ -27,6 +27,26 @@ variable "efs_id" {
   type = string
 }
 
+variable "ap_magellon_id" {
+  type        = string
+  description = "EFS access point ID for /magellon"
+}
+
+variable "ap_gpfs_id" {
+  type        = string
+  description = "EFS access point ID for /gpfs"
+}
+
+variable "ap_jobs_id" {
+  type        = string
+  description = "EFS access point ID for /jobs"
+}
+
+variable "repo_branch" {
+  type    = string
+  default = "main"
+}
+
 variable "main_instance_type" {
   type    = string
   default = "t3.xlarge"
@@ -34,7 +54,7 @@ variable "main_instance_type" {
 
 variable "gpu_instance_type" {
   type    = string
-  default = "g4dn.xlarge"
+  default = "g6e.2xlarge"
 }
 
 variable "main_volume_size" {
@@ -54,7 +74,7 @@ variable "frontend_port" {
 
 variable "gpu_spot_max_price" {
   type    = string
-  default = "0.20"
+  default = "0.80"
 }
 
 variable "key_pair_name" {
@@ -64,12 +84,12 @@ variable "key_pair_name" {
 
 variable "cuda_image" {
   type    = string
-  default = "nvidia/cuda:12.1.0-devel-ubuntu22.04"
+  default = "nvidia/cuda:11.8.0-devel-ubuntu22.04"
 }
 
 variable "motioncor_binary" {
   type    = string
-  default = "MotionCor2_1.6.4_Cuda121_Mar312023"
+  default = "MotionCor2_1.6.4_Cuda118_Mar312023"
 }
 
 variable "mysql_root_password" {

@@ -241,6 +241,12 @@ resource "aws_instance" "main" {
   volume_tags = merge(var.tags, { Name = "${var.name_prefix}-main-root" })
 
   depends_on = [aws_secretsmanager_secret_version.app]
+
+  # Never auto-replace the running instance due to AMI patches or user_data
+  # drift. OS updates are applied in-band; user_data only runs at launch.
+  lifecycle {
+    ignore_changes = [ami, user_data]
+  }
 }
 
 # ── GPU auto-restart on hardware failure ──────────────────────────────────────
@@ -408,4 +414,8 @@ resource "aws_instance" "gpu" {
     aws_route53_record.nats,
     aws_route53_record.dragonfly,
   ]
+
+  lifecycle {
+    ignore_changes = [ami, user_data]
+  }
 }

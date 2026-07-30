@@ -12,6 +12,9 @@
 # any pending changes.
 set -euo pipefail
 
+# Git Bash on Windows converts /path/... args to Windows paths; disable that.
+export MSYS_NO_PATHCONV=1
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REGION_DIR="$SCRIPT_DIR/regions/us-east-1"
 REGION="us-east-1"
