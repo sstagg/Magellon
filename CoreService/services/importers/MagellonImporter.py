@@ -262,13 +262,22 @@ class MagellonImporter(BaseImporter):
         if not all_frames:
             return
 
-        # Only fill tasks that genuinely lack a frame_name.
-        unassigned = [t for t in self.task_dto_list if not t.frame_name]
+        # Only fill high-magnification exposure tasks (pixel_size <= 5 Å) that lack a
+        # frame_name.  Atlas/square/hole images at lower magnification must be excluded
+        # — they appear earlier in the DFS traversal and would otherwise consume frame
+        # slots that belong to the actual exposures.
+        _ANGSTROM_THRESHOLD = 5.0
+        unassigned = [
+            t for t in self.task_dto_list
+            if not t.frame_name
+            and t.pixel_size is not None
+            and (t.pixel_size * 1e10) <= _ANGSTROM_THRESHOLD
+        ]
         if not unassigned:
             return
 
         logger.info(
-            "_autodetect_frames: %d frame files, %d unassigned tasks — attempting sorted-position match",
+            "_autodetect_frames: %d frame files, %d unassigned exposure tasks — attempting sorted-position match",
             len(all_frames), len(unassigned),
         )
 
