@@ -60,15 +60,6 @@ resource "aws_security_group" "main" {
   description = "Main stack: receives traffic from ALB and GPU worker"
   vpc_id      = var.vpc_id
 
-  # Frontend from ALB only
-  ingress {
-    description     = "Frontend from ALB"
-    from_port       = var.frontend_port
-    to_port         = var.frontend_port
-    protocol        = "tcp"
-    security_groups = [var.alb_sg_id]
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -77,6 +68,12 @@ resource "aws_security_group" "main" {
   }
 
   tags = merge(var.tags, { Name = "${var.name_prefix}-main-sg" })
+
+  # Ingress rules are managed exclusively via aws_security_group_rule resources
+  # below to avoid inline/separate-rule conflicts on every terraform apply.
+  lifecycle {
+    ignore_changes = [ingress]
+  }
 }
 
 # ── Security Group: GPU spot instance ────────────────────────────────────────
