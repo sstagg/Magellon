@@ -4,27 +4,11 @@
  */
 
 import type { AxiosInstance } from 'axios';
-import axios from 'axios';
+import getAxiosClient from '../../../shared/api/AxiosClient';
+import { settings } from '../../../shared/config/settings';
 
 // Base configuration
-const API_BASE_URL =  'http://localhost:8000';
-
-// Create axios instance
-const apiClient: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Add auth token interceptor
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+const apiClient: AxiosInstance = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 // ==================== TYPE DEFINITIONS ====================
 

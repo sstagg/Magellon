@@ -34,29 +34,13 @@ import {
   CheckCircle,
   Cancel,
 } from '@mui/icons-material';
-import axios from 'axios';
+import getAxiosClient from '../../../../shared/api/AxiosClient';
+import { settings } from '../../../../shared/config/settings';
 import CriteriaBuilder from './CriteriaBuilder';
 import { useSchema } from '../../hooks/useSchema';
 import { toApiError } from '../../../../shared/api/apiError.ts';
 
-const API_BASE_URL = 'http://localhost:8000';
-
-// Create axios instance
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Add auth token interceptor
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 interface ObjectPermission {
   oid: string;

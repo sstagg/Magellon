@@ -43,6 +43,8 @@ import {
 import type { GrantSessionAccessRequest } from '../api/rbacApi';
 import { SessionAccessAPI } from '../api/rbacApi';
 import { apiErrorMessage, toApiError } from '../../../shared/api/apiError.ts';
+import getAxiosClient from '../../../shared/api/AxiosClient';
+import { settings } from '../../../shared/config/settings';
 
 interface User {
     id: string;
@@ -118,15 +120,8 @@ export default function SessionAccessManagementTab({
 
     const loadUsers = async () => {
         try {
-            // Fetch users from the users endpoint using axios
-            const axios = (await import('axios')).default;
-            const token = localStorage.getItem('access_token');
-
-            const response = await axios.get('http://localhost:8000/db/security/users/', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
+            const response = await getAxiosClient(settings.ConfigData.SERVER_API_URL)
+                .get('/db/security/users/');
 
             const data = response.data;
             // Map to User interface format

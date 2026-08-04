@@ -34,7 +34,8 @@ import {
   Code,
   Info,
 } from '@mui/icons-material';
-import axios from 'axios';
+import getAxiosClient from '../../../../shared/api/AxiosClient';
+import { settings } from '../../../../shared/config/settings';
 import type { DatabaseSchema, OperatorDefinition } from '../../types/databaseSchema';
 
 interface Condition {
@@ -52,24 +53,7 @@ interface CriteriaBuilderProps {
   onChange: (criteria: string) => void;
 }
 
-// Create axios instance for API calls
-const API_BASE_URL = 'http://localhost:8000';
-
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Add auth token interceptor
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 interface FieldOption {
   value: string;
