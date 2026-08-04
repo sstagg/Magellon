@@ -8,6 +8,7 @@ from starlette.responses import JSONResponse
 
 from core.exceptions import (
     DuplicateEntityError,
+    DatabaseError,
     EntityNotFoundError,
     FileProcessingError,
     MagellonError,
@@ -87,6 +88,14 @@ def register_exception_handlers(app: FastAPI, *, is_production: Callable[[], boo
         return JSONResponse(
             status_code=500,
             content=_error_payload(request, "FILE_PROCESSING_ERROR", str(err)),
+            headers=_cors_headers(request),
+        )
+
+    @app.exception_handler(DatabaseError)
+    def handle_database_error(request, err):
+        return JSONResponse(
+            status_code=503,
+            content=_error_payload(request, "DATABASE_ERROR", "Database operation failed"),
             headers=_cors_headers(request),
         )
 

@@ -25,6 +25,7 @@ from services.helper import get_response_image
 import logging
 
 from core.sqlalchemy_row_level_security import get_session_filter_clause, check_session_access
+from core.exceptions import DatabaseError
 from dependencies.auth import get_current_user_id
 
 webapp_router = APIRouter()
@@ -87,7 +88,8 @@ def get_session_mags(
         rows = result.fetchall()
         return [row[0] for row in rows]
     except Exception as e:
-        raise Exception(f"Database query execution error: {str(e)}")
+        logger.exception("session_magnifications_query_failed")
+        raise DatabaseError("session magnifications query failed") from e
 
 
 @webapp_router.get('/images')
@@ -204,7 +206,8 @@ def get_images_route(
         }
 
     except Exception as e:
-        raise Exception(f"Database query execution error: {str(e)}")
+        logger.exception("images_query_failed")
+        raise DatabaseError("images query failed") from e
 
 
 @webapp_router.get('/images/{image_name}')

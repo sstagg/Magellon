@@ -49,6 +49,11 @@ class ExternalServiceError(MagellonError):
     pass
 
 
+class DatabaseError(MagellonError):
+    """Raised when a database operation fails unexpectedly."""
+    pass
+
+
 class ValidationError(MagellonError):
     """Raised when domain validation rules are violated."""
     pass

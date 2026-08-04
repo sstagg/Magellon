@@ -10,7 +10,7 @@ from collections.abc import Sequence
 from starlette.responses import FileResponse
 
 from core.exceptions import FileProcessingError
-from core.process_runner import run_process
+from core.process_runner import ProcessExecutionError, run_process
 
 
 def create_directory(path):
@@ -57,7 +57,7 @@ class FileService:
             log_file.write(f"Command: {shlex.join(command)}\n")
         try:
             run_command(command, log_file)
-        except Exception as exc:
+        except (OSError, ProcessExecutionError, ValueError) as exc:
             raise FileProcessingError("Error transferring files") from exc
 
     _rsync2 = _rsync
