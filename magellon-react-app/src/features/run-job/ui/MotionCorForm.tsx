@@ -141,17 +141,17 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
 
     // WebSocket connection helper
     const connectWebSocket = (taskId: string) => {
-        // Extract base URL from settings (e.g., http://localhost:8000)
-        const backendUrl = settings.ConfigData.SERVER_API_URL;
-        const wsProtocol = backendUrl.startsWith('https') ? 'wss:' : 'ws:';
-        // Remove the protocol from the URL to get host:port
-        const hostPart = backendUrl.replace(/^https?:\/\//, '');
-        
+        // Use the browser's current host so the WebSocket goes to the same
+        // server the page loaded from, regardless of SERVER_API_URL (which
+        // may be an internal Docker name like "web" that's unreachable from
+        // the browser).
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const hostPart = window.location.host;
+
         // Get auth token from localStorage
         const token = localStorage.getItem('access_token');
-        
+
         // Construct WebSocket URL with token as query parameter
-        // Note: endpoint is at /web/ws/motioncor-test/{task_id} with /web prefix from router
         const wsUrl = `${wsProtocol}//${hostPart}/web/ws/motioncor-test/${taskId}${token ? `?token=${token}` : ''}`;
         
         try {

@@ -263,9 +263,21 @@ export const PluginTestPanel: React.FC<PluginTestPanelProps> = ({
     const defaults = useMemo(() => buildDefaults(inputSchema), [inputSchema]);
     const [values, setValues] = useState<Record<string, unknown>>({});
     useEffect(() => {
-        // Seed the form with schema-declared defaults the first time we
-        // see the schema. Don't clobber user edits on subsequent reseats.
-        setValues((prev) => (Object.keys(prev).length ? prev : defaults));
+        // Merge defaults into the form, preserving any key the user has already
+        // touched. This runs whenever the schema resolves or changes — which can
+        // happen twice: first when capabilitiesQ lands (base schema, no plugin-
+        // specific fields like template_paths) and again when inputSchemaQ lands
+        // (full plugin schema). Without a merge, plugin-specific fields that load
+        // late never get their defaults seeded because the "only seed when empty"
+        // guard fires too early.
+        if (!Object.keys(defaults).length) return;
+        setValues((prev) => {
+            const merged = { ...defaults };
+            for (const key of Object.keys(prev)) {
+                merged[key] = prev[key];
+            }
+            return merged;
+        });
     }, [defaults]);
 
     const [currentJobId, setCurrentJobId] = useState<string | null>(null);

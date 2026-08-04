@@ -38,3 +38,5 @@ rabbitmq_settings:
   PREFETCH_COUNT: 10
   QUEUE_NAME: ctf_tasks_queue
   OUT_QUEUE_NAME: ctf_out_tasks_queue
+  CTF_TEST_QUEUE_NAME: ctf_test_inqueue
+  CTF_TEST_OUT_QUEUE_NAME: ctf_test_outqueue

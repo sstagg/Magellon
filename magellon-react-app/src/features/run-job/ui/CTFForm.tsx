@@ -20,7 +20,7 @@ import {
     Select,
     MenuItem
 } from "@mui/material";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Upload, Settings2, ChevronDown, Focus } from "lucide-react";
 import { settings } from "../../../shared/config/settings.ts";
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
@@ -102,6 +102,7 @@ export const CTFForm: React.FC<CTFFormProps> = ({
     const [jobStatus, setJobStatus] = useState<JobStatus>('idle');
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const wsRef = useRef<WebSocket | null>(null);
 
     const handleSessionChange = (event: SelectChangeEvent) => {
         setSessionName(event.target.value);
@@ -129,6 +130,55 @@ export const CTFForm: React.FC<CTFFormProps> = ({
         setError(null);
         setSuccessMessage(null);
         setJobStatus('idle');
+        if (wsRef.current) {
+            wsRef.current.close();
+            wsRef.current = null;
+        }
+    };
+
+    const connectWebSocket = (taskId: string) => {
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const hostPart = window.location.host;
+        const token = localStorage.getItem('access_token');
+        const wsUrl = `${wsProtocol}//${hostPart}/web/ws/ctf-test/${taskId}${token ? `?token=${token}` : ''}`;
+
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+            console.log('CTF WebSocket connected for task:', taskId);
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const message = JSON.parse(event.data);
+                if (message.type === 'result') {
+                    setJobStatus('success');
+                    setSuccessMessage(`CTF estimation complete. Task ID: ${taskId}`);
+                    onSuccess?.(taskId, sessionName);
+                    ws.close();
+                } else if (message.type === 'error') {
+                    setJobStatus('error');
+                    const errMsg = `CTF error: ${message.error || 'Unknown error'}`;
+                    setError(errMsg);
+                    onError?.(errMsg);
+                    ws.close();
+                }
+            } catch {
+                // ignore non-JSON messages (ping etc)
+            }
+        };
+
+        ws.onerror = () => {
+            setJobStatus('error');
+            const errMsg = 'CTF WebSocket error — check server logs';
+            setError(errMsg);
+            onError?.(errMsg);
+        };
+
+        ws.onclose = () => {
+            wsRef.current = null;
+        };
     };
 
     const handleSubmit = async () => {
@@ -195,10 +245,10 @@ export const CTFForm: React.FC<CTFFormProps> = ({
                 },
             });
 
-            setJobStatus('success');
             const taskId = response.data.task_id || 'N/A';
-            setSuccessMessage(`CTF estimation task created successfully. Task ID: ${taskId}`);
+            setSuccessMessage(`CTF task queued. Task ID: ${taskId} — waiting for result…`);
             onSuccess?.(taskId, sessionName);
+            connectWebSocket(taskId);
         } catch (err) {
             setJobStatus('error');
             const errMsg = apiErrorMessage(err, 'Failed to submit job');

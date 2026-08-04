@@ -37,3 +37,5 @@ rabbitmq_settings:
   PREFETCH_COUNT: 10
   QUEUE_NAME: motioncor_tasks_queue
   OUT_QUEUE_NAME: motioncor_out_tasks_queue
+  MOTIONCOR_TEST_QUEUE_NAME: motioncor_test_inqueue
+  MOTIONCOR_TEST_OUT_QUEUE_NAME: motioncor_test_outqueue

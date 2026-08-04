@@ -118,6 +118,9 @@ async def startup_event():
             target=_runner.start_blocking, name="ctf-broker-runner", daemon=True,
         ).start()
         logger.info("CtfBrokerRunner started")
+
+        from core.test_consumer import start_test_consumer
+        app.state.test_consumer_handle = start_test_consumer()
     except Exception:
         logger.exception("CtfBrokerRunner: startup failed")
         raise
@@ -134,6 +137,12 @@ async def shutdown_event():
             _runner.stop()
         except Exception:
             logger.exception("CtfBrokerRunner: stop() raised")
+    handle = getattr(app.state, "test_consumer_handle", None)
+    if handle is not None:
+        try:
+            handle.close()
+        except Exception:
+            logger.exception("ctf test consumer: close() raised")
 
 
 @app.get("/", summary="Get Plugin Information")

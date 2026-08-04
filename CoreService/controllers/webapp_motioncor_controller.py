@@ -630,6 +630,142 @@ async def download_motioncor_output(
         logger.error(f"Error downloading motioncor output for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error downloading file: {str(e)}")
 
+@motioncor_router.post("/test-ctf")
+async def test_ctf(
+        image_file: UploadFile = File(...),
+        data: str = Form(...),  # JSON string with CTF params
+        session_name: str = Form("testing"),
+        user_id: UUID = Depends(get_current_user_id)
+):
+    """
+    Test CTF estimation with an uploaded micrograph.
+
+    Saves the file to /gpfs/tmp/, publishes to ctf_test_inqueue, and
+    returns task_id immediately. Client subscribes to the WebSocket
+    /ws/ctf-test/{task_id} for the result.
+
+    **Requires:** Authentication
+    """
+    from services.ctf_test_service import CTFTestTaskManager
+
+    logger.warning(f"SECURITY: User {user_id} triggering test CTF for session: {session_name}")
+
+    task_id = uuid.uuid4()
+
+    try:
+        params: dict = json.loads(data)
+        base_tmp_dir = Path("/gpfs/tmp")
+        base_tmp_dir.mkdir(parents=True, exist_ok=True)
+
+        image_path = base_tmp_dir / image_file.filename
+        with open(image_path, "wb") as f:
+            f.write(await image_file.read())
+
+        # CTF params from frontend: PixSize, kV, Cs, AmpContrast, SpectrumSize,
+        # MinRes, MaxRes, MinDefocus, MaxDefocus, DefocusStep, Astigmatism, PhaseShift
+        ctf_params = {
+            "PixSize": float(params.get("PixSize", 1.0)),
+            "kV": float(params.get("kV", 300.0)),
+            "Cs": float(params.get("Cs", 2.7)),
+            "AmpContrast": float(params.get("AmpContrast", 0.1)),
+            "SpectrumSize": int(params.get("SpectrumSize", 512)),
+            "MinRes": float(params.get("MinRes", 30.0)),
+            "MaxRes": float(params.get("MaxRes", 5.0)),
+            "MinDefocus": float(params.get("MinDefocus", 5000.0)),
+            "MaxDefocus": float(params.get("MaxDefocus", 50000.0)),
+            "DefocusStep": float(params.get("DefocusStep", 500.0)),
+        }
+
+        ctf_task = CTFTestTaskManager.create_test_task(
+            task_id=task_id,
+            image_path=str(image_path),
+            session_name=session_name,
+            ctf_params=ctf_params,
+        )
+
+        if CTFTestTaskManager.publish_task_to_queue(ctf_task):
+            logger.info(f"CTF test task {task_id} queued for user {user_id}")
+            return {
+                "status": "queued",
+                "task_id": str(task_id),
+                "message": "CTF test task queued. Connect to WebSocket with this task_id.",
+                "websocket_url": f"/ws/ctf-test/{task_id}",
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to queue CTF test task.")
+
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON in request data: {e}")
+    except Exception as e:
+        logger.error(f"Error in test_ctf endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@motioncor_router.websocket("/ws/ctf-test/{task_id}")
+async def websocket_ctf_test(websocket: WebSocket, task_id: str):
+    """
+    WebSocket for real-time CTF test result delivery.
+
+    Client connects with the task_id returned from POST /web/test-ctf.
+    Authentication via ?token=<jwt> query param.
+    """
+    from services.ctf_test_service import (
+        register_websocket_connection,
+        unregister_websocket_connection,
+    )
+    from jose import JWTError, jwt
+
+    await websocket.accept()
+
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.send_json({"type": "error", "error": "Unauthorized - token required"})
+        await websocket.close(code=1008, reason="Unauthorized")
+        return
+
+    try:
+        SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-CHANGE-THIS-IN-PRODUCTION-min-32-chars")
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        user_id_str = payload.get("sub")
+        if not user_id_str:
+            await websocket.send_json({"type": "error", "error": "Unauthorized - no user ID"})
+            await websocket.close(code=1008, reason="Unauthorized")
+            return
+        user_id = UUID(user_id_str)
+    except Exception as e:
+        await websocket.send_json({"type": "error", "error": f"Unauthorized: {e}"})
+        await websocket.close(code=1008, reason="Unauthorized")
+        return
+
+    connection = await register_websocket_connection(task_id, websocket)
+    connection.is_connected = True
+    logger.info(f"CTF WebSocket registered for task {task_id}, user {user_id}")
+
+    await connection.send_json({
+        "type": "connected",
+        "task_id": task_id,
+        "user_id": str(user_id),
+        "message": "Connected. Waiting for CTF results...",
+    })
+
+    try:
+        while True:
+            try:
+                data = await asyncio.wait_for(websocket.receive_json(), timeout=30)
+            except asyncio.TimeoutError:
+                try:
+                    await connection.send_json({"type": "ping", "task_id": task_id})
+                except Exception:
+                    break
+            except Exception:
+                break
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await unregister_websocket_connection(task_id, connection)
+        logger.info(f"CTF WebSocket disconnected for task {task_id}")
+
+
 def create_task(session_name="24mar28a", file_name="20241203_54449_integrated_movie",gain_path = "/gpfs/20241202_53597_gain_multi_ref.tif"):
     """
     Creates a motioncor task with specified session name and file name
