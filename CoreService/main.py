@@ -69,8 +69,7 @@ from models.graphql_strawberry_schema import strawberry_graphql_router
 
 import rich.traceback
 
-from core.application_lifecycle import application_lifespan
-from core.application_middleware import register_middleware
+from core.application_factory import create_app
 from core.router_registry import register_routers, register_static_files
 from core.environment import is_production
 from services.casbin_service import CasbinService
@@ -173,17 +172,7 @@ async def _lifespan(_app: FastAPI):
 
 
 # Disable default docs and openapi endpoints
-app = FastAPI(
-    title="Magellon Core Service",
-    description="Magellon Core Service that provides main services",
-    version="1.0.0",
-    docs_url=None,  # Disable default docs
-    redoc_url=None,  # Disable default redoc
-    openapi_url=None,  # Disable default openapi.json
-    lifespan=_lifespan,
-)
-
-register_middleware(app)
+app = create_app(lifespan=_lifespan)
 
 
 # Custom protected docs endpoints
@@ -394,8 +383,6 @@ app.mount('/socket.io', socketio.ASGIApp(sio, socketio_path=''))
 
 app.dbengine = engine
 app.dbsession = session_local
-register_static_files(app)
-register_routers(app)
 
 
 
