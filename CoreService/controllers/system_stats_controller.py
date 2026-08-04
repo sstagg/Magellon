@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import logging
 import shutil
-import subprocess
 import time
 from dataclasses import dataclass
 from threading import Lock
@@ -30,6 +29,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from dependencies.permissions import require_role
+from core.process_runner import run_process
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +194,7 @@ def _gpu_via_smi() -> Optional[GpuStats]:
     if shutil.which("nvidia-smi") is None:
         return None
     try:
-        result = subprocess.run(
+        result = run_process(
             [
                 "nvidia-smi",
                 "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu",
@@ -203,6 +203,7 @@ def _gpu_via_smi() -> Optional[GpuStats]:
             capture_output=True,
             text=True,
             timeout=2.0,
+            check=False,
         )
     except Exception as exc:  # noqa: BLE001
         return GpuStats(available=False, error=f"nvidia-smi error: {exc}")
