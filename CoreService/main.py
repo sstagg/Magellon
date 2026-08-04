@@ -9,7 +9,6 @@ from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from fastapi.openapi.utils import get_openapi
-from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse, HTMLResponse
 from starlette.staticfiles import StaticFiles
 from starlette import status as starlette_status
@@ -70,11 +69,10 @@ from models.graphql_strawberry_schema import strawberry_graphql_router
 
 import rich.traceback
 
-from core.cors import allowed_origins
+from core.application_lifecycle import application_lifespan
+from core.application_middleware import register_middleware
 from core.router_registry import register_routers, register_static_files
 from core.environment import is_production
-from core.exception_handlers import register_exception_handlers
-from core.request_observability import register_request_observability
 from services.casbin_service import CasbinService
 from services.casbin_policy_sync_service import CasbinPolicySyncService
 from core.socketio_server import sio
@@ -164,16 +162,14 @@ def verify_docs_credentials(
 from contextlib import asynccontextmanager
 
 
-@asynccontextmanager
 async def _lifespan(_app: FastAPI):
     """Modern replacement for the deprecated @app.on_event hooks.
 
     startup_event / shutdown_event are defined further down (forward
     references resolve at runtime, when the module is fully loaded).
     """
-    await startup_event()
-    yield
-    await shutdown_event()
+    async with application_lifespan(_app, startup_event, shutdown_event):
+        yield
 
 
 # Disable default docs and openapi endpoints
@@ -187,16 +183,7 @@ app = FastAPI(
     lifespan=_lifespan,
 )
 
-register_exception_handlers(app, is_production=_is_production)
-register_request_observability(app)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_cors_origins(),
-    allow_methods=["*"],
-    allow_headers=["*"],
-    allow_credentials=True,
-)
+register_middleware(app)
 
 
 # Custom protected docs endpoints
