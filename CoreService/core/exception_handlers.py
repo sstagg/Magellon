@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import traceback
 from typing import Callable
 
 from fastapi import FastAPI
@@ -17,6 +16,18 @@ from core.exceptions import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _error_payload(request, code: str, message: str, details=None) -> dict:
+    """Build the stable error envelope used by all domain handlers."""
+    payload = {
+        "code": code,
+        "message": message,
+        "request_id": getattr(request.state, "request_id", None),
+    }
+    if details is not None:
+        payload["details"] = details
+    return payload
 
 
 def _cors_headers(request) -> dict:
@@ -43,7 +54,7 @@ def register_exception_handlers(app: FastAPI, *, is_production: Callable[[], boo
     def handle_not_found(request, err):
         return JSONResponse(
             status_code=404,
-            content={"message": str(err)},
+            content=_error_payload(request, "ENTITY_NOT_FOUND", str(err)),
             headers=_cors_headers(request),
         )
 
@@ -51,7 +62,7 @@ def register_exception_handlers(app: FastAPI, *, is_production: Callable[[], boo
     def handle_duplicate(request, err):
         return JSONResponse(
             status_code=409,
-            content={"message": str(err)},
+            content=_error_payload(request, "DUPLICATE_ENTITY", str(err)),
             headers=_cors_headers(request),
         )
 
@@ -59,7 +70,7 @@ def register_exception_handlers(app: FastAPI, *, is_production: Callable[[], boo
     def handle_validation(request, err):
         return JSONResponse(
             status_code=422,
-            content={"message": str(err)},
+            content=_error_payload(request, "VALIDATION_ERROR", str(err)),
             headers=_cors_headers(request),
         )
 
@@ -67,7 +78,7 @@ def register_exception_handlers(app: FastAPI, *, is_production: Callable[[], boo
     def handle_permission(request, err):
         return JSONResponse(
             status_code=403,
-            content={"message": str(err)},
+            content=_error_payload(request, "PERMISSION_DENIED", str(err)),
             headers=_cors_headers(request),
         )
 
@@ -75,7 +86,7 @@ def register_exception_handlers(app: FastAPI, *, is_production: Callable[[], boo
     def handle_file_error(request, err):
         return JSONResponse(
             status_code=500,
-            content={"message": str(err)},
+            content=_error_payload(request, "FILE_PROCESSING_ERROR", str(err)),
             headers=_cors_headers(request),
         )
 
@@ -83,27 +94,21 @@ def register_exception_handlers(app: FastAPI, *, is_production: Callable[[], boo
     def handle_domain_error(request, err):
         return JSONResponse(
             status_code=400,
-            content={"message": str(err)},
+            content=_error_payload(request, "DOMAIN_ERROR", str(err)),
             headers=_cors_headers(request),
         )
 
     @app.exception_handler(Exception)
     def app_exception_handler(request, err):
-        tb = traceback.format_exc()
-        logger.error(f"Unhandled exception on {request.method} {request.url}:\n{tb}")
+        logger.exception("unhandled_request_exception method=%s path=%s", request.method, request.url.path)
         if is_production():
-            content = {
-                "message": "Internal server error",
-                "path": str(request.url.path),
-            }
+            content = _error_payload(request, "INTERNAL_SERVER_ERROR", "Internal server error")
         else:
-            content = {
-                "message": f"{type(err).__name__}: {err}",
-                "path": str(request.url),
-            }
+            content = _error_payload(
+                request, "INTERNAL_SERVER_ERROR", f"{type(err).__name__}: {err}",
+            )
         return JSONResponse(
             status_code=500,
             content=content,
             headers=_cors_headers(request),
         )
-

@@ -58,7 +58,6 @@ from controllers.webapp_particles_controller import particles_router
 from controllers.ops_controller import ops_router
 from plugins.controller import plugins_router
 
-from prometheus_fastapi_instrumentator import Instrumentator
 from rich import print
 import pyfiglet as pyfiglet
 
@@ -72,7 +71,7 @@ from models.graphql_strawberry_schema import strawberry_graphql_router
 import rich.traceback
 
 from core.cors import allowed_origins
-from core.dev_routes import dev_routes_enabled, register_dev_routes
+from core.router_registry import register_routers, register_static_files
 from core.environment import is_production
 from core.exception_handlers import register_exception_handlers
 from core.request_observability import register_request_observability
@@ -272,6 +271,13 @@ async def get_open_api_endpoint(authenticated: bool = Depends(verify_docs_creden
     )
 
 
+"""Legacy inline router registration retained temporarily for import compatibility.
+
+The active registration lives in ``core.router_registry``.  Keeping this
+historical block inert for one release makes route-table changes easy to
+review and gives downstream imports time to settle.
+"""
+"""
 # Get the hostname of the computer
 local_hostname = socket.gethostname()
 local_ip_address = socket.gethostbyname(local_hostname)
@@ -397,11 +403,17 @@ app.include_router(
 
 # Mount Socket.IO inside FastAPI (handles both HTTP polling and WebSocket)
 app.mount('/socket.io', socketio.ASGIApp(sio, socketio_path=''))
+"""
+
+app.dbengine = engine
+app.dbsession = session_local
+register_static_files(app)
+register_routers(app)
 
 
 
 async def startup_event():
-    """Initialize services on application startup (runs via _lifespan)."""
+    '''Initialize services on application startup (runs via _lifespan).'''
     import threading
     from core.background_services import ensure_background_registry
 
@@ -616,7 +628,7 @@ async def startup_event():
 
 
 async def shutdown_event():
-    """Cleanup on application shutdown (runs via _lifespan)."""
+    '''Cleanup on application shutdown (runs via _lifespan).'''
     from core.background_services import ensure_background_registry
 
     background_services = ensure_background_registry(app)
@@ -664,5 +676,3 @@ async def shutdown_event():
         except Exception as e:
             background_services.failed("operational_event_logger", e)
             logger.error(f"[WARNING] Operational event logger stop failed: {e}")
-
-
