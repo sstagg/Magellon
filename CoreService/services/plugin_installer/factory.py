@@ -71,8 +71,6 @@ def _default_docker_network() -> Optional[str]:
         import subprocess
         result = run_process(
             ["docker", "network", "inspect", "docker_magellon-network"],
-            capture_output=True,
-            text=True,
             timeout=5,
             check=False,
         )

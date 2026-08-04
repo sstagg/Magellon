@@ -112,8 +112,6 @@ def _check_docker_daemon() -> bool:
     try:
         completed = run_process(
             [docker, "info"],
-            capture_output=True,
-            text=True,
             timeout=_DOCKER_INFO_TIMEOUT_SECONDS,
             check=False,
         )
@@ -131,8 +129,6 @@ def _check_gpu_count() -> int:
     try:
         completed = run_process(
             ["nvidia-smi", "--list-gpus"],
-            capture_output=True,
-            text=True,
             timeout=5,
             check=False,
         )

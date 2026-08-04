@@ -139,11 +139,17 @@ def register_exception_handlers(app: FastAPI, *, is_production: Callable[[], boo
     def app_exception_handler(request, err):
         logger.exception("unhandled_request_exception method=%s path=%s", request.method, request.url.path)
         if is_production():
-            content = _error_payload(request, "INTERNAL_SERVER_ERROR", "Internal server error")
+            # Keep the legacy redacted shape for existing clients. New
+            # domain/HTTP errors use the stable envelope above.
+            content = {
+                "message": "Internal server error",
+                "path": str(request.url.path),
+            }
         else:
             content = _error_payload(
                 request, "INTERNAL_SERVER_ERROR", f"{type(err).__name__}: {err}",
             )
+            content["path"] = str(request.url)
         return JSONResponse(
             status_code=500,
             content=content,
