@@ -3,7 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Callable
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
 from starlette.responses import JSONResponse
 
 from core.exceptions import (
@@ -51,6 +52,33 @@ def _cors_headers(request) -> dict:
 
 
 def register_exception_handlers(app: FastAPI, *, is_production: Callable[[], bool]) -> None:
+    @app.exception_handler(HTTPException)
+    def handle_http_exception(request, err: HTTPException):
+        detail = err.detail
+        message = detail if isinstance(detail, str) else "Request failed"
+        content = _error_payload(request, f"HTTP_{err.status_code}", message)
+        # Preserve FastAPI's established ``detail`` field while adding the
+        # stable error metadata consumed by newer clients.
+        content["detail"] = detail
+        if not isinstance(detail, str):
+            content["details"] = detail
+        return JSONResponse(
+            status_code=err.status_code,
+            content=content,
+            headers={**(err.headers or {}), **_cors_headers(request)},
+        )
+
+    @app.exception_handler(RequestValidationError)
+    def handle_request_validation(request, err: RequestValidationError):
+        details = err.errors()
+        content = _error_payload(request, "REQUEST_VALIDATION_ERROR", "Request validation failed", details)
+        content["detail"] = details
+        return JSONResponse(
+            status_code=422,
+            content=content,
+            headers=_cors_headers(request),
+        )
+
     @app.exception_handler(EntityNotFoundError)
     def handle_not_found(request, err):
         return JSONResponse(
