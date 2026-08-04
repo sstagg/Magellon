@@ -34,13 +34,14 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
+from core.process_runner import run_process_compat, start_process
 
 
 SubprocessRunner = Callable[..., subprocess.CompletedProcess]
 
 
 def _default_subprocess_runner(*args, **kwargs) -> subprocess.CompletedProcess:
-    return subprocess.run(*args, **kwargs)
+    return run_process_compat(*args, **kwargs)
 
 
 @dataclass(frozen=True)
@@ -628,7 +629,7 @@ class PopenSupervisor:
             popen_kwargs["start_new_session"] = True
 
         try:
-            proc = subprocess.Popen(cmd, **popen_kwargs)
+            proc = start_process(cmd, **popen_kwargs)
         except Exception as exc:  # noqa: BLE001
             log_fh.close()
             return SupervisorResult(
@@ -730,7 +731,7 @@ def _terminate_pid(pid: int) -> None:
     """Send SIGTERM on POSIX; on Windows, taskkill without /F first."""
     if platform.system() == "Windows":
         # /T = also terminate child processes (uvicorn workers).
-        subprocess.run(
+        run_process_compat(
             ["taskkill", "/PID", str(pid), "/T"],
             capture_output=True, timeout=5,
         )
@@ -742,7 +743,7 @@ def _terminate_pid(pid: int) -> None:
 def _kill_pid(pid: int) -> None:
     """Force-kill — Windows /F or SIGKILL."""
     if platform.system() == "Windows":
-        subprocess.run(
+        run_process_compat(
             ["taskkill", "/F", "/PID", str(pid), "/T"],
             capture_output=True, timeout=5,
         )

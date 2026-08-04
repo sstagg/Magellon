@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Callable, Optional, Protocol, runtime_checkable
 
 from services.plugin_installer.supervisor import Supervisor, SupervisorResult
+from core.process_runner import run_process_compat
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ SubprocessRunner = Callable[..., subprocess.CompletedProcess]
 
 
 def _default_subprocess_runner(*args, **kwargs) -> subprocess.CompletedProcess:
-    return subprocess.run(*args, **kwargs)
+    return run_process_compat(*args, **kwargs)
 
 
 class LifecycleStatus(str, Enum):

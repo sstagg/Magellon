@@ -50,3 +50,31 @@ def run_process(
         raise ProcessExecutionError(command, detail, result.returncode)
     return result
 
+
+def run_process_compat(*args, **kwargs) -> subprocess.CompletedProcess[str]:
+    """Compatibility adapter for injected ``subprocess.run`` callables."""
+    if len(args) == 1 and isinstance(args[0], (list, tuple)):
+        command = args[0]
+    else:
+        command = args
+    if kwargs.pop("shell", False):
+        raise ValueError("shell execution is prohibited")
+    return run_process(
+        command,
+        timeout=kwargs.pop("timeout", 60.0),
+        cwd=kwargs.pop("cwd", None),
+        env=kwargs.pop("env", None),
+        # subprocess.run defaults to check=False; preserve that contract for
+        # injected installer runners.
+        check=kwargs.pop("check", False),
+    )
+
+
+def start_process(command: Sequence[str], **kwargs) -> subprocess.Popen:
+    """Start a detached argv process without shell interpretation."""
+    if not command or any(not isinstance(part, str) or not part for part in command):
+        raise ValueError("command must be a non-empty sequence of non-empty strings")
+    if kwargs.get("shell", False):
+        raise ValueError("shell execution is prohibited")
+    kwargs["shell"] = False
+    return subprocess.Popen(list(command), **kwargs)

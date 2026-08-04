@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from magellon_sdk.archive.manifest import SdkCompatError, check_sdk_compat
+from core.process_runner import run_process
 
 logger = logging.getLogger(__name__)
 
@@ -109,11 +110,12 @@ def _check_docker_daemon() -> bool:
     if docker is None:
         return False
     try:
-        completed = subprocess.run(
+        completed = run_process(
             [docker, "info"],
             capture_output=True,
             text=True,
             timeout=_DOCKER_INFO_TIMEOUT_SECONDS,
+            check=False,
         )
         return completed.returncode == 0
     except (subprocess.SubprocessError, OSError):
@@ -127,11 +129,12 @@ def _check_gpu_count() -> int:
     if not shutil.which("nvidia-smi"):
         return 0
     try:
-        completed = subprocess.run(
+        completed = run_process(
             ["nvidia-smi", "--list-gpus"],
             capture_output=True,
             text=True,
             timeout=5,
+            check=False,
         )
         if completed.returncode != 0:
             return 0

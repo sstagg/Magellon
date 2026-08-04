@@ -24,6 +24,7 @@ from services.plugin_installer.manager import PluginInstallManager
 from services.plugin_installer.protocol import RuntimeConfig
 from services.plugin_installer.supervisor import default_supervisor
 from services.plugin_installer.uv_installer import UvInstaller
+from core.process_runner import run_process
 
 logger = logging.getLogger(__name__)
 
@@ -68,11 +69,12 @@ def _default_docker_network() -> Optional[str]:
     # without the network starts a container that can never announce.
     try:
         import subprocess
-        result = subprocess.run(
+        result = run_process(
             ["docker", "network", "inspect", "docker_magellon-network"],
             capture_output=True,
             text=True,
             timeout=5,
+            check=False,
         )
         if result.returncode == 0:
             return "docker_magellon-network"
