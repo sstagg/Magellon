@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { AuthenticationResponse } from '../api/userApi.ts';
 import { userApiService } from '../api/userApi.ts';
+import { clearAuthStorage, setAccessToken } from '../../../shared/auth/tokenStore';
 
 export interface User {
     id: string;
@@ -61,7 +62,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             });
 
             // Store JWT token
-            localStorage.setItem('access_token', authResponse.access_token);
+            setAccessToken(authResponse.access_token);
 
             const userData: User = {
                 id: authResponse.user_id,
@@ -90,9 +91,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } finally {
             // Clear local state and storage regardless of API call result
             setUser(null);
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('currentUser');
-            localStorage.removeItem('currentUserId');
+            clearAuthStorage();
         }
     };
 
