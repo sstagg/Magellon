@@ -106,8 +106,10 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
 
     // Algorithm parameters — single dict driven by schema. Defaults tuned so a
     // default "Run" completes in seconds, not minutes, on a typical micrograph.
+    // template_paths is intentionally absent here — it gets populated from the
+    // plugin schema defaults when the settings drawer opens, so the schema-declared
+    // paths (/gpfs/templates/...) are used rather than an empty list.
     const [pickerParams, setPickerParams] = useState<Record<string, unknown>>({
-        template_paths: [],
         image_pixel_size: 1.0,
         template_pixel_size: 2.646,
         diameter_angstrom: 220.0,

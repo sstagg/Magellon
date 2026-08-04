@@ -481,6 +481,14 @@ export function useParticleOperations({
             return null;
         }
 
+        if (targetBackend.toLowerCase().includes('template') || targetBackend.toLowerCase().includes('picker')) {
+            const tpaths = (pickerParams.template_paths as string[] | undefined) || [];
+            if (tpaths.length === 0) {
+                showSnackbar('No templates configured. Open Settings to add template files.', 'warning');
+                return null;
+            }
+        }
+
         const API_URL = settings.ConfigData.SERVER_API_URL;
         const token = localStorage.getItem('access_token');
         const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};

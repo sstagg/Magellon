@@ -44,9 +44,18 @@ export function usePickerSchema({ open, selectedBackend, onPickerParamsChange, s
                     onPickerParamsChange((prev) => ({ ...topazDefaults, ...prev }));
                 } else {
                     // Merge: schema defaults fill missing fields, existing user values win.
-                    // This preserves user-added template_paths across image navigation and
-                    // panel remounts caused by setContent firing when selectedImage changes.
-                    onPickerParamsChange((prev) => ({ ...defaults, ...prev }));
+                    // Exception: if prev.template_paths is an empty array (the init default,
+                    // not a deliberate user action), let the schema defaults through so the
+                    // plugin-declared paths (/gpfs/templates/...) are used automatically.
+                    onPickerParamsChange((prev) => {
+                        const merged = { ...defaults, ...prev };
+                        const prevPaths = prev.template_paths as string[] | undefined;
+                        const defPaths = defaults.template_paths as string[] | undefined;
+                        if ((!prevPaths || prevPaths.length === 0) && defPaths && defPaths.length > 0) {
+                            merged.template_paths = defPaths;
+                        }
+                        return merged;
+                    });
                 }
             })
             .catch((err) => setSchemaError(`Could not load: ${err.message}`))
