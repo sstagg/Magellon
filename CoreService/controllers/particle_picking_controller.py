@@ -1407,7 +1407,22 @@ async def _run_batch_job(
 
                 try:
                     is_topaz = bool(req.backend and "topaz" in req.backend.lower())
-                    category = _resolve_pp_category(req.backend)
+                    # Fallback: no backend specified but params have Topaz-only keys
+                    if not is_topaz and not req.backend:
+                        _topaz_keys = {"model", "radius", "scale"}
+                        if _topaz_keys.intersection(req.picker_params.keys()):
+                            is_topaz = True
+                            logger.warning(
+                                "batch_pick: backend not set but Topaz params detected "
+                                "(model/radius/scale); routing to Topaz. "
+                                "Ensure the frontend sends backend='topaz'."
+                            )
+                    logger.info(
+                        "batch_pick image=%s backend=%r is_topaz=%s param_keys=%s",
+                        entry.name, req.backend, is_topaz,
+                        sorted(req.picker_params.keys()),
+                    )
+                    category = _resolve_pp_category("topaz" if is_topaz else req.backend)
                     loop = asyncio.get_running_loop()
                     if is_topaz:
                         payload: Dict[str, Any] = {
@@ -1417,8 +1432,20 @@ async def _run_batch_job(
                         }
                         threshold = float(req.picker_params.get("threshold", -3.0))
                     else:
+                        # Filter out fields not in TemplatePickerInput so that
+                        # cross-backend param contamination doesn't cause extra_forbidden.
+                        _valid_tp_fields = set(TemplatePickerInput.model_fields.keys())
+                        _filtered = {k: v for k, v in req.picker_params.items()
+                                     if k in _valid_tp_fields}
+                        if len(_filtered) < len(req.picker_params):
+                            logger.warning(
+                                "batch_pick: stripped %d unknown field(s) before "
+                                "TemplatePickerInput validation: %s",
+                                len(req.picker_params) - len(_filtered),
+                                sorted(set(req.picker_params) - _valid_tp_fields),
+                            )
                         tp = TemplatePickerInput.model_validate(
-                            {"image_path": mrc_path, **req.picker_params}
+                            {"image_path": mrc_path, **_filtered}
                         )
                         payload = _plugin_payload(tp)
                         threshold = tp.threshold
