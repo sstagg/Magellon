@@ -265,7 +265,9 @@ export const BatchRunDialog: React.FC<BatchRunDialogProps> = ({
     };
 
     const canEdit = !running && !finalResult;
-    const canClose = !running;
+    // Allow closing even while "running" once progress reached 100% — guards
+    // against the WebSocket completion event being lost after all images process.
+    const canClose = !running || progress >= 100;
 
     return (
         <Dialog open={open} onClose={canClose ? onClose : undefined} maxWidth="md" fullWidth>
