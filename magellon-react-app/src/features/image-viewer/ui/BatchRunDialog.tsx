@@ -73,10 +73,14 @@ export const BatchRunDialog: React.FC<BatchRunDialogProps> = ({
 }) => {
     const { sid, on } = useSocket();
 
+    const defaultIppName = selectedBackend.toLowerCase().includes('topaz')
+        ? 'Topaz batch'
+        : 'Template picker batch';
+
     const defaultMag = currentImage?.mag ?? 0;
     const [magnification, setMagnification] = useState<number>(defaultMag);
     const [tolerance, setTolerance] = useState<number>(0);
-    const [ippName, setIppName] = useState<string>('Auto-pick batch');
+    const [ippName, setIppName] = useState<string>(defaultIppName);
 
     const [candidates, setCandidates] = useState<BatchImage[]>([]);
     const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -97,7 +101,7 @@ export const BatchRunDialog: React.FC<BatchRunDialogProps> = ({
         if (open) {
             setMagnification(currentImage?.mag ?? 0);
             setTolerance(0);
-            setIppName('Auto-pick batch');
+            setIppName(defaultIppName);
             setProgress(0);
             setProgressMessage('');
             setJobId(null);
