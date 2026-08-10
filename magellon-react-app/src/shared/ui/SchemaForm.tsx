@@ -236,21 +236,17 @@ const SliderField: React.FC<{
     disabled?: boolean;
 }> = ({ field, value, onChange, disabled }) => {
     const step = field.ui_step ?? 1;
-    // Never let the slider reach an exclusive boundary (e.g. gt=0 → min=step).
+    // For exclusiveMinimum (gt=0), bump min to the first valid step so the
+    // slider thumb can never land on the excluded boundary and get stuck there.
     const schemaMin = getMin(field) ?? 0;
-    const isExclusiveMin = field.exclusiveMinimum !== undefined || (field.minimum !== undefined && (field as Record<string, unknown>).exclusiveMinimum === true);
-    const min = (isExclusiveMin || schemaMin === 0) && step > 0 ? Math.max(schemaMin + step, step) : schemaMin;
-    // Derive max from schema, the highest mark value, or 5× the default.
-    // The fallback of 1 made sliders with large values (e.g. 220 Å) unusable.
+    const min = field.exclusiveMinimum !== undefined ? schemaMin + step : schemaMin;
+    // Derive max from schema, or from the highest mark value, or from 5× default.
+    // Never fall back to 1 — that makes sliders with large values unusable.
     const marksMax = field.ui_marks?.length
         ? Math.max(...(field.ui_marks as { value: number }[]).map((m) => m.value))
         : undefined;
     const rawMax = getMax(field) ?? marksMax ?? Math.max((field.default as number ?? 1) * 5, min + step);
     const max = Math.max(rawMax, min + step);
-    // Clamp the controlled value so MUI Slider never receives a value outside
-    // [min, max] — an out-of-range value pins the thumb and blocks movement.
-    const rawValue = (value ?? field.default ?? min) as number;
-    const clampedValue = Math.min(max, Math.max(min, rawValue));
     const label = field.title || '';
     const unit = field.ui_unit ? ` (${field.ui_unit})` : '';
 
@@ -262,7 +258,7 @@ const SliderField: React.FC<{
                 </Typography>
             </Tooltip>
             <Slider
-                value={clampedValue}
+                value={(value ?? field.default ?? min) as number}
                 onChange={(_, v) => onChange(v as number)}
                 min={min}
                 max={max}
