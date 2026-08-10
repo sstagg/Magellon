@@ -235,18 +235,9 @@ const SliderField: React.FC<{
     onChange: (v: unknown) => void;
     disabled?: boolean;
 }> = ({ field, value, onChange, disabled }) => {
-    const step = field.ui_step ?? 1;
-    // For exclusiveMinimum (gt=0), bump min to the first valid step so the
-    // slider thumb can never land on the excluded boundary and get stuck there.
-    const schemaMin = getMin(field) ?? 0;
-    const min = field.exclusiveMinimum !== undefined ? schemaMin + step : schemaMin;
-    // Derive max from schema, or from the highest mark value, or from 5× default.
-    // Never fall back to 1 — that makes sliders with large values unusable.
-    const marksMax = field.ui_marks?.length
-        ? Math.max(...(field.ui_marks as { value: number }[]).map((m) => m.value))
-        : undefined;
-    const rawMax = getMax(field) ?? marksMax ?? Math.max((field.default as number ?? 1) * 5, min + step);
-    const max = Math.max(rawMax, min + step);
+    const min = getMin(field) ?? 0;
+    const max = getMax(field) ?? 1;
+    const step = field.ui_step ?? (max - min) / 20;
     const label = field.title || '';
     const unit = field.ui_unit ? ` (${field.ui_unit})` : '';
 
