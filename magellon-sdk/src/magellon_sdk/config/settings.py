@@ -45,6 +45,7 @@ class RabbitMQSettings(BaseModel):
     SSL_ENABLED: Optional[bool] = False
     CONNECTION_TIMEOUT: Optional[int] = 30
     PREFETCH_COUNT: Optional[int] = 10
+    HEARTBEAT: Optional[int] = 300
 
 
 class BaseAppSettings(BaseModel):

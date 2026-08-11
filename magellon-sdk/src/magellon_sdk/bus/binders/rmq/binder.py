@@ -181,37 +181,79 @@ class _RmqConsumerHandle:
 
 
 class _RmqSubscriptionHandle:
-    """:class:`SubscriptionHandle` — event subscriptions run on a
-    daemon thread owned by the binder. ``close`` drops the client."""
+    """:class:`SubscriptionHandle` — event subscriptions run on a daemon thread
+    with automatic reconnect. When the broker drops the connection, the thread
+    reconnects with capped exponential backoff and calls ``setup`` to re-bind
+    the queue and re-register the consumer before resuming ``start_consuming``.
+    """
 
     def __init__(
         self,
         client: RabbitmqClient,
-        thread: threading.Thread,
         binder: "RmqBinder",
+        setup: Callable[[RabbitmqClient], None],
     ) -> None:
         self._client = client
-        self._thread = thread
         self._binder = binder
+        self._setup = setup
+        self._thread: Optional[threading.Thread] = None
+        self._stopped = threading.Event()
         self._closed = False
 
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
+        self._stopped.set()
         conn = self._client.connection
         if conn is not None and not conn.is_closed:
             try:
                 conn.add_callback_threadsafe(self._client.channel.stop_consuming)
             except Exception as e:  # noqa: BLE001
                 logger.debug("subscriber stop_consuming dispatch failed: %s", e)
-        if self._thread.is_alive():
+        if self._thread is not None and self._thread.is_alive():
             self._thread.join(timeout=5)
         try:
             self._client.close_connection()
         except Exception as e:  # noqa: BLE001
             logger.debug("subscriber close_connection failed: %s", e)
         self._binder._forget_subscriber(self)
+
+    def _run_until_shutdown(self) -> None:
+        """Consume events with automatic reconnect on broker drops."""
+        backoff = _RECONNECT_BACKOFF_INITIAL
+        while not self._stopped.is_set():
+            try:
+                self._client.start_consuming()
+                if self._stopped.is_set():
+                    break
+                logger.warning("event subscriber loop returned unexpectedly — reconnecting")
+            except Exception as e:  # noqa: BLE001
+                if self._stopped.is_set():
+                    break
+                logger.warning(
+                    "event subscription dropped (%s: %s) — reconnecting",
+                    type(e).__name__, e,
+                )
+            while not self._stopped.is_set():
+                if self._stopped.wait(backoff):
+                    break
+                try:
+                    try:
+                        self._client.close_connection()
+                    except Exception:  # noqa: BLE001
+                        pass
+                    self._client.connect()
+                    self._setup(self._client)
+                    logger.info("event subscription reconnected")
+                    backoff = _RECONNECT_BACKOFF_INITIAL
+                    break
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(
+                        "event subscription reconnect failed (%s) — next attempt in %.0fs",
+                        e, min(backoff * 2, _RECONNECT_BACKOFF_MAX),
+                    )
+                    backoff = min(backoff * 2, _RECONNECT_BACKOFF_MAX)
 
 
 # ---------------------------------------------------------------------------
@@ -232,6 +274,7 @@ class RmqBinder:
     ) -> None:
         self._settings = settings
         self._audit = audit or AuditLogConfig()
+        self._heartbeat: Optional[int] = getattr(settings, "HEARTBEAT", None)
         # Subject → legacy queue name. Bus routes use category-scoped
         # subjects (magellon.tasks.ctf); today's queues are named
         # ctf_tasks_queue etc. MB3 populates this at CoreService boot.
@@ -271,7 +314,7 @@ class RmqBinder:
     def start(self) -> None:
         if self._started:
             return
-        client = RabbitmqClient(self._settings)
+        client = RabbitmqClient(self._settings, heartbeat=self._heartbeat)
         client.connect()
         declare_event_exchanges(client.channel)
         self._client = client
@@ -401,7 +444,7 @@ class RmqBinder:
 
         # New client so start_consuming can block a dedicated thread
         # without freezing the binder's publish channel.
-        client = RabbitmqClient(self._settings)
+        client = RabbitmqClient(self._settings, heartbeat=self._heartbeat)
         client.connect()
         _setup(client)
 
@@ -488,23 +531,6 @@ class RmqBinder:
         exchange = exchange_for_pattern(pattern.subject_glob)
         routing_key = glob_to_rmq_routing_key(pattern.subject_glob)
 
-        client = RabbitmqClient(self._settings)
-        client.connect()
-        # Ensure the exchange exists on this channel too — idempotent,
-        # cheap, and guards against the subscriber outpacing start()
-        # on a very-early subscription.
-        declare_event_exchanges(client.channel)
-        # Anonymous, exclusive, auto-deleted queue — dies with the
-        # subscriber. One queue per subscription so multiple handlers
-        # all get every matching message (pub-sub semantics).
-        decl = client.channel.queue_declare(
-            queue="", exclusive=True, auto_delete=True
-        )
-        qname = decl.method.queue
-        client.channel.queue_bind(
-            exchange=exchange, queue=qname, routing_key=routing_key
-        )
-
         def _callback(ch, method, properties, body):
             try:
                 envelope = _reconstruct_envelope(body, properties)
@@ -514,18 +540,31 @@ class RmqBinder:
                     "event handler failed on %s", method.routing_key
                 )
 
-        client.channel.basic_consume(
-            queue=qname, on_message_callback=_callback, auto_ack=True
-        )
+        def _setup(c: RabbitmqClient) -> None:
+            # Idempotent — guards against subscriber outpacing start() and
+            # ensures exchanges are present after a reconnect.
+            declare_event_exchanges(c.channel)
+            # Anonymous, exclusive, auto-deleted queue — dies with the
+            # subscriber. One queue per subscription so multiple handlers
+            # all get every matching message (pub-sub semantics).
+            decl = c.channel.queue_declare(queue="", exclusive=True, auto_delete=True)
+            qname = decl.method.queue
+            c.channel.queue_bind(exchange=exchange, queue=qname, routing_key=routing_key)
+            c.channel.basic_consume(queue=qname, on_message_callback=_callback, auto_ack=True)
 
+        client = RabbitmqClient(self._settings, heartbeat=self._heartbeat)
+        client.connect()
+        _setup(client)
+
+        handle = _RmqSubscriptionHandle(client, binder=self, setup=_setup)
         thread = threading.Thread(
-            target=client.start_consuming,
+            target=handle._run_until_shutdown,
             name=f"rmq-subscriber-{pattern.subject_glob}",
             daemon=True,
         )
         thread.start()
+        handle._thread = thread
 
-        handle = _RmqSubscriptionHandle(client, thread, self)
         with self._lock:
             self._subscriber_handles.append(handle)
         return handle
@@ -549,7 +588,7 @@ class RmqBinder:
         response: Dict[str, Envelope] = {}
         correlation_id = str(envelope.id)
 
-        client = RabbitmqClient(self._settings)
+        client = RabbitmqClient(self._settings, heartbeat=self._heartbeat)
         client.connect()
         try:
             decl = client.channel.queue_declare(
@@ -629,7 +668,7 @@ class RmqBinder:
                 queue=queue_name, on_message_callback=_callback
             )
 
-        client = RabbitmqClient(self._settings)
+        client = RabbitmqClient(self._settings, heartbeat=self._heartbeat)
         client.connect()
         _setup(client)
         handle = _RmqConsumerHandle(client, self, _setup, f"rpc:{queue_name}")
