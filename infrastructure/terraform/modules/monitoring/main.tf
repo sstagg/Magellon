@@ -84,6 +84,27 @@ resource "aws_cloudwatch_metric_alarm" "main_status_check" {
   tags       = var.tags
 }
 
+# StatusCheckFailed_Instance (OS/network-stack reachability) is a separate metric from
+# StatusCheckFailed_System (hypervisor/hardware) above, and the ec2:recover action does NOT
+# support it — recovery migrates to new hardware, which doesn't fix a hung guest OS. So this
+# alarm only pages via SNS; someone has to stop/start the instance (see incident 2026-08-11,
+# where instance reachability failed for a week while this alarm's System-only sibling stayed green).
+resource "aws_cloudwatch_metric_alarm" "main_status_check_instance" {
+  alarm_name          = "${var.name_prefix}-main-status-check-instance"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "StatusCheckFailed_Instance"
+  namespace           = "AWS/EC2"
+  period              = 60
+  statistic           = "Maximum"
+  threshold           = 0
+  alarm_description   = "Main instance reachability check failed – OS/network hang, needs manual stop/start"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+  dimensions          = { InstanceId = var.main_instance_id }
+  tags                = var.tags
+}
+
 # ── Alarms: ALB 5xx error rate ────────────────────────────────────────────────
 resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
   alarm_name          = "${var.name_prefix}-alb-5xx-high"
