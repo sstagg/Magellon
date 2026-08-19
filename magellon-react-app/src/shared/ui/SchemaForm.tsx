@@ -237,7 +237,13 @@ const SliderField: React.FC<{
 }> = ({ field, value, onChange, disabled }) => {
     const min = getMin(field) ?? 0;
     const max = getMax(field) ?? 1;
-    const step = field.ui_step ?? (max - min) / 20;
+    // field.ui_step is schema-authored for the field's real-world range
+    // (e.g. diameter_angstrom sets ui_step: 5), but when max falls back to
+    // the [0,1] default above, a step of 5 is larger than the entire range
+    // — min+step already exceeds max, so the thumb has no valid position
+    // to move to and gets stuck at min. Cap step to the actual span so the
+    // slider always has somewhere to go.
+    const step = Math.min(field.ui_step ?? (max - min) / 20, max - min);
     const label = field.title || '';
     const unit = field.ui_unit ? ` (${field.ui_unit})` : '';
 
