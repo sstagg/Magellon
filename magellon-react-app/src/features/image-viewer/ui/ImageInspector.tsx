@@ -125,7 +125,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
         error: isCtfInfoError,
         isLoading: isCtfInfoLoading,
         refetch: refetchCtfInfo
-    } = useFetchImageCtfInfo(selectedImage?.name ?? '', false);
+    } = useFetchImageCtfInfo(selectedImage?.name ?? '', isCtfTab);
 
     // Only fetch particle pickings when PP tab is active
     const {
