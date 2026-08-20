@@ -144,7 +144,19 @@ export const ParticleSettingsPanel: React.FC<ParticleSettingsDrawerProps> = ({
         if (!isValid) { setShowErrors(true); return; }
         setShowErrors(false);
         clearPreview();
-        const name = ippName || `Auto-pick ${new Date().toISOString().slice(0, 16)}`;
+        // Always mint a fresh, collision-proof name for a new dispatch —
+        // never reuse the currently-selected record's name (`ippName`),
+        // and never rely on the timestamp alone. Both were observed to
+        // collide: reusing `ippName` matched a pre-existing row outright;
+        // a minute-precision timestamp (the previous fix here) still
+        // collided when two runs were dispatched within the same 60s
+        // window. Either collision makes the completion-polling loop in
+        // useParticleOperations match an already-existing row on its
+        // very first poll, well before the new job actually finished and
+        // upserted fresh data into that row — so the drawer showed the
+        // *previous* run's results, not the one that had just been
+        // dispatched. Second-precision + a random suffix rules this out.
+        const name = `Auto-pick ${new Date().toISOString().slice(0, 19).replace('T', ' ')}-${Math.random().toString(36).slice(2, 6)}`;
         setDispatchedIppName(name);
         setDrawerState('dispatched');
         const result = await onDispatch(selectedBackend, name);

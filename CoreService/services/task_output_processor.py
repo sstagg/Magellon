@@ -90,7 +90,7 @@ def _confidence_from_score(score: float, *, is_log_likelihood: bool) -> float:
     return max(0.0, min(score, 1.0))
 
 
-def _move_file_to_directory(file_path: str, destination_dir: str) -> None:
+def _move_file_to_directory(file_path: str, destination_dir: str) -> bool:
     """Move ``file_path`` into ``destination_dir``, creating it if missing.
 
     Plugins write output under their canonical ``/gpfs/jobs/...`` path.
@@ -98,19 +98,27 @@ def _move_file_to_directory(file_path: str, destination_dir: str) -> None:
     is not a real filesystem path — translate it first so shutil.move
     finds the file.
 
-    Best-effort: a missing source is logged and skipped — the metadata
-    write should still happen so the UI can surface the failure.
+    Best-effort: a missing source or a failed move (e.g. a permission
+    error on the destination) is logged and skipped rather than raised
+    — the metadata write should still happen so the UI can surface the
+    failure. Returns whether the file now actually lives at the
+    destination; callers must not treat the destination path as
+    authoritative when this is False, or they'll silently read
+    whatever (possibly stale) file already happens to be sitting there
+    instead of the one that was just produced.
     """
     try:
         if not file_path:
-            return
+            return False
         from core.helper import from_canonical_gpfs_path
         host_path = from_canonical_gpfs_path(file_path)
         os.makedirs(destination_dir, exist_ok=True)
         filename = os.path.basename(host_path)
         shutil.move(host_path, os.path.join(destination_dir, filename))
+        return True
     except Exception as exc:
         logger.warning("Could not move %s to %s: %s", file_path, destination_dir, exc)
+        return False
 
 
 class TaskOutputProcessor:
@@ -182,11 +190,21 @@ class TaskOutputProcessor:
             if not src:
                 continue
             new_path = os.path.join(destination_dir, os.path.basename(src))
-            _move_file_to_directory(src, destination_dir)
-            # Update the OutputFile in place so the result's
-            # ``output_files`` list also points at the post-move path.
-            output_file.path = new_path
-            remap[src] = new_path
+            moved = _move_file_to_directory(src, destination_dir)
+            if moved:
+                # Update the OutputFile in place so the result's
+                # ``output_files`` list also points at the post-move path.
+                output_file.path = new_path
+                remap[src] = new_path
+            else:
+                # The move failed (e.g. permission denied) — the file is
+                # still sitting at `src`. Mapping to `new_path` here would
+                # make downstream readers (_save_particle_picks et al.)
+                # load whatever file happens to already exist at the
+                # destination — stale data from a previous successful
+                # run, or nothing at all — instead of the result that was
+                # just produced. Keep pointing at the real, current file.
+                remap[src] = src
         return remap
 
     # Path-shaped output_data keys whose values get rewritten when
