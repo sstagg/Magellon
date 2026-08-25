@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { apiErrorMessage } from "../../../shared/api/apiError.ts";
 import {
     Box,
@@ -16,6 +16,8 @@ import {
     Tooltip,
     ButtonGroup,
     alpha,
+    Dialog,
+    DialogContent,
 } from "@mui/material";
 import Grid from '@mui/material/Grid';
 import Paper from '@mui/material/Paper';
@@ -25,6 +27,8 @@ import {
 } from "@mui/icons-material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import DownloadIcon from "@mui/icons-material/Download";
+import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import CloseIcon from "@mui/icons-material/Close";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import {
     Target,
@@ -67,8 +71,20 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
     const theme = useTheme();
     const ImageCtfData = ctfData;
     const isCtfInfoError = error;
+    const [fullscreenImage, setFullscreenImage] = useState<{ url: string; title: string } | null>(null);
+
+    const handleDownload = (url: string | null, filename: string) => {
+        if (!url) return;
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     return (
+        <>
         <Stack spacing={4}>
             {isLoading ? (
                 <Stack spacing={3}>
@@ -589,14 +605,26 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                                         </Typography>
                                         <ButtonGroup size="small" variant="text">
                                             <Tooltip title="Download">
-                                                <IconButton size="small">
-                                                    <DownloadIcon fontSize="small" />
-                                                </IconButton>
+                                                <span>
+                                                    <IconButton
+                                                        size="small"
+                                                        disabled={!powerspecUrl}
+                                                        onClick={() => handleDownload(powerspecUrl, 'ctf_power_spectrum.png')}
+                                                    >
+                                                        <DownloadIcon fontSize="small" />
+                                                    </IconButton>
+                                                </span>
                                             </Tooltip>
                                             <Tooltip title="Fullscreen">
-                                                <IconButton size="small">
-                                                    <DownloadIcon fontSize="small" />
-                                                </IconButton>
+                                                <span>
+                                                    <IconButton
+                                                        size="small"
+                                                        disabled={!powerspecUrl}
+                                                        onClick={() => powerspecUrl && setFullscreenImage({ url: powerspecUrl, title: 'Power Spectrum' })}
+                                                    >
+                                                        <FullscreenIcon fontSize="small" />
+                                                    </IconButton>
+                                                </span>
                                             </Tooltip>
                                         </ButtonGroup>
                                     </Box>
@@ -662,14 +690,26 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                                         </Typography>
                                         <ButtonGroup size="small" variant="text">
                                             <Tooltip title="Download">
-                                                <IconButton size="small">
-                                                    <DownloadIcon fontSize="small" />
-                                                </IconButton>
+                                                <span>
+                                                    <IconButton
+                                                        size="small"
+                                                        disabled={!plotsUrl}
+                                                        onClick={() => handleDownload(plotsUrl, 'ctf_fit_plots.png')}
+                                                    >
+                                                        <DownloadIcon fontSize="small" />
+                                                    </IconButton>
+                                                </span>
                                             </Tooltip>
                                             <Tooltip title="Fullscreen">
-                                                <IconButton size="small">
-                                                    <DownloadIcon fontSize="small" />
-                                                </IconButton>
+                                                <span>
+                                                    <IconButton
+                                                        size="small"
+                                                        disabled={!plotsUrl}
+                                                        onClick={() => plotsUrl && setFullscreenImage({ url: plotsUrl, title: 'CTF Fit Plots' })}
+                                                    >
+                                                        <FullscreenIcon fontSize="small" />
+                                                    </IconButton>
+                                                </span>
                                             </Tooltip>
                                         </ButtonGroup>
                                     </Box>
@@ -858,6 +898,46 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                 </Alert>
             )}
         </Stack>
+
+        <Dialog
+            open={fullscreenImage !== null}
+            onClose={() => setFullscreenImage(null)}
+            maxWidth="lg"
+            fullWidth
+        >
+            <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                p: 2,
+                borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+            }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    {fullscreenImage?.title}
+                </Typography>
+                <IconButton size="small" onClick={() => setFullscreenImage(null)}>
+                    <CloseIcon fontSize="small" />
+                </IconButton>
+            </Box>
+            <DialogContent
+                sx={{
+                    backgroundColor: '#000',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    p: 2,
+                }}
+            >
+                {fullscreenImage && (
+                    <img
+                        src={fullscreenImage.url}
+                        alt={fullscreenImage.title}
+                        style={{ maxWidth: '100%', maxHeight: '80vh', height: 'auto' }}
+                    />
+                )}
+            </DialogContent>
+        </Dialog>
+        </>
     );
 };
 
