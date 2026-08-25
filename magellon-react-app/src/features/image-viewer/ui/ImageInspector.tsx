@@ -128,12 +128,13 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
     } = useFetchImageCtfInfo(selectedImage?.name ?? '', isCtfTab);
 
     // Only fetch particle pickings when PP tab is active
+    const isParticlePickingTab = activeTab === '3';
     const {
         data: ImageParticlePickings,
         isLoading: isIPPLoading,
         isError: _isIPPError,
         refetch: refetchImageParticlePickings
-    } = useImageParticlePickings(selectedImage?.name ?? '', false);
+    } = useImageParticlePickings(selectedImage?.name ?? '', isParticlePickingTab);
 
     const updatePPMutation = useUpdateParticlePicking();
 
