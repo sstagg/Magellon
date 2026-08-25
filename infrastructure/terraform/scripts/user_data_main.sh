@@ -151,10 +151,17 @@ Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=/opt/magellon-repo
 EnvironmentFile=/opt/magellon/.env
+# No --build here on purpose: this unit runs on every boot (systemctl
+# enable), not just first launch, so a routine reboot or the auto-recovery
+# stop/start from the status-check alarm would otherwise force a full
+# rebuild of every service's image from source every time — several
+# minutes of avoidable downtime on top of whatever caused the reboot.
+# Images are built explicitly as part of deploying a real code change
+# (docker compose up -d --build <service>), not implicitly on every boot.
 ExecStart=/usr/bin/docker compose \
   -f Docker/AWS_docker_compose/docker-compose.main.yml \
   --env-file /opt/magellon/.env \
-  up -d --build
+  up -d
 ExecStop=/usr/bin/docker compose \
   -f Docker/AWS_docker_compose/docker-compose.main.yml \
   down
