@@ -1,0 +1,205 @@
+/* swagger-ui-react ships one hardcoded light theme (swagger-ui.css) with no
+   dark-mode variant of its own. These overrides are scoped under
+   .swagger-dark-mode (applied only when the app's ThemeProvider is in dark
+   mode, see SwaggerApiDocs.tsx) so light mode keeps the library defaults
+   untouched. Colors are pulled from darkTheme.ts to match the rest of the app. */
+
+.swagger-dark-mode {
+    background-color: #111827;
+}
+
+.swagger-dark-mode .swagger-ui {
+    color: #f1f5f9;
+}
+
+.swagger-dark-mode .swagger-ui .info .title,
+.swagger-dark-mode .swagger-ui .info li,
+.swagger-dark-mode .swagger-ui .info p,
+.swagger-dark-mode .swagger-ui .info table,
+.swagger-dark-mode .swagger-ui h1,
+.swagger-dark-mode .swagger-ui h2,
+.swagger-dark-mode .swagger-ui h3,
+.swagger-dark-mode .swagger-ui h4,
+.swagger-dark-mode .swagger-ui h5,
+.swagger-dark-mode .swagger-ui label,
+.swagger-dark-mode .swagger-ui .opblock-tag,
+.swagger-dark-mode .swagger-ui .opblock .opblock-summary-operation-id,
+.swagger-dark-mode .swagger-ui .opblock .opblock-summary-path,
+.swagger-dark-mode .swagger-ui .opblock .opblock-summary-path__deprecated,
+.swagger-dark-mode .swagger-ui .opblock .opblock-summary-description,
+.swagger-dark-mode .swagger-ui .tab li button.tablinks,
+.swagger-dark-mode .swagger-ui .parameter__name,
+.swagger-dark-mode .swagger-ui .parameter__type,
+.swagger-dark-mode .swagger-ui .parameter__deprecated,
+.swagger-dark-mode .swagger-ui .parameter__in,
+.swagger-dark-mode .swagger-ui .response-col_status,
+.swagger-dark-mode .swagger-ui .response-col_links,
+.swagger-dark-mode .swagger-ui .responses-inner h4,
+.swagger-dark-mode .swagger-ui .responses-inner h5,
+.swagger-dark-mode .swagger-ui table thead tr td,
+.swagger-dark-mode .swagger-ui table thead tr th,
+.swagger-dark-mode .swagger-ui .model-title,
+.swagger-dark-mode .swagger-ui .model,
+.swagger-dark-mode .swagger-ui .model-toggle,
+.swagger-dark-mode .swagger-ui section.models h4,
+.swagger-dark-mode .swagger-ui .prop-type,
+.swagger-dark-mode .swagger-ui .renderedMarkdown p,
+.swagger-dark-mode .swagger-ui .renderedMarkdown li {
+    color: #f1f5f9;
+}
+
+.swagger-dark-mode .swagger-ui .opblock-description-wrapper p,
+.swagger-dark-mode .swagger-ui .opblock-external-docs-wrapper p,
+.swagger-dark-mode .swagger-ui .opblock-title_normal p,
+.swagger-dark-mode .swagger-ui .parameter__extension,
+.swagger-dark-mode .swagger-ui .parameter__in,
+.swagger-dark-mode .swagger-ui .response-col_description__inner p,
+.swagger-dark-mode .swagger-ui .prop-format {
+    color: #cbd5e1;
+}
+
+/* Top bar / scheme selector */
+.swagger-dark-mode .swagger-ui .scheme-container,
+.swagger-dark-mode .swagger-ui .information-container {
+    background-color: #1e293b;
+    box-shadow: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.swagger-dark-mode .swagger-ui .servers > label {
+    color: #f1f5f9;
+}
+
+/* Operation blocks — keep each HTTP method's accent color but darken the
+   pastel fill/border so it doesn't look like a bright cutout on a dark page */
+.swagger-dark-mode .swagger-ui .opblock {
+    background: #1e293b;
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.swagger-dark-mode .swagger-ui .opblock .opblock-section-header {
+    background: #1e293b;
+    box-shadow: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.swagger-dark-mode .swagger-ui .opblock.opblock-get {
+    background: rgba(97, 175, 254, 0.08);
+    border-color: #61affe;
+}
+.swagger-dark-mode .swagger-ui .opblock.opblock-post {
+    background: rgba(73, 204, 144, 0.08);
+    border-color: #49cc90;
+}
+.swagger-dark-mode .swagger-ui .opblock.opblock-put {
+    background: rgba(252, 161, 48, 0.08);
+    border-color: #fca130;
+}
+.swagger-dark-mode .swagger-ui .opblock.opblock-delete {
+    background: rgba(249, 62, 62, 0.08);
+    border-color: #f93e3e;
+}
+.swagger-dark-mode .swagger-ui .opblock.opblock-patch {
+    background: rgba(80, 227, 194, 0.08);
+    border-color: #50e3c2;
+}
+
+.swagger-dark-mode .swagger-ui .opblock-body pre.microlight,
+.swagger-dark-mode .swagger-ui .highlight-code {
+    background: #0b1220;
+}
+
+/* Tables */
+.swagger-dark-mode .swagger-ui table thead tr td,
+.swagger-dark-mode .swagger-ui table thead tr th {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.swagger-dark-mode .swagger-ui .parameters-col_description {
+    color: #cbd5e1;
+}
+
+/* Models section */
+.swagger-dark-mode .swagger-ui section.models {
+    background: #1e293b;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.swagger-dark-mode .swagger-ui section.models.is-open h4 {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.swagger-dark-mode .swagger-ui section.models .model-container {
+    background: #111827;
+}
+.swagger-dark-mode .swagger-ui section.models .model-container:hover {
+    background: #1e293b;
+}
+
+/* Inputs, selects, textareas */
+.swagger-dark-mode .swagger-ui select,
+.swagger-dark-mode .swagger-ui input[type="text"],
+.swagger-dark-mode .swagger-ui input[type="password"],
+.swagger-dark-mode .swagger-ui input[type="search"],
+.swagger-dark-mode .swagger-ui input[type="email"],
+.swagger-dark-mode .swagger-ui input[type="file"],
+.swagger-dark-mode .swagger-ui textarea {
+    background: #111827;
+    color: #f1f5f9;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Buttons */
+.swagger-dark-mode .swagger-ui .btn {
+    color: #f1f5f9;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+.swagger-dark-mode .swagger-ui .btn.authorize {
+    color: #67e8f9;
+    border-color: #67e8f9;
+}
+.swagger-dark-mode .swagger-ui .btn.authorize svg {
+    fill: #67e8f9;
+}
+.swagger-dark-mode .swagger-ui .btn.execute {
+    background: #67e8f9;
+    color: #111827;
+    border-color: #67e8f9;
+}
+.swagger-dark-mode .swagger-ui .btn-clear {
+    color: #cbd5e1;
+}
+
+/* "Try it out" / auth dialogs */
+.swagger-dark-mode .swagger-ui .dialog-ux .modal-ux {
+    background: #1e293b;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+.swagger-dark-mode .swagger-ui .dialog-ux .modal-ux-header h3,
+.swagger-dark-mode .swagger-ui .dialog-ux .modal-ux-content h4,
+.swagger-dark-mode .swagger-ui .dialog-ux .modal-ux-content p,
+.swagger-dark-mode .swagger-ui .auth-container h4,
+.swagger-dark-mode .swagger-ui .auth-container label {
+    color: #f1f5f9;
+}
+.swagger-dark-mode .swagger-ui .dialog-ux .modal-ux-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.swagger-dark-mode .swagger-ui .auth-container {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Response body code blocks already render on a dark background in the
+   default theme — leave .microlight/.highlight-code text colors alone,
+   just make sure the surrounding chrome matches. */
+.swagger-dark-mode .swagger-ui .responses-inner,
+.swagger-dark-mode .swagger-ui .response-col_description {
+    background: transparent;
+}
+
+.swagger-dark-mode .swagger-ui .filter .operation-filter-input {
+    background: #111827;
+    color: #f1f5f9;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.swagger-dark-mode .swagger-ui .copy-to-clipboard {
+    background: #334155;
+}
