@@ -317,6 +317,13 @@ services:
     networks:
       magellon-network:
         ipv4_address: 172.16.238.24
+    # Documented resource hint is 600MB (plugin/plugin.py's ResourceHints);
+    # 2G leaves generous headroom. Caps a real leak (onnxruntime's default
+    # CPU arena allocator growing unbounded across varying input sizes —
+    # observed climbing past 7GB) to this one container instead of letting
+    # it exhaust the whole host and take down other services via a
+    # host-wide OOM (this triggered two production network-hang incidents).
+    mem_limit: 2G
     logging:
       driver: awslogs
       options:

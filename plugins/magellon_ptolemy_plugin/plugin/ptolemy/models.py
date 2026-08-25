@@ -31,7 +31,21 @@ class Wrapper:
             if cuda
             else ["CPUExecutionProvider"]
         )
-        self.session = ort.InferenceSession(onnx_path, providers=providers)
+        # Disable the CPU EP's memory-arena allocator. By default it grows
+        # to fit the largest input it has ever seen and never releases that
+        # memory back to the OS — fine for fixed-size inputs, but this
+        # session sees micrographs of varying resolution plus upscaled
+        # 2048x2048 tiles from the hole-detection fallback path
+        # (compute.py's _tiled_hole_detection), so the arena ratchets
+        # upward across calls and never shrinks. Observed climbing past
+        # 7GB RSS in ~20 minutes in production, unbounded except by
+        # available host memory. Per-call allocation is slightly slower
+        # than arena reuse, but bounded memory matters far more here.
+        session_options = ort.SessionOptions()
+        session_options.enable_cpu_mem_arena = False
+        self.session = ort.InferenceSession(
+            onnx_path, sess_options=session_options, providers=providers
+        )
         self.input_name = self.session.get_inputs()[0].name
         self.cuda = cuda
 
