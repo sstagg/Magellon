@@ -36,6 +36,10 @@ BUNDLED_PLUGINS=(
     "plugins/magellon_motioncor_plugin"
     "plugins/magellon_fft_plugin:wheels"
     "plugins/magellon_template_picker_plugin:wheels"
+    "plugins/magellon_ptolemy_plugin:wheels"
+    "plugins/magellon_topaz_plugin:wheels"
+    "plugins/magellon_stack_maker_plugin:wheels"
+    "plugins/magellon_can_classifier_plugin:wheels"
 )
 
 echo "→ building magellon-sdk wheel from ${SDK_DIR}..."

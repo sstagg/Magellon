@@ -22,6 +22,7 @@ ContextVar on each delivery; plugin code calls
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import logging
 import threading
 from contextvars import ContextVar, Token
@@ -99,11 +100,27 @@ def get_step_event_loop() -> asyncio.AbstractEventLoop:
 def emit_step(coro: Awaitable, *, timeout: float = 5.0) -> None:
     """Run a step-event coroutine on the daemon loop, blocking up to
     ``timeout`` seconds. Swallow + log any failure — a flaky observability
-    path must never abort an otherwise-successful compute."""
+    path must never abort an otherwise-successful compute.
+
+    On timeout, explicitly cancels the underlying task. Without this,
+    future.result(timeout=...) only stops *waiting* — the coroutine
+    keeps running (and, for a publisher stuck retrying a broken
+    connection, keeps failing and retrying) on the shared daemon loop
+    forever. Under concurrent callers sharing this loop (e.g. a plugin
+    running multiple broker-runner threads that all emit through it —
+    ptolemy runs one for square detection and one for hole detection),
+    these orphaned tasks piled up and were the direct cause of an
+    unbounded memory leak in production (confirmed live: RSS climbing
+    to 1-1.5GB within minutes, tracking one-to-one with a burst of NATS
+    "no responders" publish failures).
+    """
     loop = get_step_event_loop()
+    future = asyncio.run_coroutine_threadsafe(coro, loop)
     try:
-        future = asyncio.run_coroutine_threadsafe(coro, loop)
         future.result(timeout=timeout)
+    except concurrent.futures.TimeoutError:
+        future.cancel()
+        logger.warning("step-event emit timed out after %.1fs — cancelled", timeout)
     except Exception:
         logger.exception("step-event emit failed (non-fatal)")
 
@@ -133,9 +150,15 @@ def make_step_reporter(
     if task is None:
         return None
     loop = get_step_event_loop()
+    future = asyncio.run_coroutine_threadsafe(publisher_factory(), loop)
     try:
-        future = asyncio.run_coroutine_threadsafe(publisher_factory(), loop)
         publisher = future.result(timeout=init_timeout)
+    except concurrent.futures.TimeoutError:
+        future.cancel()
+        logger.warning(
+            "step-event publisher init timed out after %.1fs — cancelled", init_timeout
+        )
+        return None
     except Exception:
         logger.exception("step-event publisher init failed (non-fatal)")
         return None

@@ -131,6 +131,18 @@ class StepEventPublisher:
     def __init__(self, nats_publisher: Any, *, plugin_name: str) -> None:
         self._pub = nats_publisher
         self._source = f"magellon/plugins/{plugin_name}"
+        # One publisher is cached and shared per plugin_name (see
+        # make_step_publisher below), including across multiple
+        # broker-runner threads in the same process (ptolemy runs one
+        # for square detection and one for hole detection, both
+        # emitting through this same instance). The underlying NATS
+        # client is not safe for truly overlapping publish() calls —
+        # concurrent callers were producing a sustained stream of
+        # "no responders"/"no stream response" failures that,
+        # combined with emit_step's now-fixed leak-on-timeout, drove
+        # unbounded memory growth in production. Serialize so at most
+        # one publish is in flight on this connection at a time.
+        self._lock = asyncio.Lock()
 
     async def started(self, *, job_id: UUID, step: str, task_id: Optional[UUID] = None) -> None:
         await self._emit(STEP_STARTED, StepStartedMessage(job_id=job_id, task_id=task_id, step=step))
@@ -183,7 +195,8 @@ class StepEventPublisher:
             subject=subject,
             data=data.model_dump(mode="json"),
         )
-        await self._pub.publish(subject, envelope)
+        async with self._lock:
+            await self._pub.publish(subject, envelope)
 
 
 class BoundStepReporter:
