@@ -121,7 +121,7 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
             // Particle dots
             particles.forEach((p) => {
                 const pc = particleClasses.find((c) => c.id === p.class);
-                ctx.fillStyle = pc?.color ?? '#4caf50';
+                ctx.fillStyle = pc?.color ?? '#00e676';
                 ctx.beginPath();
                 ctx.arc(p.x * scaleX, p.y * scaleY, 2, 0, Math.PI * 2);
                 ctx.fill();
@@ -294,7 +294,7 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
 
     const getParticleColor = (particle: Point) => {
         const particleClass = particleClasses.find((c) => c.id === particle.class);
-        const baseColor = particleClass?.color || '#4caf50';
+        const baseColor = particleClass?.color || '#00e676';
         if (selectedParticles.has(particle.id || '')) return '#2196f3';
         if (hoveredParticle === particle.id) return '#ff9800';
         return baseColor;
@@ -430,12 +430,12 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
                         cy={cursorPos.y}
                         r={particleRadius}
                         fill={
-                            tool === 'add' ? 'rgba(76,175,80,0.08)' :
+                            tool === 'add' ? 'rgba(0,230,118,0.08)' :
                             tool === 'sam2' ? 'rgba(33,150,243,0.08)' :
                             'rgba(244,67,54,0.08)'
                         }
                         stroke={
-                            tool === 'add' ? '#4caf50' :
+                            tool === 'add' ? '#00e676' :
                             tool === 'sam2' ? '#2196f3' :
                             '#f44336'
                         }

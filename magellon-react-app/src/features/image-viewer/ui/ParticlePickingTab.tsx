@@ -148,7 +148,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
 
     // Particle classes
     const [particleClasses, setParticleClasses] = useState<ParticleClass[]>([
-        { id: '1', name: 'Good', color: '#4caf50', count: 0, visible: true, icon: <CheckCircleIcon fontSize="small" /> },
+        { id: '1', name: 'Good', color: '#00e676', count: 0, visible: true, icon: <CheckCircleIcon fontSize="small" /> },
         { id: '2', name: 'Edge', color: '#ff9800', count: 0, visible: true, icon: <Circle size={16} /> },
         { id: '3', name: 'Contamination', color: '#f44336', count: 0, visible: true, icon: <CloseIcon fontSize="small" /> },
         { id: '4', name: 'Uncertain', color: '#9c27b0', count: 0, visible: true, icon: <HelpIcon fontSize="small" /> }

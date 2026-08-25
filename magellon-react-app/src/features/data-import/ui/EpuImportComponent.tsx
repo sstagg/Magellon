@@ -216,7 +216,7 @@ boxShadow: 1,
 <Typography variant="h6" gutterBottom>
 Required Folder Structure
 </Typography>
-<Box sx={{ fontSize: 14, color: '#374151', ml: 1, '& .row': { display: 'flex', alignItems: 'center', gap: 1 }, '& .indent': { ml: 3, mt: 0.5, borderLeft: '1px solid', borderColor: '#e5e7eb', pl: 1.5 }, '& .indent-main': { ml: 3, mt: 0.5, borderLeft: '1px solid', borderColor: '#d1d5db', pl: 1.5 } }}>
+<Box sx={{ fontSize: 14, color: 'text.primary', ml: 1, '& .row': { display: 'flex', alignItems: 'center', gap: 1 }, '& .indent': { ml: 3, mt: 0.5, borderLeft: '1px solid', borderColor: 'divider', pl: 1.5 }, '& .indent-main': { ml: 3, mt: 0.5, borderLeft: '1px solid', borderColor: 'divider', pl: 1.5 } }}>
 <Box className="row"><span>📁</span><Box component="span" sx={{ fontWeight: 500 }}>Main Folder (Upload this)</Box></Box>
 <Box className="indent-main">
 <Box className="row" sx={{ mt: 0.5 }}><span>📁</span><span>gains</span></Box>

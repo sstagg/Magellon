@@ -89,7 +89,7 @@ export const PluginsPageView: React.FC = () => {
                 sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
             >
                 <Tab value="installed" label="Installed" />
-                <Tab value="catalog" label="Downloaded" />
+                <Tab value="catalog" label="Add Plugin" />
             </Tabs>
 
             {tab === 'installed' && (

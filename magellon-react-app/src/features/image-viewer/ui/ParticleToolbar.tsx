@@ -135,6 +135,7 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
     onHelpOpen,
 }) => {
     const [actionsAnchor, setActionsAnchor] = useState<null | HTMLElement>(null);
+    const [pickingRecordMenuOpen, setPickingRecordMenuOpen] = useState(false);
 
     return (
         <Paper elevation={1} sx={{ px: 1, py: 0.5 }}>
@@ -142,12 +143,14 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
 
                 {/* Picking-record dropdown — each entry is one saved set of
                     particle picks (manual or auto) for this image. */}
-                <Tooltip title="Particle-picking records for this image (manual or auto)">
+                <Tooltip title={pickingRecordMenuOpen ? '' : "Particle-picking records for this image (manual or auto)"}>
                     <FormControl size="small" sx={{ minWidth: 160, maxWidth: 220 }}>
                         <Select
                             displayEmpty
                             value={selectedParticlePicking?.oid || ""}
                             onChange={OnIppSelected}
+                            onOpen={() => setPickingRecordMenuOpen(true)}
+                            onClose={() => setPickingRecordMenuOpen(false)}
                             sx={{
                                 height: 28, fontSize: '0.75rem',
                                 '& .MuiSelect-select': { py: 0.25 },
