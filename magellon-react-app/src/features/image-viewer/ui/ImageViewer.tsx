@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuthenticatedImage } from '../../../shared/lib/useAuthenticatedImage.ts';
 import type { DetectionResult, PtolemyDetection } from '../api/PtolemyDetectionService.ts';
@@ -10,9 +10,20 @@ interface ImageViewerProps {
     imageStyle?: React.CSSProperties;
     brightness?: number; // 0-100
     contrast?: number; // 0-100
-    scale?: number; // 0.1-3
+    scale?: number; // 0.25-4
+    /** Called when the mouse wheel changes the zoom level, so the caller
+     *  (e.g. a zoom slider) can stay in sync. */
+    onScaleChange?: (scale: number) => void;
+    /** Top-left corner of the visible crop, in original image pixel
+     *  coordinates. Controlled by the caller (e.g. pan sliders) so it can
+     *  stay in sync with wheel-zoom's own pan adjustments. */
+    pan?: { x: number; y: number };
+    onPanChange?: (pan: { x: number; y: number }) => void;
     detectionOverlay?: DetectionResult | null;
 }
+
+const ZOOM_MIN = 0.25;
+const ZOOM_MAX = 4;
 
 interface Point {
     x: number;
@@ -238,6 +249,9 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
                                                      brightness = 50,
                                                      contrast = 50,
                                                      scale = 1,
+                                                     onScaleChange,
+                                                     pan = { x: 0, y: 0 },
+                                                     onPanChange,
                                                      detectionOverlay,
                                                  }) => {
     const [circles, setCircles] = useState<Point[]>([]);
@@ -247,9 +261,66 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
     const { imageUrl: authenticatedImageUrl, isLoading } = useAuthenticatedImage(imageUrl);
 
     useEffect(() => {
-        // Reset circles when imageUrl changes
+        // Reset circles and pan when imageUrl changes
         setCircles([]);
+        onPanChange?.({ x: 0, y: 0 });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [imageUrl]);
+
+    const clampPan = (x: number, y: number, vbW: number, vbH: number) => {
+        const maxX = Math.max(0, width - vbW);
+        const maxY = Math.max(0, height - vbH);
+        return { x: Math.min(Math.max(x, 0), maxX), y: Math.min(Math.max(y, 0), maxY) };
+    };
+
+    // Whenever `scale` changes from an external source (zoom slider/buttons,
+    // not our own wheel handler below), recenter the pan on the current view
+    // center instead of jumping back to the image's top-left corner.
+    const prevScaleRef = useRef(scale);
+    const skipRecenterRef = useRef(false);
+    useEffect(() => {
+        if (prevScaleRef.current === scale) return;
+        if (skipRecenterRef.current) {
+            skipRecenterRef.current = false;
+            prevScaleRef.current = scale;
+            return;
+        }
+        const prevVBW = width / prevScaleRef.current;
+        const prevVBH = height / prevScaleRef.current;
+        const centerX = pan.x + prevVBW / 2;
+        const centerY = pan.y + prevVBH / 2;
+        const newVBW = width / scale;
+        const newVBH = height / scale;
+        onPanChange?.(clampPan(centerX - newVBW / 2, centerY - newVBH / 2, newVBW, newVBH));
+        prevScaleRef.current = scale;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [scale]);
+
+    // Mouse-wheel zoom, anchored on the point under the cursor: whatever
+    // image pixel is under the cursor stays under the cursor after zooming.
+    const handleWheel = (event: React.WheelEvent<SVGSVGElement>) => {
+        event.preventDefault();
+        const rect = event.currentTarget.getBoundingClientRect();
+        const fx = (event.clientX - rect.left) / rect.width;
+        const fy = (event.clientY - rect.top) / rect.height;
+
+        const curVBW = width / scale;
+        const curVBH = height / scale;
+        const imgX = pan.x + fx * curVBW;
+        const imgY = pan.y + fy * curVBH;
+
+        const delta = event.deltaY > 0 ? -0.1 : 0.1;
+        const newScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round((scale + delta) * 100) / 100));
+        if (newScale === scale) return;
+
+        const newVBW = width / newScale;
+        const newVBH = height / newScale;
+        const newPan = clampPan(imgX - fx * newVBW, imgY - fy * newVBH, newVBW, newVBH);
+
+        skipRecenterRef.current = true;
+        onPanChange?.(newPan);
+        onScaleChange?.(newScale);
+    };
 
     const calculateMidpoint = (point1: Point, point2: Point): Point => {
         return {
@@ -284,7 +355,9 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
     const brightnessValue = brightness / 50; // 50 = 1 (normal)
     const contrastValue = contrast / 50; // 50 = 1 (normal)
 
-    // Extract transform from imageStyle
+    // Extract rotate/flip transform from imageStyle. Zoom is handled by the
+    // SVG viewBox (see `pan`/`scale` above), not by scaling this group —
+    // that lets wheel-zoom anchor on the cursor instead of always the center.
     const getTransformMatrix = () => {
         let transformStr = '';
         const centerX = width / 2;
@@ -292,9 +365,6 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
 
         // Start with translate to center
         transformStr += `translate(${centerX}, ${centerY}) `;
-
-        // Apply scale
-        transformStr += `scale(${scale}) `;
 
         // Apply any additional transforms from imageStyle
         if (imageStyle?.transform) {
@@ -321,8 +391,10 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
         return transformStr;
     };
 
-    const containerWidth = width * scale;
-    const containerHeight = height * scale;
+    // Fixed on-screen viewport — zoom changes what's visible (via viewBox),
+    // not the footprint of the component itself.
+    const containerWidth = width;
+    const containerHeight = height;
 
     const hasOverlay =
         detectionOverlay &&
@@ -342,7 +414,8 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
                 width={containerWidth}
                 height={containerHeight}
                 onClick={handleSvgClick}
-                viewBox={`0 0 ${width} ${height}`}
+                onWheel={handleWheel}
+                viewBox={`${pan.x} ${pan.y} ${width / scale} ${height / scale}`}
                 style={{ cursor: 'crosshair' }}
             >
                 <defs>

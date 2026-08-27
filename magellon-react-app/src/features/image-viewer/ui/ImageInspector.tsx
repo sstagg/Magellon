@@ -16,6 +16,9 @@ import {
     Tab,
     Tabs,
     alpha,
+    Slider,
+    IconButton,
+    Tooltip,
 } from "@mui/material";
 import { TabContext, TabPanel } from '@mui/lab';
 import {
@@ -23,6 +26,9 @@ import {
     ScatterPlot,
     Analytics,
     TuneOutlined,
+    ZoomIn as ZoomInIcon,
+    ZoomOut as ZoomOutIcon,
+    RestartAlt as ResetZoomIcon,
 } from "@mui/icons-material";
 import {
     FileImage,
@@ -69,18 +75,30 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
     const [isInfoExpanded] = useState(!isMobile);
     const [loadingProgress, setLoadingProgress] = useState<number>(0);
 
+    // Pan position for the Overview tab's zoomable image (top-left corner of
+    // the visible crop, in original image pixel coordinates).
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+
     // Access store state and actions with enhanced functionality
     const {
         activeTab,
         selectedParticlePicking,
         isParticlePickingDialogOpen,
         currentSession,
+        scale,
+        setScale,
         setActiveTab,
         setSelectedParticlePicking,
         updateParticlePicking,
         openParticlePickingDialog,
         closeParticlePickingDialog,
     } = useImageViewerStore();
+
+    const ZOOM_MIN = 0.25;
+    const ZOOM_MAX = 4;
+    const viewerSize = isMobile ? IMAGE_SIZE_MOBILE : IMAGE_SIZE_DESKTOP;
+    const maxPanX = Math.max(0, viewerSize - viewerSize / scale);
+    const maxPanY = Math.max(0, viewerSize - viewerSize / scale);
 
     // Get the current session name
     const sessionName = currentSession?.name || '';
@@ -368,13 +386,73 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                     {detectionOverlay && (
                                         <DetectionInfoPanel result={detectionOverlay} />
                                     )}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Tooltip title="Zoom out">
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => setScale(Math.max(ZOOM_MIN, Math.round((scale - 0.1) * 100) / 100))}
+                                            >
+                                                <ZoomOutIcon fontSize="small" />
+                                            </IconButton>
+                                        </Tooltip>
+                                        <Slider
+                                            size="small"
+                                            value={scale}
+                                            min={ZOOM_MIN}
+                                            max={ZOOM_MAX}
+                                            step={0.05}
+                                            onChange={(_, value) => setScale(value as number)}
+                                            sx={{ flex: 1 }}
+                                        />
+                                        <Tooltip title="Zoom in">
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => setScale(Math.min(ZOOM_MAX, Math.round((scale + 0.1) * 100) / 100))}
+                                            >
+                                                <ZoomInIcon fontSize="small" />
+                                            </IconButton>
+                                        </Tooltip>
+                                        <Tooltip title="Reset zoom">
+                                            <IconButton size="small" onClick={() => { setScale(1); setPan({ x: 0, y: 0 }); }}>
+                                                <ResetZoomIcon fontSize="small" />
+                                            </IconButton>
+                                        </Tooltip>
+                                        <Typography variant="body2" sx={{ minWidth: 44, textAlign: 'right', color: 'text.secondary' }}>
+                                            {Math.round(scale * 100)}%
+                                        </Typography>
+                                    </Box>
                                 </Box>
-                                <ImageViewer
-                                    imageUrl={`${BASE_URL}/image_thumbnail?name=${encodeURIComponent(selectedImage?.name ?? '')}&sessionName=${sessionName}`}
-                                    width={isMobile ? IMAGE_SIZE_MOBILE : IMAGE_SIZE_DESKTOP}
-                                    height={isMobile ? IMAGE_SIZE_MOBILE : IMAGE_SIZE_DESKTOP}
-                                    imageStyle={imageStyle}
-                                    detectionOverlay={detectionOverlay}
+                                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+                                    <ImageViewer
+                                        imageUrl={`${BASE_URL}/image_thumbnail?name=${encodeURIComponent(selectedImage?.name ?? '')}&sessionName=${sessionName}`}
+                                        width={viewerSize}
+                                        height={viewerSize}
+                                        imageStyle={imageStyle}
+                                        detectionOverlay={detectionOverlay}
+                                        scale={scale}
+                                        onScaleChange={setScale}
+                                        pan={pan}
+                                        onPanChange={setPan}
+                                    />
+                                    <Slider
+                                        size="small"
+                                        orientation="vertical"
+                                        disabled={maxPanY <= 0}
+                                        value={maxPanY - pan.y}
+                                        min={0}
+                                        max={maxPanY}
+                                        onChange={(_, value) => setPan((prev) => ({ ...prev, y: maxPanY - (value as number) }))}
+                                        sx={{ height: viewerSize }}
+                                    />
+                                </Box>
+                                <Slider
+                                    size="small"
+                                    disabled={maxPanX <= 0}
+                                    value={pan.x}
+                                    min={0}
+                                    max={maxPanX}
+                                    onChange={(_, value) => setPan((prev) => ({ ...prev, x: value as number }))}
+                                    sx={{ width: viewerSize }}
                                 />
 
                             </Box>
