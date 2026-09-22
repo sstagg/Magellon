@@ -138,6 +138,9 @@ services:
       - DRAGONFLY_HOST=dragonfly
       - DRAGONFLY_PORT=6379
       - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      - MAGELLON_LOG_DIR=/tmp/magellon-logs
+      - MPLCONFIGDIR=/tmp/matplotlib
+      - HOME=/tmp
       # Step-event forwarders (RMQ + NATS): persist lifecycle envelopes
       # to job_event AND drive JobManager state transitions for
       # message-driven plugins (FFT/CTF/MotionCor).
@@ -145,7 +148,7 @@ services:
       - MAGELLON_STEP_EVENTS_FORWARDER=1
       - NATS_URL=nats://nats:4222
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-8e9b91d16c6adcc0b31780e6e959eecb72e78f786148a28f583391e7c64157e9}
-      - MAGELLON_CORS_ALLOWED_ORIGINS=http://localhost:8080,http://127.0.0.1:8080,http://localhost,http://127.0.0.1
+      - MAGELLON_CORS_ALLOWED_ORIGINS=http://localhost:18080,http://127.0.0.1:18080,http://localhost:8080,http://127.0.0.1:8080,http://localhost,http://127.0.0.1
     networks:
       magellon-network:
         ipv4_address: 172.16.238.15
@@ -169,8 +172,8 @@ services:
 
   magellon_ctf_plugin:
     build:
-      context: ../plugins/magellon_ctf_plugin
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: plugins/magellon_ctf_plugin/Dockerfile
     image: magellon_ctf_plugin_image
     container_name: magellon_ctf_plugin_container
     environment:
@@ -181,6 +184,9 @@ services:
       - DRAGONFLY_HOST=dragonfly
       - DRAGONFLY_PORT=6379
       - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      - MAGELLON_LOG_DIR=/tmp/magellon-logs
+      - MPLCONFIGDIR=/tmp/matplotlib
+      - HOME=/tmp
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
@@ -193,8 +199,8 @@ services:
 
   magellon_motioncor_plugin:
     build:
-      context: ../plugins/magellon_motioncor_plugin
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: plugins/magellon_motioncor_plugin/Dockerfile
       args:
         CUDA_IMAGE: ${CUDA_IMAGE}
         MOTIONCOR_BINARY: ${MOTIONCOR_BINARY}
@@ -210,6 +216,9 @@ services:
       - DRAGONFLY_HOST=dragonfly
       - DRAGONFLY_PORT=6379
       - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      - MAGELLON_LOG_DIR=/tmp/magellon-logs
+      - MPLCONFIGDIR=/tmp/matplotlib
+      - HOME=/tmp
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
       - ${MAGELLON_GPFS_PATH}:/gpfs
@@ -226,6 +235,233 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+  magellon_fft_plugin:
+    build:
+      context: ../plugins/magellon_fft_plugin
+      dockerfile: Dockerfile
+    image: magellon_fft_plugin_image
+    container_name: magellon_fft_plugin_container
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
+      - nats
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      - MAGELLON_LOG_DIR=/tmp/magellon-logs
+      - MPLCONFIGDIR=/tmp/matplotlib
+      - HOME=/tmp
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
+      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_fft_plugin:80
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_FFT_PLUGIN_PORT:-8037}:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.23
+
+  magellon_ptolemy_plugin:
+    build:
+      context: ../plugins/magellon_ptolemy_plugin
+      dockerfile: Dockerfile
+    image: magellon_ptolemy_plugin_image
+    container_name: magellon_ptolemy_plugin_container
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
+      - nats
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      - MAGELLON_LOG_DIR=/tmp/magellon-logs
+      - MPLCONFIGDIR=/tmp/matplotlib
+      - HOME=/tmp
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
+      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_ptolemy_plugin:8000
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_PTOLEMY_PLUGIN_PORT:-8038}:8000"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.24
+    # Documented resource hint is 600MB (plugin/plugin.py's ResourceHints),
+    # which turned out to be wrong for real hole-detection workloads: the
+    # _tiled_hole_detection fallback (compute.py) upscales each of 4 tiles
+    # to 2048x2048 for large images, and real jobs were observed needing
+    # well over 2G, getting OOM-killed mid-job every ~12s and never
+    # completing (RabbitMQ redelivers the unacked message, so the same
+    # stuck job repeats forever). 8G gives real jobs room to actually
+    # finish while still capping this one container instead of letting a
+    # genuine leak (there was one — see the ptolemy fix commits around
+    # 2026-08-25) exhaust the whole host again.
+    mem_limit: 8G
+
+  magellon_topaz_plugin:
+    build:
+      context: ../plugins/magellon_topaz_plugin
+      dockerfile: Dockerfile
+    image: magellon_topaz_plugin_image
+    container_name: magellon_topaz_plugin_container
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
+      - nats
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      - MAGELLON_LOG_DIR=/tmp/magellon-logs
+      - MPLCONFIGDIR=/tmp/matplotlib
+      - HOME=/tmp
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
+      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_topaz_plugin:8000
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_TOPAZ_PLUGIN_PORT:-8039}:8000"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.25
+
+  magellon_stack_maker_plugin:
+    build:
+      context: ../plugins/magellon_stack_maker_plugin
+      dockerfile: Dockerfile
+    image: magellon_stack_maker_plugin_image
+    container_name: magellon_stack_maker_plugin_container
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
+      - nats
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      - MAGELLON_LOG_DIR=/tmp/magellon-logs
+      - MPLCONFIGDIR=/tmp/matplotlib
+      - HOME=/tmp
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
+      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_stack_maker_plugin:80
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_STACK_MAKER_PLUGIN_PORT:-8040}:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.26
+
+  magellon_can_classifier_plugin:
+    build:
+      context: ../plugins/magellon_can_classifier_plugin
+      dockerfile: Dockerfile
+    image: magellon_can_classifier_plugin_image
+    container_name: magellon_can_classifier_plugin_container
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
+      - nats
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      - MAGELLON_LOG_DIR=/tmp/magellon-logs
+      - MPLCONFIGDIR=/tmp/matplotlib
+      - HOME=/tmp
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
+      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_can_classifier_plugin:80
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_CAN_CLASSIFIER_PLUGIN_PORT:-8041}:80"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.27
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  magellon_template_picker_plugin:
+    build:
+      context: ../plugins/magellon_template_picker_plugin
+      dockerfile: Dockerfile
+    image: magellon_template_picker_plugin_image
+    container_name: magellon_template_picker_plugin_container
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
+      - nats
+    environment:
+      - APP_ENV=production
+      - RUN_ENV=docker
+      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
+      - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      - DRAGONFLY_HOST=dragonfly
+      - DRAGONFLY_PORT=6379
+      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
+      - MAGELLON_LOG_DIR=/tmp/magellon-logs
+      - MPLCONFIGDIR=/tmp/matplotlib
+      - HOME=/tmp
+      - MAGELLON_STEP_EVENTS_ENABLED=1
+      - MAGELLON_STEP_EVENTS_RMQ=1
+      - NATS_URL=nats://nats:4222
+      - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_template_picker_plugin:8000
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    ports:
+      - "127.0.0.1:${MAGELLON_TEMPLATE_PICKER_PLUGIN_PORT:-8042}:8000"
+    networks:
+      magellon-network:
+        ipv4_address: 172.16.238.28
 
   # magellon_fft_plugin:
   #   build:

@@ -8,6 +8,8 @@ package layout.
 from __future__ import annotations
 
 import logging.config
+import os
+from pathlib import Path
 from typing import Any, Callable
 
 from pythonjsonlogger import jsonlogger
@@ -29,6 +31,10 @@ def setup_logging(plugin_info_provider: Callable[[], Any]) -> None:
             log_record["plugin_name"] = str(info.name)
             log_record["plugin_version"] = str(info.version)
 
+    log_dir = Path(os.environ.get("MAGELLON_LOG_DIR", "/tmp/magellon-logs"))
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "app.log"
+
     config = {
         "version": 1,
         "disable_existing_loggers": False,
@@ -43,7 +49,7 @@ def setup_logging(plugin_info_provider: Callable[[], Any]) -> None:
             },
             "file": {
                 "class": "logging.handlers.RotatingFileHandler",
-                "filename": "app.log",
+                "filename": str(log_path),
                 "maxBytes": 1024 * 1024 * 5,  # 5 MB
                 "backupCount": 5,
                 "formatter": "json",

@@ -694,6 +694,16 @@ class EPUImporter(BaseImporter):
                         self.params.replace_with
                     )
 
+                # Persist the resolved raw source path on the Image row.
+                # create_import_image_record() is never called with
+                # path= above (only session/name/scope metadata is known
+                # there), so without this, Image.path stays NULL for
+                # every EPU import — breaking anything that resolves an
+                # image's file location from the DB instead of the
+                # in-flight task_dto (e.g. particle-picking's manual
+                # dispatch/batch endpoints).
+                db_image.path = source_image_path
+
                 # Extract frame name if it exists
                 frame_name = ""
                 if source_frame_path:

@@ -32,34 +32,34 @@ RUN pip install psycopg2-binary
 # Clear pip cache
 RUN rm -rf /root/.cache/pip/*
 
-# Install other Python dependencies. Use requirements.docker.txt (which
-# pins the SDK to the bundled wheel) instead of requirements.txt (which
-# has an editable ../../magellon-sdk path that doesn't exist in-image).
-COPY requirements.docker.txt ./
-COPY magellon_sdk-2.5.0-py3-none-any.whl ./
-RUN pip install --upgrade -r ./requirements.docker.txt
+# Install the SDK from the repository source instead of the stale bundled
+# wheel, so runtime fixes in magellon-sdk are included in the image.
+COPY magellon-sdk /app/magellon-sdk
+COPY plugins/magellon_ctf_plugin/requirements.docker.txt ./requirements.docker.txt
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+RUN python3 -m pip install --break-system-packages --no-cache-dir --force-reinstall --no-deps /app/magellon-sdk[rabbitmq,nats,logging,config] \
+    && python3 -m pip install --break-system-packages --ignore-installed --no-cache-dir -r ./requirements.docker.txt
 # Install debugpy
-#RUN pip install --upgrade pip
-RUN pip install debugpy
+RUN python3 -m pip install --break-system-packages --no-cache-dir debugpy
 
 # Keeps Python from generating .pyc files in the container
 ENV PYTHONDONTWRITEBYTECODE 1
 # Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED 1
 # Copy application files
-COPY appionlib ./appionlib
-COPY configs/settings_dev.yml ./configs/settings_dev.yml
-COPY configs/settings_prod.yml ./configs/settings_prod.yml
-COPY core ./core
-COPY plugin ./plugin
-COPY pyami ./pyami
-COPY service ./service
-COPY main.py ./main.py
-COPY ctffind ./ctffind
-COPY ctffind_plot_results.sh ./ctffind_plot_results.sh
-COPY test_main.http ./
-COPY test_publish.py ./test_publish.py
-COPY utils.py ./utils.py
+COPY plugins/magellon_ctf_plugin/appionlib ./appionlib
+COPY plugins/magellon_ctf_plugin/configs/settings_dev.yml ./configs/settings_dev.yml
+COPY plugins/magellon_ctf_plugin/configs/settings_prod.yml ./configs/settings_prod.yml
+COPY plugins/magellon_ctf_plugin/core ./core
+COPY plugins/magellon_ctf_plugin/plugin ./plugin
+COPY plugins/magellon_ctf_plugin/pyami ./pyami
+COPY plugins/magellon_ctf_plugin/service ./service
+COPY plugins/magellon_ctf_plugin/main.py ./main.py
+COPY plugins/magellon_ctf_plugin/ctffind ./ctffind
+COPY plugins/magellon_ctf_plugin/ctffind_plot_results.sh ./ctffind_plot_results.sh
+COPY plugins/magellon_ctf_plugin/test_main.http ./
+COPY plugins/magellon_ctf_plugin/test_publish.py ./test_publish.py
+COPY plugins/magellon_ctf_plugin/utils.py ./utils.py
 # Create a volume for the application data
 #VOLUME /app/data
 VOLUME /gpfs

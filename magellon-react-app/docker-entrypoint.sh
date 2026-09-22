@@ -7,7 +7,7 @@ set -e
 # Empty API_URL means relative paths — nginx inside this container proxies
 # /auth, /web, /image, etc. to the backend container. No CORS, no hardcoded host.
 # Only set API_URL to an absolute URL when the backend is on a different host.
-API_URL="${API_URL:-}"
+API_URL="${API_URL:-http://127.0.0.1:8000}"
 WEB_API_URL="${WEB_API_URL:-${API_URL}/web}"
 
 cat > /usr/share/nginx/html/config.js <<EOF

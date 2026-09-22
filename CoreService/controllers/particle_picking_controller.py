@@ -765,7 +765,7 @@ async def dispatch_particle_pick(
                 raise HTTPException(status_code=404, detail="Image not found")
             if image.session_id and not check_session_access(user_id, image.session_id, action="write"):
                 raise HTTPException(status_code=403, detail="Access denied to this image")
-            resolved_path = _resolve_mrc_path(req.session_name, image.name)
+            resolved_path = _resolve_mrc_path(req.session_name, image.name, fallback_path=image.path)
 
     task_id = uuid.uuid4()
     job_envelope = job_manager.create_job(
@@ -1108,7 +1108,7 @@ async def template_pick_run_and_save(
     if not image.session_id or not check_session_access(user_id, image.session_id, action="write"):
         raise HTTPException(status_code=403, detail="Access denied to this image")
 
-    mrc_path = _resolve_mrc_path(req.session_name, image.name)
+    mrc_path = _resolve_mrc_path(req.session_name, image.name, fallback_path=image.path)
     if not os.path.exists(mrc_path):
         raise HTTPException(status_code=404, detail="MRC file not found on disk")
 
@@ -1194,7 +1194,7 @@ async def template_pick_batch(
     return envelope
 
 
-def _resolve_mrc_path(session_name: str, image_name: str) -> str:
+def _resolve_mrc_path(session_name: str, image_name: str, fallback_path: str | None = None) -> str:
     """Return the MRC path for dispatch to Docker plugins.
 
     Prefers a locally-confirmed path (so ``os.path.abspath`` normalises
@@ -1203,6 +1203,13 @@ def _resolve_mrc_path(session_name: str, image_name: str) -> str:
     canonical ``/gpfs/home/{session}/original/{image}.mrc`` path is
     returned directly — it is valid inside every Docker plugin container
     that bind-mounts the GPFS root at ``/gpfs``.
+
+    ``fallback_path`` is the raw source path already recorded on the
+    ``Image`` DB row (the same path CTF/MotionCor dispatch use directly).
+    The ``original/`` mirror is only populated when an import runs with
+    ``copy_images=True`` (default off), so most sessions never have it —
+    without this fallback, particle picking 404s on every image whenever
+    that checkbox wasn't set, even though the raw file is right there.
     """
     session_variants = [session_name]
     lower_session = session_name.lower()
@@ -1218,6 +1225,8 @@ def _resolve_mrc_path(session_name: str, image_name: str) -> str:
         for candidate in (f"{base}{image_name}", f"{base}{stripped}.mrc", f"{base}{stripped}.mrcs"):
             if os.path.exists(candidate):
                 return os.path.abspath(candidate)
+    if fallback_path and os.path.exists(fallback_path):
+        return os.path.abspath(fallback_path)
     # Local file not found (Windows host without GPFS mount).
     # Build the canonical path that Docker containers can access. The
     # imported session directories are normalized to lowercase.
@@ -1396,7 +1405,7 @@ async def _run_batch_job(
                     failed += 1
                     continue
 
-                mrc_path = _resolve_mrc_path(req.session_name, entry.name)
+                mrc_path = _resolve_mrc_path(req.session_name, entry.name, fallback_path=image.path)
                 if not os.path.exists(mrc_path):
                     items.append(BatchItemResult(
                         image_oid=entry.oid, image_name=entry.name,

@@ -50,8 +50,8 @@ RUN wget https://bootstrap.pypa.io/get-pip.py && \
     python3.11 get-pip.py && \
     rm get-pip.py
 
-# Install psycopg2-binary
-RUN pip install psycopg2-binary
+# Install psycopg2-binary and TIFF codec support for gain files
+RUN pip install psycopg2-binary imagecodecs
 
 # Clear pip cache
 RUN rm -rf /root/.cache/pip/*
@@ -59,18 +59,17 @@ RUN rm -rf /root/.cache/pip/*
 # Set working directory
 
 
-# Install other Python dependencies. Use requirements.docker.txt
-# (which pins the SDK to the bundled wheel) instead of
-# requirements.txt (which has an editable ../../magellon-sdk path
-# that doesn't exist in the build context).
-COPY requirements.docker.txt ./
-COPY magellon_sdk-2.5.0-py3-none-any.whl ./
-RUN pip install --upgrade -r ./requirements.docker.txt
+# Install the SDK from the repository source instead of the stale bundled
+# wheel, so runtime fixes in magellon-sdk are included in the image.
+COPY magellon-sdk /app/magellon-sdk
+COPY plugins/magellon_motioncor_plugin/requirements.docker.txt ./requirements.docker.txt
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+RUN python3 -m pip install --break-system-packages --no-cache-dir --force-reinstall --no-deps /app/magellon-sdk[rabbitmq,nats,logging,config] \
+    && python3 -m pip install --break-system-packages --no-cache-dir -r ./requirements.docker.txt
 RUN ln -s /usr/lib/x86_64-linux-gnu/libtiff.so.5 /usr/lib/x86_64-linux-gnu/libtiff.so.6
 
 # Install debugpy
-RUN pip install --upgrade pip
-RUN pip install debugpy
+RUN python3 -m pip install --break-system-packages --no-cache-dir debugpy
 
 # Set environment variables for Python
 ENV PYTHONDONTWRITEBYTECODE 1
@@ -78,16 +77,16 @@ ENV PYTHONUNBUFFERED 1
 ENV PYTHONPATH=/app
 
 # Copy application files
-COPY configs/settings_dev.yml ./configs/settings_dev.yml
-COPY configs/settings_prod.yml ./configs/settings_prod.yml
-COPY core ./core
-COPY plugin ./plugin
-COPY service ./service
+COPY plugins/magellon_motioncor_plugin/configs/settings_dev.yml ./configs/settings_dev.yml
+COPY plugins/magellon_motioncor_plugin/configs/settings_prod.yml ./configs/settings_prod.yml
+COPY plugins/magellon_motioncor_plugin/core ./core
+COPY plugins/magellon_motioncor_plugin/plugin ./plugin
+COPY plugins/magellon_motioncor_plugin/service ./service
 # COPY model.py ./model.py
-COPY main.py ./main.py
-COPY test_main.http ./
-COPY test_publish.py ./test_publish.py
-COPY utils.py ./utils.py
+COPY plugins/magellon_motioncor_plugin/main.py ./main.py
+COPY plugins/magellon_motioncor_plugin/test_main.http ./
+COPY plugins/magellon_motioncor_plugin/test_publish.py ./test_publish.py
+COPY plugins/magellon_motioncor_plugin/utils.py ./utils.py
 # COPY gpfs/20241202_53597_gain_multi_ref.tif ./gpfs/20241202_53597_gain_multi_ref.tif
 # COPY gpfs/20241203_54449_integrated_movie.mrc.tif ./gpfs/20241203_54449_integrated_movie.mrc.tif
 
@@ -104,9 +103,9 @@ ENV APP_ENV=production
 # Expose the conventional plugin HTTP port used by CoreService's docker installer.
 EXPOSE 8000
 
-# Copy MotionCor2 binaries and libraries
-COPY /motioncor2_binaryfiles/${MOTIONCOR_BINARY} ./${MOTIONCOR_BINARY}
-COPY MotionCor3_1.0.1_Cuda121_10-26-2023 ./MotionCor3_1.0.1_Cuda121_10-26-2023
+# Copy MotionCor2 binaries and libraries from the repo-relative plugin path.
+COPY plugins/magellon_motioncor_plugin/motioncor2_binaryfiles/${MOTIONCOR_BINARY} ./${MOTIONCOR_BINARY}
+COPY plugins/magellon_motioncor_plugin/MotionCor3_1.0.1_Cuda121_10-26-2023 ./MotionCor3_1.0.1_Cuda121_10-26-2023
 # Set executable permissions for MotionCor2
 # RUN chmod +x /MotionCor2/MotionCor2
 

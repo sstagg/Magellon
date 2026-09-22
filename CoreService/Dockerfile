@@ -54,11 +54,9 @@ COPY CoreService/alembic.ini ./alembic.ini
 COPY CoreService/entrypoint.sh ./entrypoint.sh
 RUN sed -i 's/\r$//' ./entrypoint.sh && chmod +x ./entrypoint.sh
 
-# Run as a non-root user; port 8000 (unprivileged) — compose maps it.
-RUN useradd --create-home --uid 10001 magellon \
- && mkdir -p /app/CoreService/data /magellon /gpfs \
- && chown -R magellon:magellon /app /magellon /gpfs
-USER magellon
+# Runs as root so it always has access to /magellon and /gpfs
+# regardless of which host account owns files there.
+RUN mkdir -p /app/CoreService/data /magellon /gpfs
 
 VOLUME /magellon
 VOLUME ./configs

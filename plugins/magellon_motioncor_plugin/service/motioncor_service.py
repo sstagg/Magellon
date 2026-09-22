@@ -28,8 +28,13 @@ def _get_frame_count(file_path: str, extension: str) -> int:
     return 1
 
 
-def _check_vram_for_movie(width: int, height: int, n_frames: int) -> tuple[bool, str]:
-    """Return (ok, message). Estimates if available VRAM can handle this movie."""
+def _check_vram_for_movie(width: int, height: int, n_frames: int, ft_bin: float = 1.0) -> tuple[bool, str]:
+    """Return (ok, message). Estimates if available VRAM can handle this movie.
+
+    MotionCor Fourier-bins each frame to (width/ft_bin, height/ft_bin) before
+    patch tracking, so the raw full-resolution size overestimates the actual
+    working set by ft_bin**2 once binning is requested.
+    """
     try:
         result = subprocess.run(
             ["nvidia-smi", "--query-gpu=memory.free", "--format=csv,noheader,nounits"],
@@ -38,12 +43,13 @@ def _check_vram_for_movie(width: int, height: int, n_frames: int) -> tuple[bool,
         if result.returncode != 0:
             return True, ""  # can't check — let MC3 try
         free_mib = int(result.stdout.strip().splitlines()[0])
-        # Estimate: raw uint16 data + 4× for FFT buffers and patches
-        raw_gb = (width * height * n_frames * 2) / 1e9
+        ft_bin = ft_bin or 1.0
+        # Estimate: binned uint16 data + 4× for FFT buffers and patches
+        raw_gb = (width * height * n_frames * 2) / (ft_bin ** 2) / 1e9
         required_mib = int(raw_gb * 4 * 1024)
         if required_mib > free_mib:
             return False, (
-                f"Movie {width}x{height}x{n_frames} frames needs ~{required_mib} MiB VRAM "
+                f"Movie {width}x{height}x{n_frames} frames (FtBin={ft_bin}) needs ~{required_mib} MiB VRAM "
                 f"but only {free_mib} MiB is free. "
                 "Use a GPU with more VRAM to process this dataset."
             )
@@ -86,7 +92,7 @@ async def do_motioncor(params: TaskMessage)->TaskResultMessage:
         file_extension = os.path.splitext(input_file)[1].lower()
         x_size,y_size=getImageSize(params.data["inputFile"],file_extension)
         n_frames = _get_frame_count(input_file, file_extension)
-        vram_ok, vram_msg = _check_vram_for_movie(x_size, y_size, n_frames)
+        vram_ok, vram_msg = _check_vram_for_movie(x_size, y_size, n_frames, the_task_data.FtBin)
         if not vram_ok:
             logger.error(f"VRAM pre-flight failed: {vram_msg}")
             raise ValueError(vram_msg)

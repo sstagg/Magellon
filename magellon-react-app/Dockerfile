@@ -29,7 +29,7 @@ COPY nginx.conf ./nginx.conf
 # (config.js from env vars) — no build-time source patching, one image
 # runs against any backend.
 
-RUN pnpm install --force --config.dangerouslyAllowAllBuilds=true
+RUN pnpm install --force --dangerously-allow-all-builds
 
 # Build the application
 RUN npm run build
