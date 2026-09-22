@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { getAccessToken } from '../auth/tokenStore';
 
 interface UseAuthenticatedImageResult {
   imageUrl: string | null;
@@ -35,7 +36,7 @@ export const useAuthenticatedImage = (url: string | null): UseAuthenticatedImage
 
       try {
         // Get token from localStorage
-        const token = localStorage.getItem('access_token');
+        const token = getAccessToken();
 
         // Fetch the image with authentication
         const response = await axios.get(url, {
@@ -79,7 +80,7 @@ export const useAuthenticatedImage = (url: string | null): UseAuthenticatedImage
  * Use this when you need to fetch the image imperatively
  */
 export const fetchAuthenticatedImage = async (url: string): Promise<string> => {
-  const token = localStorage.getItem('access_token');
+  const token = getAccessToken();
 
   const response = await axios.get(url, {
     headers: {

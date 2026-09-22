@@ -30,11 +30,12 @@ from __future__ import annotations
 
 import logging
 import shlex
-import subprocess
 import threading
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
+
+from core.process_runner import ProcessExecutionError, run_process
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +111,7 @@ class DockerPluginRunner:
         self._docker = docker_binary
         self._lock = threading.Lock()
 
-    def _run_docker(self, args: List[str], *, check: bool = True) -> subprocess.CompletedProcess:
+    def _run_docker(self, args: List[str], *, check: bool = True):
         """Single chokepoint for docker invocations — one place to log
         commands, one place to translate FileNotFoundError into our
         typed DockerNotAvailable.
@@ -118,14 +119,10 @@ class DockerPluginRunner:
         cmd = [self._docker, *args]
         logger.info("docker exec: %s", " ".join(shlex.quote(a) for a in cmd))
         try:
-            return subprocess.run(
-                cmd,
-                check=check,
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
-        except FileNotFoundError as exc:
+            return run_process(cmd, check=check)
+        except ProcessExecutionError as exc:
+            if exc.returncode is not None:
+                raise
             raise DockerNotAvailable(
                 "The 'docker' CLI is not on PATH. Install Docker or "
                 "run CoreService in an environment with docker mounted."

@@ -184,7 +184,7 @@ async def browse_directory(
 
     **Requires:** Authentication.
     """
-    from core.helper import (
+    from core.paths import (
         from_canonical_gpfs_path,
         is_under_gpfs_root,
         to_canonical_gpfs_path,
@@ -282,7 +282,7 @@ async def preview_file(
 
     **Requires:** Authentication.
     """
-    from core.helper import from_canonical_gpfs_path, is_under_gpfs_root
+    from core.paths import from_canonical_gpfs_path, is_under_gpfs_root
 
     logger.warning(f"SECURITY: User {user_id} previewing file: {path}")
 

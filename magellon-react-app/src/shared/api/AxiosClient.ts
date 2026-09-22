@@ -1,5 +1,23 @@
 import type { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from "axios";
 import axios from "axios";
+import { clearAuthStorage, getAccessToken, setAccessToken } from '../auth/tokenStore';
+
+let refreshPromise: Promise<string> | null = null;
+
+async function refreshAccessToken(baseUrl: string, token: string): Promise<string> {
+    if (!refreshPromise) {
+        refreshPromise = axios.post(`${baseUrl}/auth/refresh`, {}, {
+            headers: { Authorization: `Bearer ${token}` },
+        }).then((response) => {
+            const newToken = response.data.access_token as string;
+            setAccessToken(newToken);
+            return newToken;
+        }).finally(() => {
+            refreshPromise = null;
+        });
+    }
+    return refreshPromise;
+}
 
 export function createAxiosClient(baseUrl: string): AxiosInstance {
     const AxiosClient = axios.create({
@@ -13,7 +31,7 @@ export function createAxiosClient(baseUrl: string): AxiosInstance {
     AxiosClient.interceptors.request.use(
         (config: InternalAxiosRequestConfig) => {
             // Try to get token from localStorage
-            const token = localStorage.getItem('access_token');
+            const token = getAccessToken();
 
             // Fallback to old user object if no token found
             if (!token && localStorage.getItem("user")) {
@@ -46,23 +64,11 @@ export function createAxiosClient(baseUrl: string): AxiosInstance {
             if (error.response?.status === 401 && !originalRequest._retry) {
                 originalRequest._retry = true;
 
-                const token = localStorage.getItem('access_token');
+                const token = getAccessToken();
 
                 if (token) {
                     try {
-                        // Try to refresh token
-                        const response = await axios.post(
-                            `${baseUrl}/auth/refresh`,
-                            {},
-                            {
-                                headers: { Authorization: `Bearer ${token}` }
-                            }
-                        );
-
-                        const newToken = response.data.access_token;
-
-                        // Store new token
-                        localStorage.setItem('access_token', newToken);
+                        const newToken = await refreshAccessToken(baseUrl, token);
 
                         // Retry original request with new token
                         if (originalRequest.headers) {
@@ -73,10 +79,7 @@ export function createAxiosClient(baseUrl: string): AxiosInstance {
 
                     } catch (refreshError) {
                         // Refresh failed - logout user
-                        localStorage.removeItem('access_token');
-                        localStorage.removeItem('currentUser');
-                        localStorage.removeItem('currentUserId');
-                        localStorage.removeItem('user'); // Remove old user object too
+                        clearAuthStorage();
 
                         // Redirect to login if not already there
                         if (!window.location.pathname.includes('/login')) {
@@ -87,9 +90,7 @@ export function createAxiosClient(baseUrl: string): AxiosInstance {
                     }
                 } else {
                     // No token - redirect to login
-                    localStorage.removeItem('currentUser');
-                    localStorage.removeItem('currentUserId');
-                    localStorage.removeItem('user'); // Remove old user object too
+                    clearAuthStorage();
 
                     if (!window.location.pathname.includes('/login')) {
                         window.location.href = '/en/account/login';

@@ -50,6 +50,7 @@ from services.plugin_installer.protocol import (
     RuntimeConfig,
     UninstallResult,
 )
+from core.process_runner import run_process_compat
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ def _default_subprocess_runner(*args, **kwargs) -> subprocess.CompletedProcess:
     if kwargs.get("text") and "encoding" not in kwargs:
         kwargs["encoding"] = "utf-8"
         kwargs.setdefault("errors", "replace")
-    return subprocess.run(*args, **kwargs)
+    return run_process_compat(*args, **kwargs)
 
 
 def _replace_existing(path: Path) -> None:

@@ -25,6 +25,7 @@ from services.helper import get_response_image
 import logging
 
 from core.sqlalchemy_row_level_security import get_session_filter_clause, check_session_access
+from core.exceptions import DatabaseError
 from dependencies.auth import get_current_user_id
 
 webapp_router = APIRouter()
@@ -73,11 +74,11 @@ def get_session_mags(
     # RLS: Get filter clause for session-level security
     filter_clause, filter_params = get_session_filter_clause(user_id)
 
-    query = text(f"""
+    query = text("""
         SELECT  image.magnification AS mag
         FROM image
         WHERE image.session_id = :session_id
-        {filter_clause}
+        """ + filter_clause + """
         GROUP BY image.magnification
         ORDER BY mag  """)
     try:
@@ -87,7 +88,8 @@ def get_session_mags(
         rows = result.fetchall()
         return [row[0] for row in rows]
     except Exception as e:
-        raise Exception(f"Database query execution error: {str(e)}")
+        logger.exception("session_magnifications_query_failed")
+        raise DatabaseError("session magnifications query failed") from e
 
 
 @webapp_router.get('/images')
@@ -128,16 +130,15 @@ def get_images_route(
     # RLS: Get filter clause for session-level security
     filter_clause, filter_params = get_session_filter_clause(user_id)
 
-    count_query = text(f"""
+    count_query = text("""
          SELECT COUNT(*) FROM image i
             WHERE (:parentId IS NULL
             AND i.parent_id IS NULL
             OR i.parent_id = :parentId)
             AND i.session_id = :sessionId
-            {filter_clause};
-        """)
+            """ + filter_clause + ";\n        """)
 
-    query = text(f"""
+    query = text("""
         SELECT
           i.oid,
           i.name ,
@@ -159,7 +160,7 @@ def get_images_route(
         AND i.parent_id IS NULL
         OR i.parent_id = :parentId)
         AND i.session_id = :sessionId
-        {filter_clause}
+        """ + filter_clause + """
         LIMIT :limit OFFSET :offset;
         """)
     try:
@@ -205,7 +206,8 @@ def get_images_route(
         }
 
     except Exception as e:
-        raise Exception(f"Database query execution error: {str(e)}")
+        logger.exception("images_query_failed")
+        raise DatabaseError("images query failed") from e
 
 
 @webapp_router.get('/images/{image_name}')
@@ -235,7 +237,7 @@ def get_image_route(
         filter_clause, filter_params = get_session_filter_clause(user_id)
 
         # Fetch the single image based on the image name
-        query = text(f"""
+        query = text("""
             SELECT
               i.oid,
               i.name,
@@ -255,8 +257,7 @@ def get_image_route(
             FROM image i
             WHERE i.name = :image_name
               AND i.session_id = :sessionId
-              {filter_clause};
-            """)
+              """ + filter_clause + ";\n            """)
         # RLS: Merge filter parameters
         params = {"image_name": image_name, "sessionId": session_id_binary, **filter_params}
         result = db_session.execute(query, params)

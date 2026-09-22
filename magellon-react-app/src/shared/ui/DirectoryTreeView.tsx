@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { settings } from "../config/settings";
+import getAxiosClient from '../api/AxiosClient';
+import { settings } from '../config/settings';
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 
@@ -18,7 +18,8 @@ const DirectoryTreeView: React.FC = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await axios.get<TreeNode[]>(`${settings.ConfigData.SERVER_API_URL}/web/directory-tree?root_path=fgb`);
+                const response = await getAxiosClient(settings.ConfigData.SERVER_WEB_API_URL)
+                    .get<TreeNode[]>('/directory-tree', { params: { root_path: 'fgb' } });
                 if (String(response.headers['content-type'] ?? '').includes('application/json')) {
                     setTreeData(response.data);
                 } else {

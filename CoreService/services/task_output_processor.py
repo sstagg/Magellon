@@ -110,7 +110,7 @@ def _move_file_to_directory(file_path: str, destination_dir: str) -> bool:
     try:
         if not file_path:
             return False
-        from core.helper import from_canonical_gpfs_path
+        from core.paths import from_canonical_gpfs_path
         host_path = from_canonical_gpfs_path(file_path)
         os.makedirs(destination_dir, exist_ok=True)
         filename = os.path.basename(host_path)
@@ -279,7 +279,7 @@ class TaskOutputProcessor:
             image_shape = [int(out_shape[0]), int(out_shape[1])]
         if json_path:
             try:
-                from core.helper import from_canonical_gpfs_path
+                from core.paths import from_canonical_gpfs_path
                 host_path = from_canonical_gpfs_path(json_path)
                 if os.path.exists(host_path):
                     with open(host_path, "r") as f:

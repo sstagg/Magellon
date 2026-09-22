@@ -9,7 +9,6 @@ from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from fastapi.openapi.utils import get_openapi
-from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse, HTMLResponse
 from starlette.staticfiles import StaticFiles
 from starlette import status as starlette_status
@@ -58,7 +57,6 @@ from controllers.webapp_particles_controller import particles_router
 from controllers.ops_controller import ops_router
 from plugins.controller import plugins_router
 
-from prometheus_fastapi_instrumentator import Instrumentator
 from rich import print
 import pyfiglet as pyfiglet
 
@@ -71,11 +69,9 @@ from models.graphql_strawberry_schema import strawberry_graphql_router
 
 import rich.traceback
 
-from core.cors import allowed_origins
-from core.dev_routes import dev_routes_enabled, register_dev_routes
+from core.application_factory import create_app
+from core.router_registry import register_routers, register_static_files
 from core.environment import is_production
-from core.exception_handlers import register_exception_handlers
-from core.request_observability import register_request_observability
 from services.casbin_service import CasbinService
 from services.casbin_policy_sync_service import CasbinPolicySyncService
 from core.socketio_server import sio
@@ -165,39 +161,18 @@ def verify_docs_credentials(
 from contextlib import asynccontextmanager
 
 
-@asynccontextmanager
 async def _lifespan(_app: FastAPI):
     """Modern replacement for the deprecated @app.on_event hooks.
 
     startup_event / shutdown_event are defined further down (forward
     references resolve at runtime, when the module is fully loaded).
     """
-    await startup_event()
-    yield
-    await shutdown_event()
+    async with application_lifespan(_app, startup_event, shutdown_event):
+        yield
 
 
 # Disable default docs and openapi endpoints
-app = FastAPI(
-    title="Magellon Core Service",
-    description="Magellon Core Service that provides main services",
-    version="1.0.0",
-    docs_url=None,  # Disable default docs
-    redoc_url=None,  # Disable default redoc
-    openapi_url=None,  # Disable default openapi.json
-    lifespan=_lifespan,
-)
-
-register_exception_handlers(app, is_production=_is_production)
-register_request_observability(app)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_cors_origins(),
-    allow_methods=["*"],
-    allow_headers=["*"],
-    allow_credentials=True,
-)
+app = create_app(lifespan=_lifespan)
 
 
 # Custom protected docs endpoints
@@ -272,6 +247,13 @@ async def get_open_api_endpoint(authenticated: bool = Depends(verify_docs_creden
     )
 
 
+"""Legacy inline router registration retained temporarily for import compatibility.
+
+The active registration lives in ``core.router_registry``.  Keeping this
+historical block inert for one release makes route-table changes easy to
+review and gives downstream imports time to settle.
+"""
+"""
 # Get the hostname of the computer
 local_hostname = socket.gethostname()
 local_ip_address = socket.gethostbyname(local_hostname)
@@ -397,11 +379,15 @@ app.include_router(
 
 # Mount Socket.IO inside FastAPI (handles both HTTP polling and WebSocket)
 app.mount('/socket.io', socketio.ASGIApp(sio, socketio_path=''))
+"""
+
+app.dbengine = engine
+app.dbsession = session_local
 
 
 
 async def startup_event():
-    """Initialize services on application startup (runs via _lifespan)."""
+    '''Initialize services on application startup (runs via _lifespan).'''
     import threading
     from core.background_services import ensure_background_registry
 
@@ -639,7 +625,7 @@ async def startup_event():
 
 
 async def shutdown_event():
-    """Cleanup on application shutdown (runs via _lifespan)."""
+    '''Cleanup on application shutdown (runs via _lifespan).'''
     from core.background_services import ensure_background_registry
 
     background_services = ensure_background_registry(app)
@@ -707,5 +693,3 @@ async def shutdown_event():
         except Exception as e:
             background_services.failed("operational_event_logger", e)
             logger.error(f"[WARNING] Operational event logger stop failed: {e}")
-
-

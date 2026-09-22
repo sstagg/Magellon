@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
 import { settings } from '../config/settings.ts';
+import { getAccessToken } from '../auth/tokenStore';
 
 const SOCKET_URL = settings.ConfigData.SERVER_API_URL;
 
@@ -18,7 +19,7 @@ function getSocket(): Socket {
             reconnectionDelay: 2000,
             // Function form so every (re)connect reads the current token,
             // not the one captured when the socket was first created.
-            auth: (cb) => cb({ token: localStorage.getItem('access_token') }),
+            auth: (cb) => cb({ token: getAccessToken() }),
         });
     }
     return sharedSocket;
@@ -32,6 +33,7 @@ export function useSocket() {
     // returned null/undefined on first render and never notified.
     const [socket, setSocket] = useState<Socket | null>(null);
     const [sid, setSid] = useState<string | undefined>(undefined);
+    const [connectError, setConnectError] = useState<Error | null>(null);
 
     useEffect(() => {
         const s = getSocket();
@@ -44,15 +46,21 @@ export function useSocket() {
 
         const onConnect = () => {
             setConnected(true);
+            setConnectError(null);
             setSid(s.id);
         };
         const onDisconnect = () => {
             setConnected(false);
             setSid(undefined);
         };
+        const onConnectError = (error: Error) => {
+            setConnected(false);
+            setConnectError(error);
+        };
 
         s.on('connect', onConnect);
         s.on('disconnect', onDisconnect);
+        s.on('connect_error', onConnectError);
 
         if (s.connected) {
             setConnected(true);
@@ -62,6 +70,7 @@ export function useSocket() {
         return () => {
             s.off('connect', onConnect);
             s.off('disconnect', onDisconnect);
+            s.off('connect_error', onConnectError);
             refCount--;
             if (refCount <= 0) {
                 refCount = 0;
@@ -94,6 +103,7 @@ export function useSocket() {
     return {
         socket,
         connected,
+        connectError,
         on,
         emit,
         sid,

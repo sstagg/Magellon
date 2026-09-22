@@ -1,5 +1,6 @@
 // services/userApi.ts
 import { settings } from '../../../shared/config/settings.ts';
+import { getAccessToken } from '../../../shared/auth/tokenStore';
 
 export interface ApiUser {
     oid: string;
@@ -105,7 +106,7 @@ class UserApiService {
         const url = `${this.baseUrl}${endpoint}`;
 
         // Add Authorization header if token exists
-        const token = localStorage.getItem('access_token');
+        const token = getAccessToken();
         const headers = new Headers(options.headers);
         if (!headers.has('Content-Type')) {
             headers.set('Content-Type', 'application/json');
@@ -131,7 +132,7 @@ class UserApiService {
     private async authRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
         const url = `${this.authBaseUrl}${endpoint}`;
 
-        const token = localStorage.getItem('access_token');
+        const token = getAccessToken();
         const headers = new Headers(options.headers);
         if (!headers.has('Content-Type')) {
             headers.set('Content-Type', 'application/json');
