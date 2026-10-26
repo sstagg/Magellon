@@ -26,6 +26,9 @@ ops_router = APIRouter(
 
 def _log_glob() -> str:
     """Return the glob pattern that covers all rotation files."""
+    log_dir = os.environ.get("MAGELLON_OPS_LOG_DIR")
+    if log_dir:
+        return os.path.join(log_dir, "ops_events.jsonl*").replace("\\", "/")
     try:
         from core.AppSettings import AppSettingsSingleton
         app_settings = AppSettingsSingleton.get_instance()

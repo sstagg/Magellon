@@ -108,38 +108,49 @@ type ImagePickerDialogProps =
 const api = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 const GPFS_ROOT = '/gpfs';
+// Magellon's own storage. /gpfs is read-only research data, so uploads go
+// here; only its shared folders (uploads, templates) are browsable.
+const MAGELLON_ROOT = '/magellon';
+const UPLOADS_DIR = `${MAGELLON_ROOT}/uploads`;
+const SHARED_DIRS = [UPLOADS_DIR, `${MAGELLON_ROOT}/templates`];
 
-/** Coerce any input to a canonical ``/gpfs/...`` path. Anything that
- *  already looks canonical passes through; anything else collapses to
- *  the GPFS root. Keeps stale localStorage values (host-absolute paths
- *  from before the canonical migration) from breaking the picker. */
-const clampToGpfs = (raw: string | undefined | null): string => {
+const isUnder = (path: string, root: string) => path === root || path.startsWith(`${root}/`);
+
+/** Coerce any input to a wire path under /gpfs or /magellon. Anything else
+ *  collapses to the GPFS root, which keeps stale localStorage values
+ *  (host-absolute paths from before the canonical migration) from breaking
+ *  the picker. */
+const clampToRoot = (raw: string | undefined | null): string => {
     if (!raw) return GPFS_ROOT;
-    const norm = raw.replace(/\\/g, '/');
-    if (norm === GPFS_ROOT) return GPFS_ROOT;
-    if (norm.startsWith(`${GPFS_ROOT}/`)) {
-        // Strip a trailing slash for tidiness, except at the root.
-        return norm.replace(/\/+$/, '') || GPFS_ROOT;
+    const norm = raw.replace(/\\/g, '/').replace(/\/+$/, '');
+    for (const root of [GPFS_ROOT, MAGELLON_ROOT]) {
+        if (isUnder(norm, root)) return norm;
     }
     return GPFS_ROOT;
 };
 
+const rootOf = (p: string): string => (isUnder(p, MAGELLON_ROOT) ? MAGELLON_ROOT : GPFS_ROOT);
+
 const splitPath = (p: string): string[] => {
-    const normalized = clampToGpfs(p);
-    if (normalized === GPFS_ROOT) return [];
-    // Trim the leading "/gpfs/" so breadcrumb segments are the
-    // sub-directory names, with the root rendered separately.
-    return normalized.slice(GPFS_ROOT.length + 1).split('/').filter(Boolean);
+    const normalized = clampToRoot(p);
+    const root = rootOf(normalized);
+    if (normalized === root) return [];
+    // Breadcrumb segments are the sub-directory names; the root is rendered separately.
+    return normalized.slice(root.length + 1).split('/').filter(Boolean);
 };
 
 const parentOf = (p: string): string | null => {
-    const normalized = clampToGpfs(p);
-    if (normalized === GPFS_ROOT) return null;
+    const normalized = clampToRoot(p);
+    if (normalized === rootOf(normalized)) return null;
     const idx = normalized.lastIndexOf('/');
     if (idx <= 0) return null;
-    const parent = normalized.slice(0, idx);
-    return clampToGpfs(parent);
+    return clampToRoot(normalized.slice(0, idx));
 };
+
+/** Where a drop/upload lands: the current folder when it is a shared Magellon
+ *  folder, otherwise Magellon's uploads folder (never the research data). */
+const uploadTargetFor = (current: string): string =>
+    SHARED_DIRS.some((dir) => isUnder(current, dir)) ? current : UPLOADS_DIR;
 
 const formatBytes = (bytes: number | null): string => {
     if (bytes == null) return '';
@@ -173,9 +184,9 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
         // Always clamp to canonical /gpfs/...; localStorage may still
         // hold a host-absolute path from the pre-canonical era.
         try {
-            return clampToGpfs(localStorage.getItem(effectiveKey) || initialPath);
+            return clampToRoot(localStorage.getItem(effectiveKey) || initialPath);
         } catch {
-            return clampToGpfs(initialPath);
+            return clampToRoot(initialPath);
         }
     };
 
@@ -197,7 +208,7 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const fetchDir = async (path: string) => {
-        const canonical = clampToGpfs(path);
+        const canonical = clampToRoot(path);
         setLoading(true);
         setError(null);
         try {
@@ -270,8 +281,9 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
         setUploadConflict(null);
         setError(null);
         try {
+            const target = uploadTargetFor(currentPath);
             const form = new FormData();
-            form.append('path', currentPath);
+            form.append('path', target);
             if (overwrite) form.append('overwrite', 'true');
             for (const f of files) form.append('files', f, f.name);
             await api.post('/web/files/upload', form, {
@@ -282,7 +294,8 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
                     }
                 },
             });
-            await fetchDir(currentPath);
+            // Show the folder the files went to (may differ from the one browsed).
+            await fetchDir(target);
         } catch (err) {
             const e = toApiError(err);
             const status = e.status;
@@ -390,22 +403,38 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
                     </Button>
                 </Stack>
 
+                <Stack direction="row" spacing={2} sx={{ mb: 0.5 }}>
+                    {[
+                        { label: 'Research data (read-only)', path: GPFS_ROOT },
+                        ...SHARED_DIRS.map((dir) => ({ label: dir.split('/').pop() ?? dir, path: dir })),
+                    ].map(({ label, path }) => (
+                        <Link
+                            key={path}
+                            component="button"
+                            variant="caption"
+                            underline={isUnder(currentPath, path) ? 'always' : 'hover'}
+                            onClick={() => fetchDir(path)}
+                        >
+                            {label}
+                        </Link>
+                    ))}
+                </Stack>
+
                 <Breadcrumbs sx={{ mb: 1 }}>
                     <Link
                         component="button"
-                        onClick={() => fetchDir('/gpfs')}
+                        onClick={() => fetchDir(rootOf(currentPath))}
                         sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
                     >
-                        <Home size={12} /> gpfs
+                        <Home size={12} /> {rootOf(currentPath).slice(1)}
                     </Link>
                     {parts.map((p, i) => (
                         <Link
                             key={i}
                             component="button"
                             onClick={() => {
-                                // Walk back into a sub-directory of /gpfs.
-                                // ``parts`` excludes the /gpfs prefix; rebuild it.
-                                fetchDir(`${GPFS_ROOT}/${parts.slice(0, i + 1).join('/')}`);
+                                // ``parts`` excludes the root prefix; rebuild it.
+                                fetchDir(`${rootOf(currentPath)}/${parts.slice(0, i + 1).join('/')}`);
                             }}
                         >
                             {p}
@@ -483,7 +512,7 @@ export const ImagePickerDialog: React.FC<ImagePickerDialogProps> = (props) => {
                         <Stack spacing={1} sx={{ alignItems: 'center' }}>
                             <CloudUpload size={36} color={theme.palette.primary.main} />
                             <Typography variant="subtitle1" color="primary">
-                                Drop to upload to {currentPath}
+                                Drop to upload to {uploadTargetFor(currentPath)}
                             </Typography>
                         </Stack>
                     </Box>

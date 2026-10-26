@@ -155,6 +155,142 @@ class TestLeginonFrameTransferDispatchIdLinkage:
         )
         return svc
 
+    @pytest.mark.parametrize("camera_suffix", ("rawdata", None))
+    def test_setup_gains_defects_uses_frames_directory(
+        self, tmp_path, monkeypatch, camera_suffix
+    ):
+        frames_dir = tmp_path / "frames"
+        camera_dir = frames_dir / camera_suffix if camera_suffix else frames_dir
+        camera_dir.mkdir(parents=True)
+        gains_dir = frames_dir / "gains"
+        defects_dir = frames_dir / "defects"
+        gains_dir.mkdir()
+        defects_dir.mkdir()
+        gain_file = gains_dir / "gain.tif"
+        defect_file = defects_dir / "defects.txt"
+        gain_file.write_bytes(b"gain")
+        defect_file.write_bytes(b"defects")
+
+        svc = LeginonFrameTransferJobService.__new__(LeginonFrameTransferJobService)
+        svc.params = SimpleNamespace(
+            camera_directory=str(camera_dir),
+            gains_file=None,
+            defects_file=None,
+        )
+        svc.gains_path = None
+        svc.defects_path = None
+        monkeypatch.setenv("MAGELLON_GPFS_PATH", str(tmp_path / "unused-gpfs"))
+
+        svc._setup_gains_defects("26jun03a")
+
+        assert svc.gains_path == str(gain_file)
+        assert svc.defects_path == str(defect_file)
+
+    @pytest.mark.parametrize(
+        ("camera_suffix", "sidecar_layout"),
+        (("rawdata", "singular"), (None, "root")),
+    )
+    def test_setup_gains_defects_supports_singular_dirs_and_root_files(
+        self, tmp_path, monkeypatch, camera_suffix, sidecar_layout
+    ):
+        frames_dir = tmp_path / "26jun03a"
+        camera_dir = frames_dir / camera_suffix if camera_suffix else frames_dir
+        camera_dir.mkdir(parents=True)
+
+        if sidecar_layout == "singular":
+            gain_dir = frames_dir / "gain"
+            defect_dir = frames_dir / "defect"
+            gain_dir.mkdir()
+            defect_dir.mkdir()
+            gain_file = gain_dir / "reference.mrc"
+            defect_file = defect_dir / "map.txt"
+        else:
+            gain_file = frames_dir / "gain_reference.mrc"
+            defect_file = frames_dir / "defects_map.txt"
+        gain_file.write_bytes(b"gain")
+        defect_file.write_bytes(b"defects")
+
+        svc = LeginonFrameTransferJobService.__new__(LeginonFrameTransferJobService)
+        svc.params = SimpleNamespace(
+            camera_directory=str(camera_dir),
+            gains_file=None,
+            defects_file=None,
+        )
+        svc.gains_path = None
+        svc.defects_path = None
+        monkeypatch.setenv("MAGELLON_GPFS_PATH", str(tmp_path / "unused-gpfs"))
+
+        svc._setup_gains_defects("26jun03a")
+
+        assert svc.gains_path == str(gain_file)
+        assert svc.defects_path == str(defect_file)
+
+    def test_setup_gains_defects_preserves_home_frames_layout(self, tmp_path, monkeypatch):
+        home_dir = tmp_path / "24dec03a" / "home"
+        camera_dir = home_dir / "frames"
+        camera_dir.mkdir(parents=True)
+        gains_dir = home_dir / "gains"
+        defects_dir = home_dir / "defects"
+        gains_dir.mkdir()
+        defects_dir.mkdir()
+        gain_file = gains_dir / "gain.mrc"
+        defect_file = defects_dir / "defects.txt"
+        gain_file.write_bytes(b"gain")
+        defect_file.write_bytes(b"defects")
+
+        svc = LeginonFrameTransferJobService.__new__(LeginonFrameTransferJobService)
+        svc.params = SimpleNamespace(
+            camera_directory=str(camera_dir),
+            gains_file=None,
+            defects_file=None,
+        )
+        svc.gains_path = None
+        svc.defects_path = None
+        monkeypatch.setenv("MAGELLON_GPFS_PATH", str(tmp_path / "unused-gpfs"))
+
+        svc._setup_gains_defects("24dec03a")
+
+        assert svc.gains_path == str(gain_file)
+        assert svc.defects_path == str(defect_file)
+
+    def test_setup_uploaded_gains_and_defects_writes_to_magellon_home(
+        self, tmp_path, monkeypatch
+    ):
+        source_dir = tmp_path / "source" / "26jun03a"
+        camera_dir = source_dir / "rawdata"
+        camera_dir.mkdir(parents=True)
+        home_dir = tmp_path / "magellon-home"
+        monkeypatch.setattr(
+            "services.leginon_frame_transfer_job_service.MAGELLON_HOME_DIR",
+            str(home_dir),
+        )
+
+        svc = LeginonFrameTransferJobService.__new__(LeginonFrameTransferJobService)
+        svc.params = SimpleNamespace(
+            camera_directory=str(camera_dir),
+            gains_file=SimpleNamespace(
+                filename="gain.mrc",
+                file=SimpleNamespace(read=lambda: b"gain"),
+            ),
+            defects_file=SimpleNamespace(
+                filename="defects.txt",
+                file=SimpleNamespace(read=lambda: b"defects"),
+            ),
+        )
+        svc.gains_path = None
+        svc.defects_path = None
+
+        svc._setup_gains_defects("26jun03a")
+
+        expected_gain = home_dir / "26jun03a" / "gains" / "gain.mrc"
+        expected_defects = home_dir / "26jun03a" / "defects" / "defects.txt"
+        assert svc.gains_path == str(expected_gain)
+        assert svc.defects_path == str(expected_defects)
+        assert expected_gain.read_bytes() == b"gain"
+        assert expected_defects.read_bytes() == b"defects"
+        assert not (source_dir / "gains").exists()
+        assert not (source_dir / "defects").exists()
+
     def _leginon_image(self, image_id: int = 1) -> dict:
         return {
             "image_id": image_id,

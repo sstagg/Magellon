@@ -200,7 +200,8 @@ export const MagellonImportComponent = () => {
                         data-testid="magellon-import-start"
                         variant="contained"
                         onClick={handleImport}
-                        disabled={["scheduling", "running"].includes(progress.status)}
+                        // Only while the request is in flight: imports queue.
+                        disabled={progress.status === "scheduling"}
                     >
                         Import Data
                     </Button>
@@ -208,7 +209,7 @@ export const MagellonImportComponent = () => {
             )}
 
             <ImportProgressDialog
-                open={progress.status !== "idle"}
+                open={progress.status !== "idle" && !progress.minimized}
                 onClose={progress.reset}
                 status={progress.status}
                 error={progress.error}
@@ -217,6 +218,11 @@ export const MagellonImportComponent = () => {
                 stepCounts={progress.stepCounts}
                 stepTotals={progress.stepTotals}
                 elapsedMs={progress.elapsedMs}
+                etaMs={progress.etaMs}
+                onCancelQueued={progress.cancelQueued}
+                onStop={progress.stop}
+                stopping={progress.stopping}
+                connectionIssue={progress.connectionIssue}
                 sessionName={progress.sessionName}
                 titleFallback="Magellon import"
             />

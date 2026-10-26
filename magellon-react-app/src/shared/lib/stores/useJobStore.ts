@@ -11,6 +11,19 @@ export interface Job {
     num_items?: number;
     started_at?: string;
     ended_at?: string;
+    /** Imports waiting in the queue: when submitted, and their place in line. */
+    queued_at?: string;
+    queue_position?: number;
+    // Running jobs: task counts and estimated seconds left (from the server).
+    tasks_total?: number;
+    tasks_done?: number;
+    eta_seconds?: number;
+    // A running import still reading its session (no tasks yet).
+    preparing?: boolean;
+    // The session the job wrote into (finished imports can be deleted).
+    session_name?: string | null;
+    // Owner of the session / import (may stop or delete it, like admins).
+    owner_id?: string | null;
     error?: string;
     settings?: Record<string, unknown>;
     result?: Record<string, unknown>;
@@ -21,6 +34,8 @@ interface JobStore {
     addJob: (job: Job) => void;
     updateJob: (jobUpdate: Partial<Job> & { job_id: string }) => void;
     upsertJob: (job: Job) => void;
+    /** Replace the list with the server's (drops entries that no longer exist). */
+    setJobs: (jobs: Job[]) => void;
     clearJobs: () => void;
 }
 
@@ -44,6 +59,8 @@ export const useJobStore = create<JobStore>((set) => ({
         next[idx] = { ...next[idx], ...job };
         return { jobs: next };
     }),
+
+    setJobs: (jobs) => set({ jobs }),
 
     clearJobs: () => set({ jobs: [] }),
 }));

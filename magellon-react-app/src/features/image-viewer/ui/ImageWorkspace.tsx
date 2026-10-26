@@ -29,6 +29,7 @@ import GridGallery from "./GridGallery.tsx";
 import HierarchyBrowser from "./HierarchyBrowser.tsx";
 import ColumnBrowser from "./ColumnBrowser.tsx";
 import { AtlasSection } from './AtlasSection.tsx';
+import { DeleteSessionButton } from './DeleteSessionButton.tsx';
 
 interface ImageNavigatorProps {
     onImageClick: (imageInfo: ImageInfoDto, column: number) => void,
@@ -145,6 +146,10 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
                         ))}
                     </Select>
                 </FormControl>
+                <DeleteSessionButton
+                    sessionName={selectedSession?.name || ''}
+                    onDeleted={() => OnSessionSelected({ target: { value: '' } } as SelectChangeEvent)}
+                />
 
                 {/* View mode toggle (center) */}
                 <ToggleButtonGroup

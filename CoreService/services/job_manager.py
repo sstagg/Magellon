@@ -47,6 +47,14 @@ RUN_STATUS_FAILED = 5
 RUN_STATUS_CANCELLED = 6
 
 
+def _iso_utc(value) -> Optional[str]:
+    """Timestamps are stored naive in UTC; say so on the wire. Without the
+    zone, browsers read them as local time (a 15:08 EDT start showed 19:08)."""
+    if value is None:
+        return None
+    return value.isoformat() + "Z" if value.tzinfo is None else value.isoformat()
+
+
 def _envelope(job: ImageJob, *, include_result: bool = False, progress: int = 0,
               error: Optional[str] = None, num_items: int = 0) -> Dict[str, Any]:
     """Uniform JSON shape returned by every plugin job endpoint."""
@@ -58,8 +66,8 @@ def _envelope(job: ImageJob, *, include_result: bool = False, progress: int = 0,
         "status": _STATUS_LABEL.get(job.status_id or 0, "unknown"),
         "progress": processed.get("progress", progress),
         "num_items": processed.get("num_items", num_items),
-        "started_at": job.start_date.isoformat() if job.start_date else None,
-        "ended_at": job.end_date.isoformat() if job.end_date else None,
+        "started_at": _iso_utc(job.start_date or job.created_date),
+        "ended_at": _iso_utc(job.end_date),
         "error": processed.get("error", error),
         "settings": job.settings,
         "result": processed.get("result") if include_result else None,
@@ -284,8 +292,14 @@ class JobManager:
     # -- update -------------------------------------------------------------
 
     def mark_running(self, job_id: str, *, progress: int = 0) -> Dict[str, Any]:
+        """QUEUED → RUNNING only. Every task's "step started" event calls this,
+        so it must not touch a job that is already running (that reset its
+        start time and progress) or finished (that reopened completed imports,
+        which a later restart then failed as orphans)."""
         with session_local() as db:
             job = self._get_or_404(db, job_id)
+            if job.status_id not in (None, STATUS_QUEUED):
+                return _envelope(job)
             job.status_id = STATUS_RUNNING
             job.start_date = datetime.utcnow()
             processed = dict(job.processed_json or {})
@@ -313,6 +327,25 @@ class JobManager:
                      num_items: int = 0) -> Dict[str, Any]:
         with session_local() as db:
             job = self._get_or_404(db, job_id)
+            processed = dict(job.processed_json or {})
+            # Importers call this once they have dispatched everything, while
+            # CTF / MotionCor tasks are still running. Keep the result, leave
+            # the job running; record_task_finished completes it with the
+            # final outcome when the last task reports.
+            expected = self._expected_tasks(db, job, processed)
+            finished = len(processed.get("completed_tasks") or [])
+            if expected > 0 and finished < expected and job.status_id not in (STATUS_FAILED, STATUS_CANCELLED):
+                merged = dict(processed["result"]) if isinstance(processed.get("result"), dict) else {}
+                if isinstance(result, dict):
+                    merged.update(result)
+                processed["result"] = merged
+                if job.status_id in (None, STATUS_QUEUED):
+                    job.status_id = STATUS_RUNNING
+                    job.start_date = job.start_date or datetime.utcnow()
+                job.processed_json = processed
+                db.commit()
+                db.refresh(job)
+                return _envelope(job, include_result=True)
             job.status_id = STATUS_COMPLETED
             job.end_date = datetime.utcnow()
             processed = dict(job.processed_json or {})
@@ -409,6 +442,108 @@ class JobManager:
                 "expected": expected,
                 "progress_pct": pct,
             }
+
+    def record_task_finished(
+        self, job_id: str, task_id: str, *, failed: bool = False,
+        step: Optional[str] = None, reason: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Record that a task finished — successfully or not — and settle the
+        job once every task has.
+
+        Partial-success policy: one bad movie (say, a gain/frame size
+        mismatch) must not turn a 113-image import into "failed". A failed
+        task counts as finished and its step + reason are kept on the job.
+        When all tasks are done the job is COMPLETED, carrying a grouped
+        ``problems`` list; it is FAILED only if every task failed. Import-
+        level failures (bad path, crash) still go through ``fail_job``.
+
+        Idempotent per task_id, and both reporters (the step-event projector
+        and the result processor) may report the same task: a later failure
+        report overrides an earlier success, never the other way round.
+        Returns ``{completed, expected, failed, progress_pct, settled}``.
+        """
+        with session_local() as db:
+            job = self._get_or_404(db, job_id)
+            processed = dict(job.processed_json or {})
+            completed = list(processed.get("completed_tasks") or [])
+            if task_id not in completed:
+                completed.append(task_id)
+            failures = dict(processed.get("failed_tasks") or {})
+            if failed:
+                failures[task_id] = {"step": step or "task", "reason": (reason or "task failed")[:500]}
+            processed["completed_tasks"] = completed
+            processed["failed_tasks"] = failures
+            expected = self._expected_tasks(db, job, processed)
+            processed["progress"] = int(round(100 * len(completed) / expected)) if expected else 0
+            settled = self._settle(db, job, processed)
+            db.commit()
+        if settled:
+            self._clear_cancel(job_id)
+        return {
+            "completed": len(completed), "expected": expected, "failed": len(failures),
+            "progress_pct": processed["progress"], "settled": settled,
+        }
+
+    def settle_if_done(self, job_id: str) -> Optional[str]:
+        """Settle a job whose tasks have all finished (used at startup for jobs
+        left "running"); returns "completed" / "failed", or None if work remains."""
+        with session_local() as db:
+            job = self._get_or_404(db, job_id)
+            processed = dict(job.processed_json or {})
+            settled = self._settle(db, job, processed)
+            db.commit()
+        if settled:
+            self._clear_cancel(job_id)
+        return settled
+
+    @staticmethod
+    def _expected_tasks(db: Session, job: ImageJob, processed: Dict[str, Any]) -> int:
+        """Tasks the job waits for. Plugin jobs store it at creation; importers
+        create their ImageJobTask rows themselves, so count those instead."""
+        expected = int(processed.get("expected_tasks") or 0)
+        if expected <= 0:
+            expected = db.query(ImageJobTask).filter(ImageJobTask.job_id == job.oid).count()
+            if expected:
+                processed["expected_tasks"] = expected
+        return expected
+
+    def _settle(self, db: Session, job: ImageJob, processed: Dict[str, Any]) -> Optional[str]:
+        """Apply the partial-success outcome if every task has finished.
+
+        Mutates ``job`` / ``processed`` (written back here); the caller commits.
+        """
+        from collections import Counter
+
+        completed = list(processed.get("completed_tasks") or [])
+        failures = dict(processed.get("failed_tasks") or {})
+        expected = self._expected_tasks(db, job, processed)
+        settled = None
+        # A job already failed at import level, or cancelled, stays so.
+        if expected > 0 and len(completed) >= expected and job.status_id not in (STATUS_FAILED, STATUS_CANCELLED):
+            grouped = Counter((f["step"], f["reason"]) for f in failures.values())
+            problems = [{"step": st, "reason": rs, "count": n} for (st, rs), n in grouped.most_common()]
+            if failures and len(failures) >= expected:
+                job.status_id = STATUS_FAILED
+                top = problems[0]
+                processed["error"] = f"All {expected} tasks failed: {top['step']}: {top['reason']}"
+                settled = "failed"
+            else:
+                job.status_id = STATUS_COMPLETED
+                result = dict(processed["result"]) if isinstance(processed.get("result"), dict) else {}
+                result.update(task_count=expected, completed_tasks=len(completed) - len(failures),
+                              failed_tasks=len(failures), problems=problems)
+                processed["result"] = result
+                processed["num_items"] = expected
+                processed["progress"] = 100
+                if failures:
+                    processed["warning"] = f"{len(failures)} of {expected} tasks failed"
+                settled = "completed"
+            job.end_date = datetime.utcnow()
+        job.processed_json = processed
+        if settled:
+            self._rollup_parent_run(db, job)
+        return settled
+
 
     def cancel_job(self, job_id: str, *, reason: str = "Cancelled by user") -> Dict[str, Any]:
         """Mark a job cancelled in the DB. Call after a cooperative stop."""

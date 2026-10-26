@@ -40,6 +40,7 @@ import { BatchRunDialog } from './BatchRunDialog.tsx';
 import { useSidePanelStore } from '../../../shared/lib/stores/useBottomPanelStore.ts';
 import { useSettingsPanelSlot } from '../../../shared/lib/stores/useSettingsPanelSlot.ts';
 import { apiErrorMessage } from '../../../shared/api/apiError.ts';
+import { useSessionAccess } from '../api/useSessionAccess.ts';
 
 const BASE_URL = settings.ConfigData.SERVER_WEB_API_URL;
 
@@ -78,6 +79,10 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
     } = useImageViewerStore();
 
     const sessionName = currentSession?.name || '';
+    // Viewers, and Members on someone else's session, may look at saved
+    // picks but not run, add, edit or save them (the backend refuses those).
+    const sessionAccess = useSessionAccess(sessionName);
+    const readOnly = !sessionAccess.canWrite;
 
     // UI-only state (display controls, not sent to backend)
     const [tool, setTool] = useState<Tool>('add');
@@ -221,6 +226,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
         if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+        if (readOnly) return;  // every shortcut here edits picks or switches editing tools
 
         const ctrl = e.ctrlKey || e.metaKey;
 
@@ -253,7 +259,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
         } else if (e.key === 'Delete' || e.key === 'Backspace') {
             deleteSelected();
         }
-    }, [undo, redo, selectAll, copySelected, pasteParticles, deleteSelected, handleSave]);
+    }, [undo, redo, selectAll, copySelected, pasteParticles, deleteSelected, handleSave, readOnly]);
 
     useEffect(() => {
         document.addEventListener('keydown', handleKeyDown);
@@ -271,6 +277,15 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
     // stored node atomically, so React reconciles into the same panel
     // instance (state preserved) instead of remounting.
     useEffect(() => {
+        if (readOnly) {
+            setContent(
+                <Alert severity="info" sx={{ m: 2 }}>
+                    View only: you can look at the saved particle picks in this session,
+                    but not run picking or change them.
+                </Alert>
+            );
+            return;
+        }
         setContent(
             <ParticleSettingsPanel
                 open={settingsOpen}
@@ -308,7 +323,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
         );
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [settingsOpen, pickerParams, isAutoPickingRunning, autoPickingProgress, lastResultCount,
-        particles, selectedImage, previewParticles, sessionName, selectedParticlePicking?.name]);
+        particles, selectedImage, previewParticles, sessionName, selectedParticlePicking?.name, readOnly]);
 
     const handleExportCoco = async () => {
         if (!selectedParticlePicking?.oid) {
@@ -359,7 +374,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 onCreateNew={handleOpen}
                 onSave={handleSave}
                 onExportCoco={handleExportCoco}
-                tool={tool}
+                tool={readOnly ? 'pan' : tool}
                 onToolChange={setTool}
                 onUndo={undo}
                 onRedo={redo}
@@ -387,6 +402,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 isMobile={isMobile}
                 isFullscreen={isFullscreen}
                 onToggleFullscreen={toggleFullscreen}
+                readOnly={readOnly}
             />
 
             {/* Auto-picking Progress — indeterminate: the sync endpoint
@@ -430,7 +446,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                         height={imageShape ? imageShape[0] : (isMobile ? 300 : 1024)}
                         particles={particles}
                         selectedParticles={selectedParticles}
-                        tool={tool}
+                        tool={readOnly ? 'pan' : tool}
                         particleRadius={PARTICLE_RADIUS}
                         particleOpacity={PARTICLE_OPACITY}
                         showGrid={showGrid}
@@ -438,7 +454,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                         zoom={zoom}
                         activeClass={activeClass}
                         particleClasses={particleClasses}
-                        onParticlesUpdate={handleParticlesUpdate}
+                        onParticlesUpdate={readOnly ? () => {} : handleParticlesUpdate}
                         onSelectedParticlesUpdate={setSelectedParticles}
                         onShowSnackbar={showSnackbar}
                         onImageNaturalSize={(shape) => {
@@ -459,6 +475,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                     icon={<SpeedDialIcon />}
                     direction={isMobile ? "up" : "left"}
                 >
+                    {!readOnly && (
                     <SpeedDialAction
                         icon={<SaveIcon />}
                         title="Save (Ctrl+S)"
@@ -471,11 +488,13 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                             },
                         }}
                     />
+                    )}
                     <SpeedDialAction
                         icon={<DownloadIcon />}
                         title="Export Particles"
                         slotProps={{ fab: { onClick: exportParticles } }}
                     />
+                    {!readOnly && (
                     <SpeedDialAction
                         icon={
                             <>
@@ -498,11 +517,14 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                             },
                         }}
                     />
+                    )}
+                    {!readOnly && (
                     <SpeedDialAction
                         icon={<AutoFixHighIcon />}
                         title="Run Auto-picking"
                         slotProps={{ fab: { onClick: runAutoPicking } }}
                     />
+                    )}
                 </SpeedDial>
             </Paper>
 

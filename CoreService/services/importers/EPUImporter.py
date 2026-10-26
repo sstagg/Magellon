@@ -807,10 +807,14 @@ class EPUImporter(BaseImporter):
         if matching_files:
             return matching_files[0]
 
-        # Check for other frame formats
+        # Check for other frame formats. Never the image itself: a micrograph
+        # (X.mrc) with no movie used to be sent to MotionCor as its own
+        # "movie", which always fails (e.g. sessions exported without movies,
+        # and every grid/hole overview image).
+        image = os.path.realpath(source_image_path)
         for ext in ['.frames', '.tif', '.tiff', '.mrc']:
             frame_path = f"{base_name}{ext}"
-            if os.path.exists(frame_path):
+            if os.path.exists(frame_path) and os.path.realpath(frame_path) != image:
                 return frame_path
 
         return None

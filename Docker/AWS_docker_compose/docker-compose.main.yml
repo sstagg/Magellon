@@ -185,6 +185,7 @@ services:
         awslogs-create-group: "true"
 
   web:
+    user: "${MAGELLON_UID:-841675}:${MAGELLON_GID:-841675}"
     build:
       context: ../../magellon-react-app
       dockerfile: Dockerfile
@@ -196,7 +197,7 @@ services:
     container_name: magellon-react-app-container
     restart: unless-stopped
     ports:
-      - "${MAGELLON_FRONTEND_PORT}:80"   # bind to all interfaces – ALB reaches this
+      - "${MAGELLON_FRONTEND_PORT}:8080"   # bind to all interfaces – ALB reaches this
     environment:
       - BACKEND_HOST=backend
       # Empty → relative paths → nginx proxy handles routing to backend

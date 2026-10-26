@@ -106,16 +106,16 @@ class TemplatePickerInput(BaseModel):
 
     template_paths: List[str] = Field(
         # Defaults to the three reference templates that ship in
-        # /gpfs/templates/ so the side panel is testable with a single
+        # /magellon/templates/ (MAGELLON_HOME_PATH) so the side panel is testable with a single
         # click. Production deployments override these by typing or
         # browsing GPFS. Using ``default`` (not ``default_factory``)
         # because Pydantic's JSON-Schema export omits factory results,
         # which means the React side wouldn't pre-fill the field.
         # The list is short + immutable so the shared default is safe.
         default=[
-            "/gpfs/templates/origTemplate1.mrc",
-            "/gpfs/templates/origTemplate2.mrc",
-            "/gpfs/templates/origTemplate3.mrc",
+            "/magellon/templates/origTemplate1.mrc",
+            "/magellon/templates/origTemplate2.mrc",
+            "/magellon/templates/origTemplate3.mrc",
         ],
         min_length=1,
         description="2D class-average or projection templates for cross-correlation matching",

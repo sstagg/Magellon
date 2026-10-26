@@ -52,7 +52,8 @@ def custom_replace(input_string, replace_type, replace_pattern, replace_with):
     Returns:
         str: The modified string after replacement.
     """
-    if replace_type == 'none':
+    # Images without movie frames (atlas/grid/square shots) pass None here.
+    if input_string is None or replace_type == 'none':
         return input_string
 
     elif replace_type == 'standard':

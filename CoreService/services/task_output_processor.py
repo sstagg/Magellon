@@ -121,6 +121,23 @@ def _move_file_to_directory(file_path: str, destination_dir: str) -> bool:
         return False
 
 
+
+def _failure_reason(task_result) -> str:
+    """The most useful one-line reason a plugin gave for a failed task.
+
+    Plugins put the specific cause in ``description`` (an exception text or
+    the tool's stderr) and a generic phrase in ``message``.
+    """
+    import re
+
+    text = (getattr(task_result, "description", None) or "").strip()
+    lines = [re.sub(r"^An error occurred:\s*", "", ln).strip() for ln in text.splitlines()]
+    lines = [ln for ln in lines if ln]
+    # Prefer a line that names the error; else the last line of the output.
+    reason = next((ln for ln in reversed(lines) if re.search(r"error|fail|mismatch|not found|invalid", ln, re.I)), None)
+    reason = reason or (lines[-1] if lines else None) or getattr(task_result, "message", None) or "task failed"
+    return reason[:200]
+
 class TaskOutputProcessor:
     """Project a ``TaskResultMessage`` into the Magellon DB + on-disk layout.
 
@@ -160,6 +177,30 @@ class TaskOutputProcessor:
 
     def _get_queue_type_category(self, queue_type: str) -> Optional[int]:
         return self._queue_type_output_config.get(queue_type, {}).get("category")
+
+    def _use_task_session_name(self, task_result: TaskResultMessage) -> None:
+        """Results belong to the session their task's job imported into.
+
+        The name a plugin echoes back is whatever the dispatcher put on the
+        task; for a Leginon import under a custom name that was the Leginon
+        session name, so results landed in another session's folder. The
+        database knows the real session: use it.
+        """
+        if not task_result.task_id:
+            return
+        try:
+            from models.sqlalchemy_models import ImageJob, Msession
+            job_id = (self.db.query(ImageJobTask.job_id)
+                      .filter(ImageJobTask.oid == task_result.task_id).scalar())
+            session_id = job_id and self.db.query(ImageJob.msession_id).filter(ImageJob.oid == job_id).scalar()
+            row = session_id and self.db.query(Msession.name).filter(Msession.oid == uuid.UUID(str(session_id))).first()
+        except Exception:
+            logger.debug("session lookup for task %s failed", task_result.task_id, exc_info=True)
+            return
+        if row and row[0] and row[0] != task_result.session_name:
+            logger.info("Result for task %s: session %r → %r (the task's own session)",
+                        task_result.task_id, task_result.session_name, row[0])
+            task_result.session_name = row[0]
 
     def _get_destination_dir(self, task_result: TaskResultMessage) -> str:
         task_type = task_result.type.name.lower() if task_result.type else "unknown"
@@ -641,6 +682,7 @@ class TaskOutputProcessor:
         producing task.
         """
         try:
+            self._use_task_session_name(task_result)
             destination_dir = self._get_destination_dir(task_result)
 
             # 2026-05-04 fix (reviewer-flagged High #3). Pre-fix order
@@ -702,23 +744,22 @@ class TaskOutputProcessor:
                 from services.job_manager import job_manager as _jm
                 job_id_s = str(task_result.job_id) if task_result.job_id else None
                 task_id_s = str(task_result.task_id) if task_result.task_id else None
-                if job_id_s:
-                    if final_status == STATUS_FAILED:
-                        _jm.fail_job(job_id_s, error=f"{type_name} processing failed")
+                failed = final_status == STATUS_FAILED
+                if job_id_s and task_id_s:
+                    # Partial success: a failed task is recorded with its
+                    # reason and the job settles once all tasks are done
+                    # (JobManager.record_task_finished) — one bad movie no
+                    # longer fails a whole import.
+                    _jm.record_task_finished(
+                        job_id_s, task_id_s, failed=failed, step=type_name,
+                        reason=_failure_reason(task_result) if failed else None,
+                    )
+                elif job_id_s:
+                    # Single-shot job without task ids: its result is the job's.
+                    if failed:
+                        _jm.fail_job(job_id_s, error=_failure_reason(task_result))
                     else:
-                        if task_id_s:
-                            progress = _jm.record_task_completion(job_id_s, task_id_s)
-                            if (
-                                progress.get("expected", 0) > 0
-                                and progress["completed"] >= progress["expected"]
-                            ):
-                                _jm.complete_job(
-                                    job_id_s,
-                                    result={"task_count": progress["expected"]},
-                                    num_items=progress["expected"],
-                                )
-                        else:
-                            _jm.complete_job(job_id_s, result={})
+                        _jm.complete_job(job_id_s, result={})
             except Exception:
                 logger.warning(
                     "TaskOutputProcessor: could not advance parent job %s — non-fatal",

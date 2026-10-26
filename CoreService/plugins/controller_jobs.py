@@ -53,7 +53,76 @@ async def submit_batch(plugin_id: str, request: BatchSubmitRequest, sid: str | N
 
 @jobs_router.get("/jobs", summary="List plugin jobs")
 async def list_all_jobs(plugin_id: Optional[str] = None, limit: int = 100):
-    return job_manager.list_jobs(plugin_id=plugin_id, limit=limit)
+    jobs = job_manager.list_jobs(plugin_id=plugin_id, limit=limit)
+    _add_task_progress(jobs)
+    _add_session_names(jobs)
+    if plugin_id is None:
+        # Imports still waiting in the queue, or still reading their session,
+        # have no job row yet; list them too so the Jobs panel shows the
+        # whole picture.
+        from services import import_queue
+        known = {job["job_id"] for job in jobs}
+        jobs = import_queue.list_waiting() + import_queue.list_preparing(known) + jobs
+    return jobs
+
+
+def _add_session_names(jobs: list) -> None:
+    """Name the session each job wrote into (for the Jobs panel's delete)."""
+    import uuid
+
+    from database import session_local
+    from models.sqlalchemy_models import ImageJob, Msession
+
+    if not jobs:
+        return
+    with session_local() as db:
+        session_of = dict(db.query(ImageJob.oid, ImageJob.msession_id)
+                          .filter(ImageJob.oid.in_([uuid.UUID(job["job_id"]) for job in jobs])))
+        ids = [uuid.UUID(s) for s in set(session_of.values()) if s]
+        sessions = {oid: (name, owner) for oid, name, owner in
+                    db.query(Msession.oid, Msession.name, Msession.user_id).filter(Msession.oid.in_(ids))} if ids else {}
+    for job in jobs:
+        sid = session_of.get(uuid.UUID(job["job_id"]))
+        name, owner = sessions.get(uuid.UUID(sid), (None, None)) if sid else (None, None)
+        job["session_name"] = name
+        # Who may stop / delete it besides admins: the session's owner.
+        job["owner_id"] = str(owner) if owner else None
+
+
+def _add_task_progress(jobs: list) -> None:
+    """Give running jobs their task counts, progress and estimated time left.
+
+    The estimate assumes the remaining tasks take as long, on average, as the
+    finished ones have so far (elapsed time per finished task).
+    """
+    import uuid
+    from datetime import datetime, timezone
+
+    from sqlalchemy import func
+
+    from database import session_local
+    from models.sqlalchemy_models import ImageJobTask
+
+    running = {job["job_id"]: job for job in jobs if job.get("status") == "running"}
+    if not running:
+        return
+    with session_local() as db:
+        rows = (db.query(ImageJobTask.job_id, ImageJobTask.status_id, func.count(ImageJobTask.oid))
+                .filter(ImageJobTask.job_id.in_([uuid.UUID(i) for i in running]))
+                .group_by(ImageJobTask.job_id, ImageJobTask.status_id).all())
+    counts: dict = {}
+    for job_id, status_id, count in rows:
+        total, done = counts.get(str(job_id), (0, 0))
+        counts[str(job_id)] = (total + count, done + (count if status_id in (2, 3, 4) else 0))
+    now = datetime.now(timezone.utc)
+    for job_id, (total, done) in counts.items():
+        job = running[job_id]
+        job["tasks_total"], job["tasks_done"] = total, done
+        job["progress"] = round(100 * done / total) if total else 0
+        started = job.get("started_at")
+        if started and 0 < done < total:
+            elapsed = (now - datetime.fromisoformat(started.replace("Z", "+00:00"))).total_seconds()
+            job["eta_seconds"] = round(elapsed / done * (total - done))
 
 
 @jobs_router.get("/jobs/{job_id}", summary="Get plugin job detail")

@@ -83,6 +83,13 @@ Docker/.env.backup
 Docker/.env.tmp
 Docker/.env
 
+# Per-box GPU-count-dependent compose overlay — see
+# Docker/generate-motioncor-gpu-compose.sh
+Docker/docker-compose.motioncor-gpu.generated.yml
+
+# CTF replica-count compose overlay — see Docker/generate-ctf-compose.sh
+Docker/docker-compose.ctf-scale.generated.yml
+
 # Security setup marker file (auto-disable)
 .security_setup_completed
 
@@ -170,4 +177,4 @@ Resources/Images/*
 gpfs/
 home/
 jobs/
-services/
+/services/

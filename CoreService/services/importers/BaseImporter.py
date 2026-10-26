@@ -722,7 +722,8 @@ class BaseImporter(ABC):
     def _extract_session_name(task_dto: Any) -> Optional[str]:
         """Best-effort session_name extraction; falls back to image-name prefix."""
         if hasattr(task_dto, 'job_dto') and task_dto.job_dto:
-            jn = getattr(task_dto.job_dto, 'session_name', None)
+            jn = (getattr(task_dto.job_dto, 'magellon_session_name', None)
+                  or getattr(task_dto.job_dto, 'session_name', None))
             if jn:
                 return jn
         image_name = getattr(task_dto, 'image_name', None) or ''

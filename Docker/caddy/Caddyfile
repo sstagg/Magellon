@@ -1,0 +1,40 @@
+# Public entry point for Magellon: HTTPS termination + reverse proxy to the
+# `web` container (whose nginx then routes /auth, /web, /socket.io, ... to
+# the backend). Only this container publishes ports on the host.
+#
+# All site-specific values come from Docker/.env (see the caddy service in
+# docker-compose.yml):
+#   MAGELLON_DOMAIN        e.g. magellon.rcc.fsu.edu
+#   ACME_EMAIL             contact address for the certificate account
+#   ACME_CA_URL            RCC's Sectigo ACME directory URL
+#   ACME_EAB_KEY_ID        Sectigo External Account Binding key id
+#   ACME_EAB_MAC_KEY       Sectigo External Account Binding HMAC key
+
+{
+	email {$ACME_EMAIL}
+	acme_ca {$ACME_CA_URL}
+	acme_eab {
+		key_id {$ACME_EAB_KEY_ID}
+		mac_key {$ACME_EAB_MAC_KEY}
+	}
+}
+
+{$MAGELLON_DOMAIN} {
+	# Movie/gain uploads can be several GB.
+	request_body {
+		max_size 5GB
+	}
+
+	encode gzip
+
+	# WebSockets (socket.io, /web/ws/*) are proxied automatically.
+	# flush_interval -1 streams responses (progress, downloads) without buffering.
+	reverse_proxy web:8080 {
+		flush_interval -1
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

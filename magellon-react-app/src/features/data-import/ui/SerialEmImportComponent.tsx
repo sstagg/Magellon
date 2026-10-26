@@ -24,6 +24,7 @@ import Button from "@mui/material/Button";
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import { apiErrorMessage, toApiError } from '../../../shared/api/apiError.ts';
 import { useImportJobProgress } from "../lib/useImportJobProgress.ts";
+import { useSessionNameCheck } from "../lib/useSessionNameCheck.ts";
 import { ImportProgressDialog } from "./ImportProgressDialog.tsx";
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
@@ -79,12 +80,14 @@ export const SerialEMImportComponent = () => {
 
     // SerialEM specific state variables
     const [serialemDirPath, setSerialemDirPath] = useState<string>("");
-    const [magellonProjectName, setMagellonProjectName] = useState<string>("");
-    const [magellonSessionName, setMagellonSessionName] = useState<string>("");
+    // One name for both: the Magellon session (and its results folder) and
+    // the project it is filed under — the UI has no separate use for projects.
+    const [sessionName, setSessionName] = useState<string>("");
+    const nameCheck = useSessionNameCheck(sessionName);
     const [dataType, setDataType] = useState<'single-particle' | 'tomography'>('single-particle');
     const [frameType, setFrameType] = useState<'gain-corrected' | 'raw'>('gain-corrected');
     const [defaults, setDefaults] = useState<SerialEMDefaults>({
-        pixel_size: 1.0,
+        pixel_size: 0.739,
         acceleration_voltage: 300,
         spherical_aberration: 2.7,
         amplitude_contrast: 0.1,
@@ -107,8 +110,13 @@ export const SerialEMImportComponent = () => {
         if (!selectedDirectory) return;
 
         // Validate required fields
-        if (!serialemDirPath || !magellonProjectName || !magellonSessionName) {
+        const name = sessionName.trim();
+        if (!serialemDirPath || !name) {
             setError("Please fill in all required fields");
+            return;
+        }
+        if (/[\\/\s]/.test(name)) {
+            setError("Use a session name without slashes or spaces (it becomes a folder name)");
             return;
         }
 
@@ -129,9 +137,9 @@ export const SerialEMImportComponent = () => {
             const response = await apiClient.post('/export/serialem-import', {
                 target_directory: serialemDirPath,
                 serial_em_dir_path: selectedDirectory,
-                magellon_project_name: magellonProjectName,
-                magellon_session_name: magellonSessionName,
-                session_name: magellonSessionName,
+                magellon_project_name: name,
+                magellon_session_name: name,
+                session_name: name,
                 data_type: dataType,
                 frame_type: frameType,
                 default_data: {
@@ -380,35 +388,18 @@ export const SerialEMImportComponent = () => {
                             />
                         </Grid>
 
-                        <Grid
-                            size={{
-                                xs: 12,
-                                md: 6
-                            }}>
+                        <Grid size={12}>
                             <TextField
                                 fullWidth
                                 required
-                                label="Magellon Project Name"
-                                value={magellonProjectName}
-                                onChange={(e) => setMagellonProjectName(e.target.value)}
+                                label="SerialEM Session Name"
+                                value={sessionName}
+                                onChange={(e) => setSessionName(e.target.value)}
                                 variant="outlined"
                                 margin="normal"
-                            />
-                        </Grid>
-
-                        <Grid
-                            size={{
-                                xs: 12,
-                                md: 6
-                            }}>
-                            <TextField
-                                fullWidth
-                                required
-                                label="Magellon Session Name"
-                                value={magellonSessionName}
-                                onChange={(e) => setMagellonSessionName(e.target.value)}
-                                variant="outlined"
-                                margin="normal"
+                                error={!!nameCheck.problem}
+                                helperText={nameCheck.problem
+                                    ?? "Name of the session in Magellon; also its results folder. Must be unique, no slashes or spaces."}
                             />
                         </Grid>
 
@@ -635,7 +626,7 @@ export const SerialEMImportComponent = () => {
                                 variant="contained"
                                 color="primary"
                                 onClick={handleImport}
-                                // disabled={importStatus === 'processing' || validationStatus === 'invalid'}
+                                disabled={progress.status === "scheduling" || !!nameCheck.problem}
                                 size="large"
                             >
                                 Import SerialEM Data
@@ -650,7 +641,7 @@ export const SerialEMImportComponent = () => {
                 </Paper>
             )}
             <ImportProgressDialog
-                open={progress.status !== "idle"}
+                open={progress.status !== "idle" && !progress.minimized}
                 onClose={progress.reset}
                 status={progress.status}
                 error={progress.error}
@@ -659,6 +650,11 @@ export const SerialEMImportComponent = () => {
                 stepCounts={progress.stepCounts}
                 stepTotals={progress.stepTotals}
                 elapsedMs={progress.elapsedMs}
+                etaMs={progress.etaMs}
+                onCancelQueued={progress.cancelQueued}
+                onStop={progress.stop}
+                stopping={progress.stopping}
+                connectionIssue={progress.connectionIssue}
                 sessionName={progress.sessionName}
                 titleFallback="SerialEM import"
             />

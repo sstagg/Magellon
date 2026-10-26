@@ -82,11 +82,21 @@ export interface AuthenticationResponse {
     change_password_required?: boolean;
 }
 
+/** What the UI may offer the user. Display hints only: the backend still
+ *  enforces every permission itself. */
+export interface UserCapabilities {
+    admin: boolean;
+    import_sessions: boolean;
+    view_all_sessions: boolean;
+}
+
 export interface UserMeResponse {
     user_id: string;
     username: string;
     email: string | null;
     active: boolean;
+    roles?: string[];
+    capabilities?: UserCapabilities;
 }
 
 export interface UserStats {

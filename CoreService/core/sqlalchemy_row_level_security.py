@@ -117,6 +117,10 @@ class RowLevelSecurityFilter:
                         session_id = resource.split(":", 1)[1]
                         accessible.add(session_id)
 
+        # Sessions the user imported are always theirs.
+        from core.session_ownership import owned_session_ids
+        accessible |= owned_session_ids(user_id)
+
         return accessible
 
     @classmethod
@@ -271,6 +275,13 @@ def check_session_access(user_id: UUID, session_id: UUID, action: str = "read") 
 
     logger.info(f"[RLS] Checking access: user={user_id_str[:8]}..., resource={resource[:40]}..., action={action}")
     result = CasbinService.enforce(user_id_str, resource, action)
+    if not result:
+        # The user who imported a session owns it. Owners may always read it;
+        # changing it (picking, edits, delete) also needs a role that can
+        # import, so an owner later demoted to Viewer keeps read-only access.
+        from core.session_ownership import is_session_owner
+        if action == "read" or CasbinService.enforce(user_id_str, "msession:*", "create"):
+            result = is_session_owner(user_id, session_id)
     logger.info(f"[RLS] Access check result: {result}")
 
     return result

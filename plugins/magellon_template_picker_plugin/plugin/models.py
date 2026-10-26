@@ -74,9 +74,9 @@ class TemplatePickerInput(CryoEmImageInput):
 
     template_paths: List[str] = Field(
         default=[
-            "/gpfs/templates/origTemplate1.mrc",
-            "/gpfs/templates/origTemplate2.mrc",
-            "/gpfs/templates/origTemplate3.mrc",
+            "/magellon/templates/origTemplate1.mrc",
+            "/magellon/templates/origTemplate2.mrc",
+            "/magellon/templates/origTemplate3.mrc",
         ],
         min_length=1,
         description="2D class-average or projection templates for cross-correlation matching",
@@ -85,7 +85,7 @@ class TemplatePickerInput(CryoEmImageInput):
             "ui_group": "Templates",
             "ui_order": 2,
             "ui_file_ext": [".mrc", ".mrcs"],
-            "ui_upload_dir": "/gpfs/templates",
+            "ui_upload_dir": "/magellon/templates",
             "ui_placeholder": "/path/to/template.mrc",
             "ui_help": "Drag and drop .mrc template files to upload them, or type server-side paths. "
                        "Multiple templates are matched independently and merged.",

@@ -185,9 +185,13 @@ async def browse_directory(
     **Requires:** Authentication.
     """
     from core.paths import (
+        MAGELLON_SHARED_DIRS,
         from_canonical_gpfs_path,
+        is_magellon_wire_path,
         is_under_gpfs_root,
+        resolve_magellon_shared_path,
         to_canonical_gpfs_path,
+        to_magellon_wire_path,
     )
 
     logger.warning(f"SECURITY: User {user_id} browsing filesystem path: {path}")
@@ -195,6 +199,40 @@ async def browse_directory(
     norm = (path or "").replace("\\", "/")
     if not norm:
         norm = "/gpfs"
+
+    # Magellon's own storage: only the shared folders (uploads, templates)
+    # are browsable; the rest holds per-user session results.
+    if is_magellon_wire_path(norm):
+        try:
+            directory = resolve_magellon_shared_path(norm)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        if not directory.is_dir():
+            raise HTTPException(status_code=404, detail=f"Directory not found: {path}")
+        at_root = to_magellon_wire_path(directory) == "/magellon"
+        items: List[FileItem] = []
+        for item in directory.iterdir():
+            if at_root and item.name not in MAGELLON_SHARED_DIRS:
+                continue
+            try:
+                stat = item.stat()
+            except OSError:
+                continue
+            wire_path = to_magellon_wire_path(item)
+            items.append(FileItem(
+                id=hash(wire_path),
+                name=item.name,
+                is_directory=item.is_dir(),
+                path=wire_path,
+                parent_id=None,
+                size=stat.st_size if not item.is_dir() else None,
+                mime_type=mimetypes.guess_type(item.name)[0] if not item.is_dir() else None,
+                created_at=datetime.fromtimestamp(stat.st_ctime),
+                updated_at=datetime.fromtimestamp(stat.st_mtime),
+            ))
+        items.sort(key=lambda x: (not x.is_directory, x.name))
+        return items
+
     if not (norm == "/gpfs" or norm.startswith("/gpfs/")):
         raise HTTPException(
             status_code=400,
@@ -282,19 +320,29 @@ async def preview_file(
 
     **Requires:** Authentication.
     """
-    from core.paths import from_canonical_gpfs_path, is_under_gpfs_root
+    from core.paths import (
+        from_canonical_gpfs_path,
+        is_magellon_wire_path,
+        is_under_gpfs_root,
+        resolve_magellon_shared_path,
+    )
 
     logger.warning(f"SECURITY: User {user_id} previewing file: {path}")
 
     norm = (path or "").replace("\\", "/")
-    if not (norm == "/gpfs" or norm.startswith("/gpfs/")):
+    if is_magellon_wire_path(norm):
+        try:
+            target = resolve_magellon_shared_path(norm)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    elif not (norm == "/gpfs" or norm.startswith("/gpfs/")):
         raise HTTPException(
             status_code=400,
             detail=f"Path {path!r} is outside the GPFS data plane.",
         )
-
-    target = Path(from_canonical_gpfs_path(norm))
-    if not is_under_gpfs_root(target):
+    else:
+        target = Path(from_canonical_gpfs_path(norm))
+    if not is_magellon_wire_path(norm) and not is_under_gpfs_root(target):
         raise HTTPException(
             status_code=400,
             detail=f"Path {path!r} resolves outside the configured GPFS root.",
@@ -330,37 +378,38 @@ class UploadedFileInfo(BaseModel):
 
 
 def _resolve_upload_dir(target_path: str) -> Path:
-    """Translate the wire-form ``target_path`` to an absolute filesystem
-    path under the configured GPFS root, refusing anything outside it.
+    """Translate the wire-form ``target_path`` to the real directory to
+    write into, refusing anything Magellon may not write.
 
-    Same wire convention as :func:`browse_directory`: ``"/gpfs"`` /
-    ``"/gpfs/..."`` are rewritten to the deployment's actual GPFS path
-    (``MAGELLON_GPFS_PATH`` env / config). Anything that resolves
-    outside that root is rejected — protects against ``../`` escapes
-    or absolute paths pointing at host-system locations the operator
-    didn't authorize.
+    Uploads only ever land in Magellon's own storage: the shared folders
+    ``/magellon/uploads`` and ``/magellon/templates`` (under
+    MAGELLON_HOME_DIR). ``/gpfs`` is the read-only research data tree, so
+    uploads aimed there are refused rather than written into lab storage.
+    ``..``/symlink escapes and every other location are rejected.
     """
-    gpfs = app_settings.directory_settings.MAGELLON_GPFS_PATH
-    if not gpfs:
-        raise HTTPException(
-            status_code=503,
-            detail="MAGELLON_GPFS_PATH not configured — refusing to write.",
-        )
-    gpfs_root = Path(gpfs).resolve()
+    from core.paths import is_magellon_wire_path, resolve_magellon_shared_path
 
-    requested = target_path or "/gpfs"
+    requested = (target_path or "").replace("\\", "/")
     if requested == "/gpfs" or requested.startswith("/gpfs/"):
-        requested = requested.replace("/gpfs", str(gpfs_root), 1)
-    target = Path(requested).resolve()
-
-    # Refuse anything outside MAGELLON_GPFS_PATH. This is the only
-    # boundary the operator has authorized writes against.
-    try:
-        target.relative_to(gpfs_root)
-    except ValueError:
         raise HTTPException(
             status_code=400,
-            detail=f"Target {target_path!r} is outside the configured GPFS root.",
+            detail="Research storage (/gpfs) is read-only. Upload into /magellon/uploads "
+                   "or /magellon/templates instead.",
+        )
+    if not is_magellon_wire_path(requested):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Target {target_path!r} is not an upload location "
+                   "(use /magellon/uploads or /magellon/templates).",
+        )
+    try:
+        target = resolve_magellon_shared_path(requested)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if requested.rstrip("/") == "/magellon":
+        raise HTTPException(
+            status_code=400,
+            detail="Choose /magellon/uploads or /magellon/templates as the upload folder.",
         )
 
     if not target.exists():
@@ -373,7 +422,7 @@ def _resolve_upload_dir(target_path: str) -> Path:
 
 @motioncor_router.post("/files/upload", response_model=List[UploadedFileInfo])
 async def upload_files(
-    path: str = Form(..., description="Target directory under the GPFS root."),
+    path: str = Form(..., description="Target folder: /magellon/uploads or /magellon/templates."),
     files: List[UploadFile] = File(..., description="One or more files to upload."),
     overwrite: bool = Form(
         False,
@@ -382,7 +431,7 @@ async def upload_files(
     ),
     user_id: UUID = Depends(get_current_user_id),
 ) -> List[UploadedFileInfo]:
-    """Stream uploaded files into a directory under the GPFS root.
+    """Stream uploaded files into a shared folder of Magellon's own storage.
 
     Used by the React file picker's drop zone so an operator can drag
     a local file onto the picker dialog and have it land in the
@@ -392,9 +441,9 @@ async def upload_files(
     **Requires:** Authentication.
     **Security notes:**
 
-    * Target path is resolved and confirmed to live under
-      ``MAGELLON_GPFS_PATH``; arbitrary destinations are refused
-      (path traversal, absolute paths to ``/etc``, etc).
+    * Target must be ``/magellon/uploads`` or ``/magellon/templates`` (or
+      below); ``/gpfs`` is read-only research data and anything else is
+      refused (path traversal, absolute paths to ``/etc``, etc).
     * Filenames are stripped of any directory components — the upload
       is always written as a leaf file in the resolved target directory.
     * Existing files cause a 409 by default; pass ``overwrite=true``
@@ -449,14 +498,14 @@ async def upload_files(
             logger.exception("upload failed for %s", base_name)
             raise HTTPException(status_code=500, detail=f"Upload failed: {exc}")
 
-        # Return the canonical /gpfs/... form so the React side can use
-        # it directly as a plugin task input — same convention as the
-        # browse endpoint and the bus dispatch path.
-        from core.helper import to_canonical_gpfs_path
+        # Return the /magellon/... wire form so the React side can use it
+        # directly as a plugin task input (plugins mount MAGELLON_HOME_DIR
+        # at /magellon) — same convention as the browse endpoint.
+        from core.paths import to_magellon_wire_path
         mime, _ = mimetypes.guess_type(dest.name)
         out.append(UploadedFileInfo(
             name=dest.name,
-            path=to_canonical_gpfs_path(str(dest)),
+            path=to_magellon_wire_path(dest),
             size=size,
             mime_type=mime,
             overwritten=existed,

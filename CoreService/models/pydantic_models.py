@@ -196,6 +196,9 @@ class LeginonFrameTransferJobBase(ImportJobBase):
     leginon_mysql_user: Optional[str] = None
     leginon_mysql_pass: Optional[str] = None
     defects_file: Optional[UploadFile] = File(None)
+    # The session's data folder: images, frames and gains are found inside it
+    # by name, so no path rewriting (replace_*) or frames folder is needed.
+    data_directory: Optional[str] = None
 
 class EpuImportJobBase(ImportJobBase):
     epu_dir_path: Optional[str] = None
@@ -235,9 +238,16 @@ class SerialEMImportTaskDto(_ImportTaskDtoBase):
 
 class LeginonFrameTransferJobDto(LeginonFrameTransferJobBase):
     target_directory: Optional[str] = None  # should be removed, it is base directory + magellon_session_name name
-    defects_file: Optional[UploadFile] = None   
+    defects_file: Optional[UploadFile] = None
     gains_file: Optional[UploadFile] = None
     default_data: Optional[DefaultParams] = None
+    # Without this, job_id=... passed at construction is silently dropped
+    # (BaseModel's default extra="ignore"), so _run_leginon_import's very
+    # first statement (logging job_dto.job_id) raises AttributeError —
+    # and its own except-block's error log references the same missing
+    # attribute, so even the failure never gets logged. Mirrors how
+    # ImportTaskDto declares it.
+    job_id: Optional[uuid.UUID] = None
 
 
 

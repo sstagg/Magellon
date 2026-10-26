@@ -25,10 +25,11 @@ Mapping (envelope.type → JobManager call)
                                + first-time only: mark_running(job_id)
   magellon.step.progress    -> no DB write (live-only by design)
   magellon.step.completed   -> mark_task_completed(task_id)
-                               + record_task_completion(job_id, task_id)
-                               + if completed==expected: complete_job(job_id)
+                               + record_task_finished(job_id, task_id)
   magellon.step.failed      -> mark_task_failed(task_id)
-                               + fail_job(job_id)   # fail-fast policy
+                               + record_task_finished(job_id, task_id, failed=True)
+  (record_task_finished settles the job when all tasks are done:
+   completed — with a problems list if some failed — or failed if all did)
 
 Failures inside the projector never re-raise — a poisoned envelope
 must not block the rest of the chain (audit log + Socket.IO). They're
@@ -107,36 +108,23 @@ class StepEventJobStateProjector:
                     "output_files": data.get("output_files") or [],
                 }
                 self.manager.mark_task_completed(task_id, result=result)
-
             try:
-                progress = self.manager.record_task_completion(job_id, task_id or "")
+                # Settles the job (completed / completed with problems) once
+                # every task has finished — see JobManager.record_task_finished.
+                self.manager.record_task_finished(job_id, task_id or "")
             except LookupError:
                 logger.warning("Projector: job %s missing — completed event ignored", job_id)
-                return
-
-            if (
-                progress["expected"] > 0
-                and progress["completed"] >= progress["expected"]
-            ):
-                # Aggregate result: list of task results would balloon the
-                # row; just record the count + the "all tasks done" marker.
-                self.manager.complete_job(
-                    job_id,
-                    result={
-                        "task_count": progress["expected"],
-                        "completed_tasks": progress["completed"],
-                    },
-                    num_items=progress["expected"],
-                )
             return
 
         if envelope.type == STEP_FAILED:
+            err = str((data.get("error") or {}).get("message") or "task failed")
             if task_id:
-                err = (data.get("error") or {}).get("message") or "task failed"
-                self.manager.mark_task_failed(task_id, error=str(err))
-            err = (data.get("error") or {}).get("message") or "task failed"
+                self.manager.mark_task_failed(task_id, error=err)
             try:
-                self.manager.fail_job(job_id, error=str(err))
+                # Partial success: one failed task no longer fails the job.
+                self.manager.record_task_finished(
+                    job_id, task_id or "", failed=True, step=_str_or_none(data.get("step")), reason=err,
+                )
             except LookupError:
                 logger.warning("Projector: job %s missing — failed event ignored", job_id)
             return

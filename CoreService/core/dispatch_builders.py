@@ -48,8 +48,12 @@ def dispatch_ctf_task(task_id, full_image_path, task_dto: ImportTaskDto):
     file_name = os.path.splitext(os.path.basename(full_image_path))[0]
 
     #converting LeginonFrameTransferTaskDto to ctf task
-    if hasattr(task_dto, 'job_dto') and task_dto.job_dto and hasattr(task_dto.job_dto, 'session_name') and task_dto.job_dto.session_name:
-        session_name = task_dto.job_dto.session_name
+    # Results go to the Magellon session's folder. For Leginon imports
+    # session_name is the Leginon name, which may differ from it.
+    job_dto = getattr(task_dto, 'job_dto', None)
+    job_session = job_dto and (getattr(job_dto, 'magellon_session_name', None) or getattr(job_dto, 'session_name', None))
+    if job_session:
+        session_name = job_session
     else:
         session_name = file_name.split("_")[0]
     out_file_name = f"{file_name}_ctf_output.mrc"

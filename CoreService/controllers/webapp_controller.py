@@ -788,6 +788,33 @@ async def get_image_thumbnail_url(
     logger.debug(f"User {user_id} requesting thumbnail URL for image: {name}")
     return f"{app_settings.directory_settings.MAGELLON_HOME_DIR}/{IMAGE_SUB_URL}{name}.png"
 
+@webapp_router.get('/sessions/{session_name}/access')
+def get_session_access(
+    session_name: str,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """What the current user may do in a session — the same check the
+    picking/edit/delete endpoints enforce (role permissions + ownership), so
+    the UI can hide actions that would be refused.
+    """
+    db_msession = SessionRepository.fetch_by_name(db, session_name)
+    if not db_msession or not check_session_access(user_id, db_msession.oid, action="read"):
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {
+        "session": db_msession.name,
+        "can_read": True,
+        "can_write": check_session_access(user_id, db_msession.oid, action="write"),
+        # Administrators may delete any session (as DELETE /export/session does).
+        "can_delete": _is_admin(user_id) or check_session_access(user_id, db_msession.oid, action="delete"),
+    }
+
+
+def _is_admin(user_id) -> bool:
+    from services.casbin_service import CasbinService
+    return "Administrator" in CasbinService.get_roles_for_user(str(user_id))
+
+
 @webapp_router.get('/sessions', response_model=List[SessionDto])
 def get_all_sessions(
     name: Optional[str] = None,

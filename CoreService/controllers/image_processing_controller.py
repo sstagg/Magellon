@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from starlette.responses import FileResponse
 from typing import Optional
 
-from config import MAGELLON_HOME_DIR
+from config import MAGELLON_HOME_DIR, app_settings
 from controllers.image_processing_tools import lowpass_filter
 from core.exceptions import TaskDispatchError
 from models.pydantic_models import LeginonFrameTransferJobBase, LeginonFrameTransferJobDto, \
@@ -26,6 +26,8 @@ from database import get_db, session_local
 from services.mrc_image_service import MrcImageService
 from dependencies.auth import get_current_user_id
 from dependencies.permissions import require_permission
+from core.session_ownership import set_import_owner
+from services import import_runners
 
 logger = logging.getLogger(__name__)
 image_processing_router = APIRouter()
@@ -717,10 +719,17 @@ class _UploadProxy:
         self.file = io.BytesIO(content)
 
 
+class _ImportFailedBeforeJob(RuntimeError):
+    """An import failed before its image_job row existed; raised so the import
+    queue (services/import_queue.py) records the reason for the UI."""
+
+
 def _run_leginon_import(job_dto, user_id: UUID) -> None:
+    set_import_owner(user_id)  # sessions created by this import belong to the importer
     def _notify(event: str, **extra):
         try:
-            from core.socketio_server import schedule_import_progress
+            # Relay-aware: works in the web backend and in import workers.
+            from services.import_progress import publish as schedule_import_progress
             schedule_import_progress(str(job_dto.job_id), {"job_id": str(job_dto.job_id), "event": event, **extra})
         except Exception:
             pass
@@ -731,12 +740,38 @@ def _run_leginon_import(job_dto, user_id: UUID) -> None:
         _notify("started")
         svc = LeginonFrameTransferJobService()
         svc.setup_data(job_dto)
-        result = svc.process(db)
+        result = svc.process(db) or {}
+        # The service reports failure by returning it, not raising.
+        error = result.get("error") or (result.get("message") if result.get("status") == "failure" else None)
+        from services.job_manager import job_manager as _jm
+        if error:
+            _notify("failed", message=error)
+            try:
+                _jm.fail_job(str(job_dto.job_id), error=error)
+            except LookupError:
+                # Failed before its job row existed: raise so the import
+                # queue records the reason for the progress window.
+                raise _ImportFailedBeforeJob(error)
+            logger.warning("[Leginon] import failed: job=%s: %s", job_dto.job_id, error)
+            return
         _notify("dispatched", session_name=job_dto.magellon_session_name)
-        logger.info("[Leginon] background import completed: job=%s", job_dto.job_id)
-    except Exception:
+        try:
+            # Keeps the job running until its CTF / MotionCor tasks report,
+            # then it settles (completed, possibly with problems).
+            _jm.complete_job(str(job_dto.job_id), result={"session_name": job_dto.magellon_session_name})
+        except LookupError:
+            pass  # e.g. "No images found in Leginon": nothing was created
+        logger.info("[Leginon] background import dispatched: job=%s", job_dto.job_id)
+    except _ImportFailedBeforeJob:
+        raise
+    except Exception as exc:
         logger.exception("[Leginon] unhandled exception in background import for job=%s", job_dto.job_id)
         _notify("failed", message="Unhandled exception during Leginon import")
+        try:
+            from services.job_manager import job_manager as _jm
+            _jm.fail_job(str(job_dto.job_id), error=f"Unhandled exception during Leginon import: {exc}")
+        except LookupError:
+            raise _ImportFailedBeforeJob(f"Unhandled exception during Leginon import: {exc}")
     finally:
         db.close()
 
@@ -746,8 +781,9 @@ def process_image_job(
     background_tasks: BackgroundTasks,
     magellon_project_name: str = Form(...),
     magellon_session_name: str = Form(...),
-    camera_directory: str = Form(...),
     session_name: str = Form(...),
+    data_directory: Optional[str] = Form(None),
+    camera_directory: Optional[str] = Form(None),
     copy_images: bool = Form(False),
     retries: int = Form(0),
 
@@ -771,19 +807,45 @@ def process_image_job(
     defects_proxy = _UploadProxy(defects_file.filename, defects_file.file.read()) if defects_file else None
     gains_proxy = _UploadProxy(gains_file.filename, gains_file.file.read()) if gains_file else None
 
+    # Data folder (or, for older clients, a frames folder) as the backend
+    # sees it; a folder that doesn't exist is rejected before queuing.
+    from controllers.import_controller import _resolve_gpfs_path
+    if data_directory:
+        data_directory = _resolve_gpfs_path(data_directory.strip())
+        if not os.path.isdir(data_directory):
+            raise HTTPException(status_code=404, detail=f"Data folder not found: {data_directory}")
+        # The folder must hold original/ (images), frames/ (movies) and
+        # gains/ (gain reference). An uploaded gain file stands in for gains/.
+        required = ["original", "frames"] + ([] if gains_file else ["gains"])
+        missing = [f"{name}/" for name in required if not os.path.isdir(os.path.join(data_directory, name))]
+        if missing:
+            raise HTTPException(
+                status_code=422,
+                detail=(f"The data folder must contain original/, frames/ and gains/. "
+                        f"Missing in {data_directory}: {', '.join(missing)}"))
+    elif not camera_directory:
+        raise HTTPException(status_code=422, detail="Choose the session's data folder.")
+    magellon_session_name = magellon_session_name.strip()
+    session_name = session_name.strip()
+
+    # The Leginon DB connection is server config (LEGINON_DB_* in Docker/.env);
+    # form values only override it when explicitly sent.
+    leginon_db = app_settings.leginon_db_settings
+
     job_id = uuid.uuid4()
     job_dto = LeginonFrameTransferJobDto(
         magellon_project_name=magellon_project_name,
         magellon_session_name=magellon_session_name,
         camera_directory=camera_directory,
+        data_directory=data_directory,
         session_name=session_name,
         copy_images=copy_images,
         retries=retries,
-        leginon_mysql_host=leginon_mysql_host,
-        leginon_mysql_port=leginon_mysql_port,
-        leginon_mysql_db=leginon_mysql_db,
-        leginon_mysql_user=leginon_mysql_user,
-        leginon_mysql_pass=leginon_mysql_pass,
+        leginon_mysql_host=leginon_mysql_host or leginon_db.HOST,
+        leginon_mysql_port=leginon_mysql_port or leginon_db.PORT,
+        leginon_mysql_db=leginon_mysql_db or leginon_db.DATABASE,
+        leginon_mysql_user=leginon_mysql_user or leginon_db.USER,
+        leginon_mysql_pass=leginon_mysql_pass or leginon_db.PASSWORD,
         replace_type=replace_type,
         replace_pattern=replace_pattern,
         replace_with=replace_with,
@@ -795,16 +857,18 @@ def process_image_job(
     )
 
     logger.warning("[Leginon] scheduling background import: job=%s user=%s session=%s", job_id, user_id, magellon_session_name)
-    background_tasks.add_task(_run_leginon_import, job_dto, user_id)
+    import_runners.enqueue_leginon(job_dto, user_id)
     return {"message": "Import scheduled", "job_id": str(job_id), "imported_by": str(user_id)}
 
 
 
 
 def _run_epu_job_import(job_dto: EpuImportJobDto, user_id: UUID) -> None:
+    set_import_owner(user_id)  # sessions created by this import belong to the importer
     def _notify(event: str, **extra):
         try:
-            from core.socketio_server import schedule_import_progress
+            # Relay-aware: works in the web backend and in import workers.
+            from services.import_progress import publish as schedule_import_progress
             schedule_import_progress(str(job_dto.job_id), {"job_id": str(job_dto.job_id), "event": event, **extra})
         except Exception:
             pass
@@ -849,7 +913,7 @@ def import_epu_job(
         task_list=[]
     )
     logger.warning("[EPU-old] scheduling background import: job=%s user=%s session=%s", job_id, user_id, input_data.magellon_session_name)
-    background_tasks.add_task(_run_epu_job_import, job_dto, user_id)
+    import_runners.enqueue_epu_job(job_dto, job_id, user_id)
     return {"message": "Import scheduled", "job_id": str(job_id), "imported_by": str(user_id)}
 
 

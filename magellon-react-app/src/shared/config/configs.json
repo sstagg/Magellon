@@ -1,5 +1,6 @@
 {
   "SERVER_API_URL": "",
   "SERVER_WEB_API_URL": "/web",
+  "GPFS_HOST_ROOT": "/gpfs",
   "HUB_URL": "https://demo.magellon.org"
 }

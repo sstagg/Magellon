@@ -26,7 +26,18 @@ for volume in "${VOLUMES[@]}"; do
   fi
 done
 
-# Step 2: Start Docker Compose
+# Step 2: Generate the GPU-count-aware MotionCor compose overlay.
+# One magellon_motioncor_plugin service can't scale itself to however
+# many GPUs this box has, so it's generated per-deployment instead of
+# hardcoded in docker-compose.yml — see generate-motioncor-gpu-compose.sh.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+"$SCRIPT_DIR/generate-motioncor-gpu-compose.sh"
+
+# CTF (CPU-bound, fixed replica count) hits the same Compose scaling
+# limitation MotionCor did — see generate-ctf-compose.sh.
+"$SCRIPT_DIR/generate-ctf-compose.sh"
+
+# Step 3: Start Docker Compose
 if command -v docker-compose &> /dev/null; then
     DOCKER_CMD="docker-compose"
 elif docker compose version &> /dev/null; then
@@ -38,9 +49,9 @@ fi
 
 echo "Using command: $DOCKER_CMD"
 
-$DOCKER_CMD --profile default up -d
+$DOCKER_CMD -f "$SCRIPT_DIR/docker-compose.yml" -f "$SCRIPT_DIR/docker-compose.motioncor-gpu.generated.yml" -f "$SCRIPT_DIR/docker-compose.ctf-scale.generated.yml" --profile default up -d
 
-# Step 3: Wait for services to be ready (optional)
+# Step 4: Wait for services to be ready (optional)
 # You can add a sleep here to give the services some time to start, or use a more sophisticated health check
 sleep 15
 
@@ -58,7 +69,7 @@ sleep 15
 
 
 
-# Step 4: Open browser with links
+# Step 5: Open browser with links
 # Replace the URL with the desired URL for your service
 if which xdg-open > /dev/null
 then

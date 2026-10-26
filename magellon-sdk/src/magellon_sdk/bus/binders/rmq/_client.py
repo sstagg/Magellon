@@ -142,6 +142,14 @@ class RabbitmqClient:
 
     def consume(self, queue_name: str, callback: Callable) -> None:
         self.declare_queue(queue_name)
+        # Without this, RabbitMQ defaults to unbounded prefetch: whichever
+        # consumer's basic_consume happens to register first can be handed
+        # every ready message at once, leaving other consumers on the same
+        # queue (e.g. additional MotionCor/CTF replicas) idle with nothing
+        # to do until that one consumer acks through its entire backlog.
+        # prefetch_count=1 forces RabbitMQ to round-robin fairly across
+        # every currently-connected consumer instead.
+        self.channel.basic_qos(prefetch_count=1)
         self.channel.basic_consume(queue=queue_name, on_message_callback=callback)
 
     def start_consuming(self) -> None:

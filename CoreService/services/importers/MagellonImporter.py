@@ -202,7 +202,8 @@ class MagellonImporter(BaseImporter):
 
     def _emit_step_progress(self) -> None:
         try:
-            from core.socketio_server import schedule_import_progress
+            # Relay-aware: works in the web backend and in import workers.
+            from services.import_progress import publish as schedule_import_progress
             if not self.db_job:
                 return
             elapsed_ms = int((datetime.now() - self._step_start_time).total_seconds() * 1000)

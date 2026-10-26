@@ -201,6 +201,11 @@ def get_logger() -> TaskEventLogger:
 
 
 def _resolve_log_path() -> str:
+    # Operational override: keep the log out of the (possibly read-only or
+    # shared) GPFS data root, e.g. MAGELLON_OPS_LOG_DIR=/magellon.
+    log_dir = os.environ.get("MAGELLON_OPS_LOG_DIR")
+    if log_dir:
+        return os.path.join(log_dir, "ops_events.jsonl")
     try:
         from config import app_settings
         gpfs = app_settings.directory_settings.MAGELLON_GPFS_PATH or "/gpfs"

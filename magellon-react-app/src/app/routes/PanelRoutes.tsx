@@ -20,6 +20,7 @@ import ArtifactWorkflowPage from "../../pages/artifacts/ArtifactWorkflowPage.tsx
 import LoginPageView from "../../features/auth/ui/LoginPageView.tsx";
 import UserProfilePage from "../../features/user-management/ui/UserProfilePage.tsx";
 import AccountPage from "../../features/user-management/ui/page.tsx";
+import { RequireCapability } from "./guards/RequireCapability.tsx";
 
 // Heavy, infrequently visited routes — split out so the main bundle stays lean.
 const MrcViewerPageView = lazy(() => import("../../pages/mrc-viewer/MrcViewerPageView.tsx"));
@@ -65,20 +66,20 @@ export const PanelRoutes = () => {
                 <Route path="/dashboard" element={<DashboardView />} />
                 <Route path="/home" element={<Home />} />
                 <Route path="/images" element={<ImagesPageView />} />
-                <Route path="/import-job" element={<ImportPageView />} />
+                <Route path="/import-job" element={<RequireCapability capability="import_sessions"><ImportPageView /></RequireCapability>} />
                 <Route path="/export" element={<ExportPageView />} />
-                <Route path="/plugins" element={<PluginsPageView />} />
-                <Route path="/plugins/registry" element={<PluginRegistryPage />} />
+                <Route path="/plugins" element={<RequireCapability capability="admin"><PluginsPageView /></RequireCapability>} />
+                <Route path="/plugins/registry" element={<RequireCapability capability="admin"><PluginRegistryPage /></RequireCapability>} />
                 <Route
                     path="/plugins/categories/:categorySlug"
-                    element={<CategoryBackendsPage />}
+                    element={<RequireCapability capability="admin"><CategoryBackendsPage /></RequireCapability>}
                 />
-                <Route path="/plugins/*" element={<PluginRunnerPageView />} />
+                <Route path="/plugins/*" element={<RequireCapability capability="admin"><PluginRunnerPageView /></RequireCapability>} />
                 <Route path="/artifacts/:oid" element={<ArtifactWorkflowPage />} />
                 <Route path="/test" element={<TestView />} />
                 {DevRoutes && <Route path="/dev/*" element={<DevRoutes />} />}
-                <Route path="/admin/pipeline-health" element={<PipelineHealthPage />} />
-                <Route path="/tools/ops-log" element={<OpsLogPage />} />
+                <Route path="/admin/pipeline-health" element={<RequireCapability capability="admin"><PipelineHealthPage /></RequireCapability>} />
+                <Route path="/tools/ops-log" element={<RequireCapability capability="admin"><OpsLogPage /></RequireCapability>} />
                 <Route path="/settings" element={<SettingsView />} />
 
                 <Route path="/login" element={<LoginPageView />} />
@@ -86,16 +87,16 @@ export const PanelRoutes = () => {
                 <Route path="/profile" element={<UserProfilePage />} />
 
                 {/* Processing routes */}
-                <Route path="/run-job" element={<RunJobPageView />} />
+                <Route path="/run-job" element={<RequireCapability capability="import_sessions"><RunJobPageView /></RequireCapability>} />
                 <Route path="/mrc-viewer" element={<MrcViewerPageView />} />
                 <Route path="/about" element={<AboutPage />} />
 
 
                 {/* Other routes */}
                 <Route path="/domains/*" element={<DomainRoutes />} />
-                <Route path="/api" element={<ApiView />} />
-                <Route path="/api-scalar" element={<ScalarApiDocs />} />
-                <Route path="/api-swagger" element={<SwaggerApiDocs />} />
+                <Route path="/api" element={<RequireCapability capability="admin"><ApiView /></RequireCapability>} />
+                <Route path="/api-scalar" element={<RequireCapability capability="admin"><ScalarApiDocs /></RequireCapability>} />
+                <Route path="/api-swagger" element={<RequireCapability capability="admin"><SwaggerApiDocs /></RequireCapability>} />
             </Routes>
         </Suspense>
     );

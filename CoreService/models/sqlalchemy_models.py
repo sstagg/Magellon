@@ -7,6 +7,7 @@ from sqlalchemy.orm import relationship
 from lib.sqlalchemy_uuid_type import SqlalchemyUuidType
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.mysql import BIGINT, INTEGER, LONGTEXT, SMALLINT, BIT,  LONGBLOB ,DOUBLE
+from sqlalchemy.dialects.mysql import DATETIME as MYSQL_DATETIME
 from sqlalchemy import Column, DECIMAL, ForeignKey, Index, String, Text, Boolean, LargeBinary, DateTime, JSON,  BINARY, Float
 
 Base = declarative_base()
@@ -833,3 +834,23 @@ class JobEvent(Base):
 
     job = relationship('ImageJob')
     task = relationship('ImageJobTask')
+
+
+class ImportJobQueue(Base):
+    """One submitted import, waiting or running in the durable import queue
+    (services/import_queue.py; table created by migration 0011)."""
+    __tablename__ = 'import_job_queue'
+
+    id = Column(String(36), primary_key=True)       # job id given to the browser
+    kind = Column(String(32), nullable=False)       # leginon, epu, epu_job, magellon, serialem
+    label = Column(String(255))                     # session name, for display
+    owner_id = Column(String(36), index=True)       # sys_sec_user.oid as text
+    payload = Column(JSON, nullable=False)          # importer parameters
+    status = Column(String(16), nullable=False)     # queued | running | done | failed | cancelled
+    # Microseconds (migration 0012): order within a user follows created_at.
+    created_at = Column(MYSQL_DATETIME(fsp=6), nullable=False)
+    started_at = Column(MYSQL_DATETIME(fsp=6))
+    finished_at = Column(MYSQL_DATETIME(fsp=6))
+    heartbeat_at = Column(MYSQL_DATETIME(fsp=6))
+    worker = Column(String(128))
+    error = Column(Text)

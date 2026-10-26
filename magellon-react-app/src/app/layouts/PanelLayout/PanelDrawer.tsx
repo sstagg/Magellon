@@ -17,6 +17,8 @@ import {
 import { Box, Collapse, Typography, useMediaQuery } from '@mui/material';
 import {ExpandLess, ExpandMore} from '@mui/icons-material';
 import magellonLogo from "../../../assets/images/magellon-logo.svg";
+import { useAuth } from '../../../features/auth/model/AuthContext.tsx';
+import type { UserCapabilities } from '../../../features/auth/api/userApi.ts';
 
 const DRAWER_WIDTH = 240;
 
@@ -37,6 +39,8 @@ interface NavLink {
     url: string;
     icon: React.ReactNode;
     children?: NavLink[];
+    /** Shown only to users with this capability (see /auth/me). */
+    requires?: keyof UserCapabilities;
 }
 
 // Main navigation links
@@ -53,16 +57,19 @@ const navLinks: NavLink[] = [
     },
     {
         title: "Jobs",
+        requires: "import_sessions",
         url: "run-job",
         icon: <Beaker size={20} />
     },
     {
         title: "Plugins",
+        requires: "admin",
         url: "plugins",
         icon: <Puzzle size={20} />
     },
     {
         title: "Import",
+        requires: "import_sessions",
         url: "import-job",
         icon: <ArrowRightFromLine size={20} />
     },
@@ -88,6 +95,7 @@ const navLinks: NavLink[] = [
     },
     {
         title: "API Docs",
+        requires: "admin",
         url: "api-docs",
         icon: <BrainCircuit size={20} />,
         children: [
@@ -105,6 +113,7 @@ const navLinks: NavLink[] = [
     },
     {
         title: "Tools",
+        requires: "admin",
         url: "tools",
         icon: <Wrench size={20} />,
         children: [
@@ -176,6 +185,9 @@ export const PanelDrawer: React.FC<PanelDrawerProps> = ({ open, handleDrawerClos
     const navigate = useNavigate();
     const location = useLocation();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const { capabilities } = useAuth();
+    const visibleLinks = (items: NavLink[]): NavLink[] =>
+        items.filter(item => !item.requires || capabilities[item.requires]);
 
     // State to track expanded menu items
     const [expandedItems, setExpandedItems] = React.useState<Record<string, boolean>>({});
@@ -265,7 +277,7 @@ export const PanelDrawer: React.FC<PanelDrawerProps> = ({ open, handleDrawerClos
                     {hasChildren && (
                         <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                             <List component="div" disablePadding>
-                                {renderNavItems(item.children ?? [], level + 1)}
+                                {renderNavItems(visibleLinks(item.children ?? []), level + 1)}
                             </List>
                         </Collapse>
                     )}
@@ -305,7 +317,7 @@ export const PanelDrawer: React.FC<PanelDrawerProps> = ({ open, handleDrawerClos
             <Divider />
             {/* Main navigation list */}
             <List sx={{ p: 1 }}>
-                {renderNavItems(navLinks)}
+                {renderNavItems(visibleLinks(navLinks))}
             </List>
             {/* App version at bottom of drawer */}
             <Box sx={{

@@ -47,7 +47,52 @@ export type ImportSummary = {
     totals: Record<string, number>;
     by_category: Record<string, Record<string, number>>;
     created_at?: string | null;
+    error?: string | null;
+    /** Set while the import waits for a free slot (1 = next to start). */
+    queue_position?: number | null;
+    queue_waiting?: number;
+    queue_limit?: number;
+    /** Set when the import completed but some tasks failed. */
+    warning?: string | null;
+    /** Failed tasks grouped by step and reason, most common first. */
+    problems?: { step: string; reason: string; count: number }[];
 };
+
+// Remaining-time estimate: completion rate over a sliding window, smoothed so
+// the number settles instead of jumping with every poll.
+const ETA_WINDOW_MS = 3 * 60 * 1000;
+const ETA_SMOOTHING = 0.3;
+type ProgressSample = { t: number; done: number };
+type EtaState = { samples: ProgressSample[]; rate: number | null };  // rate: tasks per ms
+
+const newEtaState = (): EtaState => ({ samples: [], rate: null });
+
+/** Record this poll's progress and return the estimated ms remaining (or null). */
+function estimateRemaining(state: EtaState, next: ImportSummary, now = Date.now()): number | null {
+    const done = next.terminal_tasks;
+    const remaining = next.total_tasks - done;
+    const { samples } = state;
+    const last = samples[samples.length - 1];
+    if (!last || last.done !== done || now - last.t > 30000) samples.push({ t: now, done });
+    while (samples.length > 2 && now - samples[0].t > ETA_WINDOW_MS) samples.shift();
+    if (remaining <= 0 || done <= 0) return null;
+
+    // Recent rate across the window; before there's history, fall back to the
+    // average since the job was created (server time, UTC).
+    let rate: number | null = null;
+    const first = samples[0];
+    if (samples.length >= 2 && done > first.done && now > first.t) {
+        rate = (done - first.done) / (now - first.t);
+    } else if (next.created_at) {
+        const iso = /[zZ]|[+-]\d\d:?\d\d$/.test(next.created_at) ? next.created_at : `${next.created_at}Z`;
+        const created = Date.parse(iso);
+        if (!Number.isNaN(created) && now > created) rate = done / (now - created);
+    }
+    if (rate && rate > 0) {
+        state.rate = state.rate === null ? rate : ETA_SMOOTHING * rate + (1 - ETA_SMOOTHING) * state.rate;
+    }
+    return state.rate ? remaining / state.rate : null;
+}
 
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
@@ -64,13 +109,24 @@ export type UseImportJobProgressResult = {
     stepCounts: StepCounts | null;
     stepTotals: StepCounts | null;
     elapsedMs: number;
+    /** Estimated ms until all tasks finish; null while there's no basis yet. */
+    etaMs: number | null;
     sessionName: string | null;
     // Imperative actions invoked by the host component around the POST.
     scheduling: () => void;          // call before the import-start POST
     start: (jobId: string) => void;  // call with response.data.job_id on POST success
     succeed: () => void;             // sync paths with no pollable job_id
     fail: (message: string) => void; // call on POST failure
-    reset: () => void;               // close / clear (host's dialog onClose)
+    reset: () => void;               // close: clears a finished import, minimises a running one
+    /** The progress window was put in the background (the import keeps running). */
+    minimized: boolean;
+    minimize: () => void;
+    /** A progress check failed transiently (network blip, restart); still retrying. */
+    connectionIssue: boolean;
+    cancelQueued: () => Promise<void>; // withdraw an import still waiting in the queue
+    /** Stop a queued or running import and remove everything it created. */
+    stop: () => Promise<void>;
+    stopping: boolean;
 };
 
 /**
@@ -92,6 +148,10 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
     const [stepCounts, setStepCounts] = useState<StepCounts | null>(null);
     const [stepTotals, setStepTotals] = useState<StepCounts | null>(null);
     const [elapsedMs, setElapsedMs] = useState<number>(0);
+    const [etaMs, setEtaMs] = useState<number | null>(null);
+    const [minimized, setMinimized] = useState(false);
+    const [connectionIssue, setConnectionIssue] = useState(false);
+    const etaStateRef = useRef<EtaState>(newEtaState());
     const { emit: socketEmit, on: socketOn, connected: socketConnected } = useSocket();
     const statusRef = useRef(status);
     const jobIdRef = useRef(jobId);
@@ -104,20 +164,30 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
             const response = await apiClient.get<ImportSummary>(`/export/job/${id}/summary`);
             const next = response.data;
             setSummary(next);
+            setConnectionIssue(false);
             if (TERMINAL_STATUSES.has(next.derived_status)) {
                 setStatus(next.derived_status === "completed" ? "success" : "error");
+                setEtaMs(null);
                 if (next.derived_status !== "completed") {
-                    setError(`Import ${next.derived_status}`);
+                    setError(next.error || `Import ${next.derived_status}`);
                 }
             } else {
                 setStatus("running");
+                setEtaMs(estimateRemaining(etaStateRef.current, next));
             }
         } catch (err: unknown) {
             const axiosError = err as AxiosError<{ detail?: string }>;
-            if (axiosError.response?.status !== 404) {
+            const code = axiosError.response?.status;
+            // No response (network) or a gateway/server hiccup (e.g. a deploy):
+            // the import itself is unaffected, so keep the window running and
+            // keep polling instead of declaring it failed.
+            if (code === undefined || code === 502 || code === 503 || code === 504) {
+                setConnectionIssue(true);
+            } else if (code !== 404) {
                 setStatus("error");
                 setError(errorMessage(err, "Could not read import progress"));
             }
+            return;
         }
     }, []);
 
@@ -147,6 +217,8 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
                 setStepCounts(null);
                 setStepTotals(null);
                 setElapsedMs(0);
+                etaStateRef.current = newEtaState();
+                setEtaMs(null);
             }
         };
         window.addEventListener(DISMISS_EVENT, handler);
@@ -196,8 +268,16 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
         };
     }, [jobId, status, fetchSummary]);
 
+    const minimize = useCallback(() => setMinimized(true), []);
+
     const reset = useCallback(() => {
-        if (["scheduling", "running"].includes(statusRef.current)) return;
+        // Closing a running import only hides its window; it keeps going.
+        if (["scheduling", "running"].includes(statusRef.current)) {
+            setMinimized(true);
+            return;
+        }
+        setMinimized(false);
+        setConnectionIssue(false);
         // Broadcast so every other mounted hook instance (hidden tabs) also closes.
         const currentJobId = jobIdRef.current;
         if (currentJobId) _broadcastDismissal(currentJobId);
@@ -208,16 +288,22 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
         setStepCounts(null);
         setStepTotals(null);
         setElapsedMs(0);
+        etaStateRef.current = newEtaState();
+        setEtaMs(null);
     }, []);
 
     const scheduling = useCallback(() => {
         setStatus("scheduling");
+        setMinimized(false);
+        setConnectionIssue(false);
         setError(null);
         setSummary(null);
         setJobId(null);
         setStepCounts(null);
         setStepTotals(null);
         setElapsedMs(0);
+        etaStateRef.current = newEtaState();
+        setEtaMs(null);
     }, []);
 
     const start = useCallback((id: string) => {
@@ -237,6 +323,24 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
         setError(null);
     }, []);
 
+    // Stop the import (queued or running) and remove everything it created;
+    // the summary then reports it "cancelled".
+    const [stopping, setStopping] = useState(false);
+    const stop = useCallback(async () => {
+        const id = jobIdRef.current;
+        if (!id) return;
+        setStopping(true);
+        try {
+            await apiClient.post(`/export/job/${id}/stop`);
+        } catch (err) {
+            setError(errorMessage(err, "Could not stop the import"));
+        } finally {
+            setStopping(false);
+        }
+        await fetchSummary(id);
+    }, [fetchSummary]);
+    const cancelQueued = stop;
+
     const fail = useCallback((message: string) => {
         setStatus("error");
         setError(message);
@@ -245,7 +349,8 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
     const sessionName = summary?.name?.replace(/^Import:\s*/i, "") ?? null;
 
     return {
-        status, error, jobId, summary, stepCounts, stepTotals, elapsedMs,
-        sessionName, scheduling, start, succeed, fail, reset,
+        status, error, jobId, summary, stepCounts, stepTotals, elapsedMs, etaMs,
+        sessionName, scheduling, start, succeed, fail, reset, cancelQueued, stop, stopping,
+        minimized, minimize, connectionIssue,
     };
 }

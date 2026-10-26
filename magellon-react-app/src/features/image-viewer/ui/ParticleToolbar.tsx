@@ -97,6 +97,8 @@ export interface ParticleToolbarProps {
     isMobile: boolean;
     isFullscreen: boolean;
     onToggleFullscreen: () => void;
+    /** View-only session: show saved picks, hide every action that changes them. */
+    readOnly?: boolean;
 }
 
 export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
@@ -133,6 +135,7 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
     onParticleRadiusChange,
     onSettingsOpen,
     onHelpOpen,
+    readOnly = false,
 }) => {
     const [actionsAnchor, setActionsAnchor] = useState<null | HTMLElement>(null);
     const [pickingRecordMenuOpen, setPickingRecordMenuOpen] = useState(false);
@@ -182,23 +185,36 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
                     <MenuItem onClick={() => { onRefresh(); setActionsAnchor(null); }}>
                         <RefreshIcon sx={{ fontSize: 18, mr: 1 }} /> Refresh
                     </MenuItem>
-                    <MenuItem onClick={() => { onCreateNew(); setActionsAnchor(null); }}>
-                        <AddIcon sx={{ fontSize: 18, mr: 1 }} /> New picking record
-                    </MenuItem>
-                    <MenuItem onClick={() => { onSave(); setActionsAnchor(null); }} disabled={!selectedParticlePicking}>
-                        <SaveIcon sx={{ fontSize: 18, mr: 1 }} /> Save
-                    </MenuItem>
+                    {!readOnly && (
+                        <MenuItem onClick={() => { onCreateNew(); setActionsAnchor(null); }}>
+                            <AddIcon sx={{ fontSize: 18, mr: 1 }} /> New picking record
+                        </MenuItem>
+                    )}
+                    {!readOnly && (
+                        <MenuItem onClick={() => { onSave(); setActionsAnchor(null); }} disabled={!selectedParticlePicking}>
+                            <SaveIcon sx={{ fontSize: 18, mr: 1 }} /> Save
+                        </MenuItem>
+                    )}
                     <MenuItem onClick={() => { onExportCoco(); setActionsAnchor(null); }} disabled={!selectedParticlePicking}>
                         <DownloadIcon sx={{ fontSize: 18, mr: 1 }} /> Export as COCO
                     </MenuItem>
-                    <MenuItem disabled={!selectedParticlePicking}>
-                        <DeleteIcon sx={{ fontSize: 18, mr: 1 }} /> Delete
-                    </MenuItem>
+                    {!readOnly && (
+                        <MenuItem disabled={!selectedParticlePicking}>
+                            <DeleteIcon sx={{ fontSize: 18, mr: 1 }} /> Delete
+                        </MenuItem>
+                    )}
                 </Menu>
 
                 <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
 
+                {readOnly && (
+                    <Tooltip title="You can view the saved picks in this session but not change them">
+                        <Chip label="View only" size="small" variant="outlined" sx={{ height: 22, fontSize: '0.7rem' }} />
+                    </Tooltip>
+                )}
+
                 {/* Tool toggles */}
+                {!readOnly && <>
                 <ToggleButtonGroup
                     value={tool}
                     exclusive
@@ -225,6 +241,7 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
                     variant="outlined"
                     sx={{ height: 20, fontSize: '0.62rem', ml: 0.5, px: 0.25 }}
                 />
+                </>}
 
                 <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
 
@@ -258,6 +275,7 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
 
                 <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
 
+                {!readOnly && <>
                 {/* Undo / Redo */}
                 <Tooltip title="Undo"><span><IconButton size="small" onClick={onUndo} disabled={!canUndo} sx={{ p: 0.25 }}><UndoIcon sx={{ fontSize: 16 }} /></IconButton></span></Tooltip>
                 <Tooltip title="Redo"><span><IconButton size="small" onClick={onRedo} disabled={!canRedo} sx={{ p: 0.25 }}><RedoIcon sx={{ fontSize: 16 }} /></IconButton></span></Tooltip>
@@ -271,6 +289,7 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
                 <Tooltip title="Delete"><span><IconButton size="small" onClick={onDelete} disabled={!hasSelection} sx={{ p: 0.25 }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton></span></Tooltip>
 
                 <Divider orientation="vertical" flexItem sx={{ mx: 0.25 }} />
+                </>}
 
                 {/* Zoom */}
                 <Tooltip title="Zoom In"><IconButton size="small" onClick={onZoomIn} sx={{ p: 0.25 }}><ZoomInIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
@@ -282,8 +301,10 @@ export const ParticleToolbar: React.FC<ParticleToolbarProps> = ({
 
                 {/* Right side */}
                 <Tooltip title="Grid (G)"><IconButton size="small" onClick={onToggleGrid} color={showGrid ? "primary" : "default"} sx={{ p: 0.25 }}><GridOnIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                {!readOnly && <>
                 <Tooltip title="Auto-pick"><IconButton size="small" onClick={onAutoPickRun} disabled={isAutoPickingRunning} color="primary" sx={{ p: 0.25 }}><AutoFixHighIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
                 <Tooltip title="Settings"><IconButton size="small" onClick={onSettingsOpen} sx={{ p: 0.25 }}><SettingsIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
+                </>}
                 <Tooltip title="Help (H)"><IconButton size="small" onClick={onHelpOpen} sx={{ p: 0.25 }}><HelpIcon sx={{ fontSize: 16 }} /></IconButton></Tooltip>
             </Box>
         </Paper>

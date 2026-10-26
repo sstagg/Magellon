@@ -22,6 +22,9 @@ import ThemeSwitcher from './ThemeSwitcher.tsx';
 import { useAuth } from '../../../features/auth/model/AuthContext.tsx';
 import { useNavigate } from "react-router-dom";
 import { useSidePanelStore } from '../../../shared/lib/stores/useBottomPanelStore.ts';
+import { ActiveImportIndicator } from '../../../features/data-import/ui/ActiveImportIndicator.tsx';
+import { Notifier } from '../../../shared/ui/Notifications.tsx';
+import { DeleteSessionDialog } from '../../../features/session-delete/DeleteSessionDialog.tsx';
 
 const DRAWER_WIDTH = 240;
 
@@ -122,6 +125,11 @@ export const PanelHeader: React.FC<PanelHeaderProps> = ({
                 >
                     Magellon
                 </Typography>
+
+                {/* Live progress of the user's import, on every page (also on phones). */}
+                {user && <ActiveImportIndicator />}
+                {user && <Notifier />}
+                {user && <DeleteSessionDialog />}
 
                 {!isMobile && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

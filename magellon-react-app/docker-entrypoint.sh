@@ -7,13 +7,17 @@ set -e
 # Empty API_URL means relative paths — nginx inside this container proxies
 # /auth, /web, /image, etc. to the backend container. No CORS, no hardcoded host.
 # Only set API_URL to an absolute URL when the backend is on a different host.
-API_URL="${API_URL:-http://127.0.0.1:8000}"
+API_URL="${API_URL:-}"
 WEB_API_URL="${WEB_API_URL:-${API_URL}/web}"
+# Host path the backend mounts at /gpfs — shown in the import forms so users
+# can enter familiar paths (e.g. /gpfs/research/stagg/...).
+GPFS_HOST_ROOT="${GPFS_HOST_ROOT:-/gpfs}"
 
-cat > /usr/share/nginx/html/config.js <<EOF
+cat > /tmp/magellon-config.js <<EOF
 window.__MAGELLON_CONFIG__ = {
   SERVER_API_URL: "${API_URL}",
-  SERVER_WEB_API_URL: "${WEB_API_URL}"
+  SERVER_WEB_API_URL: "${WEB_API_URL}",
+  GPFS_HOST_ROOT: "${GPFS_HOST_ROOT}"
 };
 EOF
 

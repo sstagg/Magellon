@@ -1,4 +1,5 @@
 # Stage 1: Build the application
+# syntax=docker/dockerfile:1
 FROM node:22-alpine as build
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -11,6 +12,11 @@ RUN apk add --no-cache git
 WORKDIR /app
 # Copy package.json and pnpm-lock.yaml (if available)
 COPY package.json pnpm-lock.yaml ./
+
+# Install dependencies before copying the source: this layer then stays
+# cached until package.json / the lockfile change, instead of re-running
+# (4-5 min) on every source edit.
+RUN pnpm install --force --dangerously-allow-all-builds
 
 # Copy the rest of the application
 COPY src ./src
@@ -29,8 +35,6 @@ COPY nginx.conf ./nginx.conf
 # (config.js from env vars) — no build-time source patching, one image
 # runs against any backend.
 
-RUN pnpm install --force --dangerously-allow-all-builds
-
 # Build the application
 RUN npm run build
 #RUN vite build
@@ -38,16 +42,15 @@ RUN npm run build
 
 
 # Stage 2: Serve the application
-FROM nginx:alpine
+FROM nginxinc/nginx-unprivileged:alpine
 # Copy custom nginx config (optional)
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copy built files from the build stage
 COPY --from=build /app/dist /usr/share/nginx/html
-COPY docker-entrypoint.sh /docker-entrypoint-magellon.sh
-RUN sed -i 's/\r$//' /docker-entrypoint-magellon.sh && chmod +x /docker-entrypoint-magellon.sh
+COPY --chmod=755 docker-entrypoint.sh /docker-entrypoint-magellon.sh
 
-# Expose port 80
-EXPOSE 80
+# The unprivileged nginx image listens on 8080.
+EXPOSE 8080
 
 # Generate /config.js from env, then start nginx.
 CMD ["/docker-entrypoint-magellon.sh"]

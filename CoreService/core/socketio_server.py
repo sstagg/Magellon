@@ -87,6 +87,9 @@ async def connect(sid, environ, auth=None):
         logger.warning(f"Rejecting unauthenticated socket connect: {sid}")
         raise socketio.exceptions.ConnectionRefusedError("authentication required")
     await sio.save_session(sid, {"user_id": user_id})
+    if user_id:
+        # Personal room: lets the server push "your permissions changed".
+        await sio.enter_room(sid, _user_room(str(user_id)))
     logger.info(f"Client connected: {sid} (user={user_id or 'anonymous'})")
     await sio.emit('server_message', {'message': 'Welcome! You are connected.'}, room=sid)
 
@@ -459,6 +462,27 @@ async def emit_test_envelope(
         await sio.emit("plugin_test_envelope", frame, room=_job_room(str(job_id)))
     except Exception:
         logger.exception("emit_test_envelope failed (non-fatal)")
+
+
+def _user_room(user_id: str) -> str:
+    return f"user:{user_id}"
+
+
+def schedule_permissions_changed(user_ids) -> None:
+    """Tell these users' open browsers to reload what they may do.
+
+    Thread-safe; a no-op before the ASGI loop is captured. The event carries
+    no permission data: the browser re-asks ``/auth/me``, which stays the
+    single source of truth.
+    """
+    if _asgi_loop is None:
+        return
+    for user_id in user_ids:
+        coro = sio.emit("permissions_changed", {}, room=_user_room(str(user_id)))
+        try:
+            asyncio.run_coroutine_threadsafe(coro, _asgi_loop)
+        except Exception:
+            logger.debug("schedule_permissions_changed: scheduling failed", exc_info=True)
 
 
 def schedule_import_progress(job_id: str, data: dict) -> None:

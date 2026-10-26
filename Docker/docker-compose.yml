@@ -1,3 +1,9 @@
+x-magellon-runtime-user: &magellon-runtime-user
+  user: "${MAGELLON_UID:-841675}:${MAGELLON_GID:-841675}"
+  group_add:
+    - "${DOCKER_GID:-498}"
+    - "${MAGELLON_GPFS_GID:-445}"
+
 services:
 
 
@@ -10,12 +16,17 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
-      - ${MAGELLON_ROOT_DIR}/services/mysql/data:/var/lib/mysql:rw
-      - ${MAGELLON_ROOT_DIR}/services/mysql/conf:/etc/mysql/conf
-      - ${MAGELLON_ROOT_DIR}/services/mysql/init/magellon01db.sql:/docker-entrypoint-initdb.d/magellon01db.sql
+      # MySQL can't live on NFS/GPFS (root-squash + locking), so its data dir
+      # is separate from MAGELLON_ROOT_DIR; set MAGELLON_DB_DIR to local disk.
+      - ${MAGELLON_DB_DIR:-${MAGELLON_ROOT_DIR}/services/mysql}/data:/var/lib/mysql:rw
+      - ${MAGELLON_DB_DIR:-${MAGELLON_ROOT_DIR}/services/mysql}/conf:/etc/mysql/conf
+      - ${MAGELLON_DB_DIR:-${MAGELLON_ROOT_DIR}/services/mysql}/init/magellon01db.sql:/docker-entrypoint-initdb.d/magellon01db.sql
     command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci  --lower-case-table-names=1
     restart: always
     user: "999:999"
+    group_add:
+      - "${MAGELLON_GID:-841675}"
+      - "${MAGELLON_GPFS_GID:-445}"
     ports:
       - "127.0.0.1:${MYSQL_PORT}:3306"
     networks:
@@ -80,6 +91,9 @@ services:
     image: prom/prometheus:latest
     restart: unless-stopped
     container_name: magellon-prometheus-container
+    group_add:
+      - "${MAGELLON_GID:-841675}"
+      - "${MAGELLON_GPFS_GID:-445}"
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
@@ -94,6 +108,9 @@ services:
     image: grafana/grafana:latest
     restart: unless-stopped
     container_name: magellon-grafana-container
+    group_add:
+      - "${MAGELLON_GID:-841675}"
+      - "${MAGELLON_GPFS_GID:-445}"
     depends_on:
       - prometheus
     ports:
@@ -111,6 +128,7 @@ services:
         ipv4_address: 172.16.238.12
 
   backend:
+    <<: *magellon-runtime-user
     build:
       # Repo root as context so the editable SDK install
       # (`-e ../magellon-sdk` in CoreService/requirements.txt) resolves.
@@ -123,24 +141,46 @@ services:
       - "127.0.0.1:${MAGELLON_BACKEND_PORT}:8000"
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
-      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_GPFS_PATH}:/gpfs:ro  # research data: read-only, all writes go to MAGELLON_HOME_PATH/JOBS_PATH
       - ${MAGELLON_JOBS_PATH}:/jobs
       - /var/run/docker.sock:/var/run/docker.sock
     group_add:
       - "${DOCKER_GID:-993}"
-    environment:
+      - "${MAGELLON_GPFS_GID:-445}"
+    environment: &backend-environment
       - APP_ENV=production
       - RUN_ENV=docker
+      - MAGELLON_LOG_DIR=/tmp/magellon-logs
+      - MPLCONFIGDIR=/tmp/matplotlib
+      - HOME=/tmp
       - GPFS_PATH=${MAGELLON_GPFS_PATH}
       - HOME_PATH=${MAGELLON_HOME_PATH}
       - JOBS_PATH=${MAGELLON_JOBS_PATH}
+      # /gpfs is the shared lab data tree (read for imports); everything
+      # Magellon itself creates goes under /magellon (MAGELLON_HOME_PATH).
+      - MAGELLON_OPS_LOG_DIR=/magellon
+      - MAGELLON_PLUGINS_INSTALL_DIR=/magellon/plugins
+      - MAGELLON_PLUGIN_PACKAGES_DIR=/magellon/plugin_packages
+      # Imports run at most this many at once per import worker; the rest
+      # wait in the durable queue (matches the 4 GPUs).
+      - MAGELLON_MAX_CONCURRENT_IMPORTS=${MAGELLON_MAX_CONCURRENT_IMPORTS:-4}
+      # DB connection pool shared by all requests, imports and result
+      # writers (MySQL allows 151 connections).
+      - MAGELLON_DB_POOL_SIZE=${MAGELLON_DB_POOL_SIZE:-30}
+      - MAGELLON_DB_MAX_OVERFLOW=${MAGELLON_DB_MAX_OVERFLOW:-20}
+      # Hour (UTC) the import worker clears finished scratch folders from the
+      # jobs directory each night (6 = 2:00 AM US Eastern).
+      - MAGELLON_JOBS_CLEANUP_HOUR_UTC=${MAGELLON_JOBS_CLEANUP_HOUR_UTC:-6}
+      # Leginon database used by the Leginon import (kept out of the UI).
+      - LEGINON_DB_HOST=${LEGINON_DB_HOST:-}
+      - LEGINON_DB_PORT=${LEGINON_DB_PORT:-3306}
+      - LEGINON_DB_NAME=${LEGINON_DB_NAME:-dbemdata}
+      - LEGINON_DB_USER=${LEGINON_DB_USER:-}
+      - LEGINON_DB_PASSWORD=${LEGINON_DB_PASSWORD:-}
       - RABBITMQ_HOST=rabbitmq
       - DRAGONFLY_HOST=dragonfly
       - DRAGONFLY_PORT=6379
       - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
-      - MAGELLON_LOG_DIR=/tmp/magellon-logs
-      - MPLCONFIGDIR=/tmp/matplotlib
-      - HOME=/tmp
       # Step-event forwarders (RMQ + NATS): persist lifecycle envelopes
       # to job_event AND drive JobManager state transitions for
       # message-driven plugins (FFT/CTF/MotionCor).
@@ -148,12 +188,35 @@ services:
       - MAGELLON_STEP_EVENTS_FORWARDER=1
       - NATS_URL=nats://nats:4222
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-8e9b91d16c6adcc0b31780e6e959eecb72e78f786148a28f583391e7c64157e9}
-      - MAGELLON_CORS_ALLOWED_ORIGINS=http://localhost:18080,http://127.0.0.1:18080,http://localhost:8080,http://127.0.0.1:8080,http://localhost,http://127.0.0.1
+      - MAGELLON_CORS_ALLOWED_ORIGINS=http://localhost:18080,http://127.0.0.1:18080,http://localhost:8080,http://127.0.0.1:8080,http://localhost,http://127.0.0.1,https://${MAGELLON_DOMAIN:-localhost}
     networks:
       magellon-network:
         ipv4_address: 172.16.238.15
 
+  # Runs imports outside the web backend (services/import_worker.py): takes
+  # them from the durable import queue fairly across users, up to
+  # MAGELLON_MAX_CONCURRENT_IMPORTS at once. Same image and settings as the
+  # backend; it doesn't serve HTTP or run migrations (the backend does).
+  # Scale out with more workers (here or on other hosts sharing the DB and
+  # storage) — the queue never hands one import to two workers.
+  import_worker:
+    <<: *magellon-runtime-user
+    image: magellon-core-image          # built by the backend service
+    container_name: magellon-import-worker
+    restart: unless-stopped
+    command: ["python", "-m", "services.import_worker"]
+    depends_on:
+      - backend
+    volumes:
+      - ${MAGELLON_HOME_PATH}:/magellon
+      - ${MAGELLON_GPFS_PATH}:/gpfs:ro  # research data: read-only, all writes go to MAGELLON_HOME_PATH/JOBS_PATH
+      - ${MAGELLON_JOBS_PATH}:/jobs
+    environment: *backend-environment
+    networks:
+      - magellon-network
+
   web:
+    user: "${MAGELLON_UID:-841675}:${MAGELLON_GID:-841675}"
     build:
       context: ../magellon-react-app
       dockerfile: Dockerfile
@@ -161,81 +224,55 @@ services:
     container_name: magellon-react-app-container
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${MAGELLON_FRONTEND_PORT}:80"
+      - "127.0.0.1:${MAGELLON_FRONTEND_PORT}:8080"
     environment:
       - BACKEND_HOST=backend
-      - API_URL=http://localhost:${MAGELLON_BACKEND_PORT}
+      # Empty → browser uses relative paths and this container's nginx proxies
+      # them to the backend, so the same setup works on localhost, an SSH
+      # tunnel, or a public URL. Set MAGELLON_API_URL in .env only if the
+      # backend lives on a different host.
+      - API_URL=${MAGELLON_API_URL:-}
+      # Shown as the fixed prefix of path fields in the import forms.
+      - GPFS_HOST_ROOT=${MAGELLON_GPFS_PATH}
     networks:
       magellon-network:
         ipv4_address: 172.16.238.16
+      magellon-public:
 
-
-  magellon_ctf_plugin:
-    build:
-      context: ..
-      dockerfile: plugins/magellon_ctf_plugin/Dockerfile
-    image: magellon_ctf_plugin_image
-    container_name: magellon_ctf_plugin_container
-    environment:
-      - APP_ENV=production
-      - RUN_ENV=docker
-      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
-      - JOBS_PATH=${MAGELLON_JOBS_PATH}
-      - DRAGONFLY_HOST=dragonfly
-      - DRAGONFLY_PORT=6379
-      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
-      - MAGELLON_LOG_DIR=/tmp/magellon-logs
-      - MPLCONFIGDIR=/tmp/matplotlib
-      - HOME=/tmp
-    volumes:
-      - ${MAGELLON_HOME_PATH}:/magellon
-      - ${MAGELLON_GPFS_PATH}:/gpfs
-      - ${MAGELLON_JOBS_PATH}:/jobs
+  # Public HTTPS entry point (see caddy/Caddyfile). The only service that
+  # publishes ports on all host interfaces; it can reach `web` and nothing
+  # else. Started by setup-magellon.sh when MAGELLON_DOMAIN is set in .env.
+  caddy:
+    image: caddy:2-alpine
+    container_name: magellon-caddy-container
+    profiles: ["proxy"]
+    restart: unless-stopped
+    depends_on:
+      - web
     ports:
-      - "127.0.0.1:${MAGELLON_CTF_PLUGIN_PORT}:8000"
-    networks:
-      magellon-network:
-        ipv4_address: 172.16.238.21
-
-  magellon_motioncor_plugin:
-    build:
-      context: ..
-      dockerfile: plugins/magellon_motioncor_plugin/Dockerfile
-      args:
-        CUDA_IMAGE: ${CUDA_IMAGE}
-        MOTIONCOR_BINARY: ${MOTIONCOR_BINARY}
-    image: magellon_motioncor_plugin_image
-    container_name: magellon_motioncor_plugin_containerf
+      - "80:80"
+      - "443:443"
     environment:
-      - APP_ENV=production
-      - RUN_ENV=docker
-      - GPFS_ROOT=${MAGELLON_GPFS_PATH}
-      - JOBS_PATH=${MAGELLON_JOBS_PATH}
-      - CUDA_IMAGE=${CUDA_IMAGE}
-      - MOTIONCOR_BINARY=${MOTIONCOR_BINARY}
-      - DRAGONFLY_HOST=dragonfly
-      - DRAGONFLY_PORT=6379
-      - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
-      - MAGELLON_LOG_DIR=/tmp/magellon-logs
-      - MPLCONFIGDIR=/tmp/matplotlib
-      - HOME=/tmp
+      - MAGELLON_DOMAIN=${MAGELLON_DOMAIN:-}
+      - ACME_EMAIL=${ACME_EMAIL:-}
+      - ACME_CA_URL=${ACME_CA_URL:-}
+      - ACME_EAB_KEY_ID=${ACME_EAB_KEY_ID:-}
+      - ACME_EAB_MAC_KEY=${ACME_EAB_MAC_KEY:-}
     volumes:
-      - ${MAGELLON_HOME_PATH}:/magellon
-      - ${MAGELLON_GPFS_PATH}:/gpfs
-      - ${MAGELLON_JOBS_PATH}:/jobs
-    ports:
-      - "127.0.0.1:${MAGELLON_MOTIONCOR_PLUGIN_PORT}:80"
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # certificates + ACME account — keep persistent
+      - caddy_config:/config
     networks:
-      magellon-network:
-        ipv4_address: 172.16.238.22
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+      - magellon-public
+
+
+  # magellon_ctf_plugin and magellon_motioncor_plugin are intentionally not
+  # defined here: they're generated per deployment (one MotionCor service per
+  # GPU, a fixed number of CTF replicas) by generate-motioncor-gpu-compose.sh
+  # and generate-ctf-compose.sh. Defining them here too makes them grab the
+  # same host ports (8035/8036) and blocks the generated replicas.
   magellon_fft_plugin:
+    <<: *magellon-runtime-user
     build:
       context: ../plugins/magellon_fft_plugin
       dockerfile: Dockerfile
@@ -248,21 +285,21 @@ services:
     environment:
       - APP_ENV=production
       - RUN_ENV=docker
+      - MAGELLON_LOG_DIR=/tmp/magellon-logs
+      - MPLCONFIGDIR=/tmp/matplotlib
+      - HOME=/tmp
       - GPFS_ROOT=${MAGELLON_GPFS_PATH}
       - JOBS_PATH=${MAGELLON_JOBS_PATH}
       - DRAGONFLY_HOST=dragonfly
       - DRAGONFLY_PORT=6379
       - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
-      - MAGELLON_LOG_DIR=/tmp/magellon-logs
-      - MPLCONFIGDIR=/tmp/matplotlib
-      - HOME=/tmp
       - MAGELLON_STEP_EVENTS_ENABLED=1
       - MAGELLON_STEP_EVENTS_RMQ=1
       - NATS_URL=nats://nats:4222
       - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_fft_plugin:80
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
-      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_GPFS_PATH}:/gpfs:ro  # research data: read-only, all writes go to MAGELLON_HOME_PATH/JOBS_PATH
       - ${MAGELLON_JOBS_PATH}:/jobs
     ports:
       - "127.0.0.1:${MAGELLON_FFT_PLUGIN_PORT:-8037}:80"
@@ -271,6 +308,7 @@ services:
         ipv4_address: 172.16.238.23
 
   magellon_ptolemy_plugin:
+    <<: *magellon-runtime-user
     build:
       context: ../plugins/magellon_ptolemy_plugin
       dockerfile: Dockerfile
@@ -283,21 +321,21 @@ services:
     environment:
       - APP_ENV=production
       - RUN_ENV=docker
+      - MAGELLON_LOG_DIR=/tmp/magellon-logs
+      - MPLCONFIGDIR=/tmp/matplotlib
+      - HOME=/tmp
       - GPFS_ROOT=${MAGELLON_GPFS_PATH}
       - JOBS_PATH=${MAGELLON_JOBS_PATH}
       - DRAGONFLY_HOST=dragonfly
       - DRAGONFLY_PORT=6379
       - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
-      - MAGELLON_LOG_DIR=/tmp/magellon-logs
-      - MPLCONFIGDIR=/tmp/matplotlib
-      - HOME=/tmp
       - MAGELLON_STEP_EVENTS_ENABLED=1
       - MAGELLON_STEP_EVENTS_RMQ=1
       - NATS_URL=nats://nats:4222
       - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_ptolemy_plugin:8000
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
-      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_GPFS_PATH}:/gpfs:ro  # research data: read-only, all writes go to MAGELLON_HOME_PATH/JOBS_PATH
       - ${MAGELLON_JOBS_PATH}:/jobs
     ports:
       - "127.0.0.1:${MAGELLON_PTOLEMY_PLUGIN_PORT:-8038}:8000"
@@ -317,6 +355,7 @@ services:
     mem_limit: 8G
 
   magellon_topaz_plugin:
+    <<: *magellon-runtime-user
     build:
       context: ../plugins/magellon_topaz_plugin
       dockerfile: Dockerfile
@@ -329,21 +368,21 @@ services:
     environment:
       - APP_ENV=production
       - RUN_ENV=docker
+      - MAGELLON_LOG_DIR=/tmp/magellon-logs
+      - MPLCONFIGDIR=/tmp/matplotlib
+      - HOME=/tmp
       - GPFS_ROOT=${MAGELLON_GPFS_PATH}
       - JOBS_PATH=${MAGELLON_JOBS_PATH}
       - DRAGONFLY_HOST=dragonfly
       - DRAGONFLY_PORT=6379
       - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
-      - MAGELLON_LOG_DIR=/tmp/magellon-logs
-      - MPLCONFIGDIR=/tmp/matplotlib
-      - HOME=/tmp
       - MAGELLON_STEP_EVENTS_ENABLED=1
       - MAGELLON_STEP_EVENTS_RMQ=1
       - NATS_URL=nats://nats:4222
       - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_topaz_plugin:8000
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
-      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_GPFS_PATH}:/gpfs:ro  # research data: read-only, all writes go to MAGELLON_HOME_PATH/JOBS_PATH
       - ${MAGELLON_JOBS_PATH}:/jobs
     ports:
       - "127.0.0.1:${MAGELLON_TOPAZ_PLUGIN_PORT:-8039}:8000"
@@ -352,6 +391,7 @@ services:
         ipv4_address: 172.16.238.25
 
   magellon_stack_maker_plugin:
+    <<: *magellon-runtime-user
     build:
       context: ../plugins/magellon_stack_maker_plugin
       dockerfile: Dockerfile
@@ -364,21 +404,21 @@ services:
     environment:
       - APP_ENV=production
       - RUN_ENV=docker
+      - MAGELLON_LOG_DIR=/tmp/magellon-logs
+      - MPLCONFIGDIR=/tmp/matplotlib
+      - HOME=/tmp
       - GPFS_ROOT=${MAGELLON_GPFS_PATH}
       - JOBS_PATH=${MAGELLON_JOBS_PATH}
       - DRAGONFLY_HOST=dragonfly
       - DRAGONFLY_PORT=6379
       - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
-      - MAGELLON_LOG_DIR=/tmp/magellon-logs
-      - MPLCONFIGDIR=/tmp/matplotlib
-      - HOME=/tmp
       - MAGELLON_STEP_EVENTS_ENABLED=1
       - MAGELLON_STEP_EVENTS_RMQ=1
       - NATS_URL=nats://nats:4222
       - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_stack_maker_plugin:80
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
-      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_GPFS_PATH}:/gpfs:ro  # research data: read-only, all writes go to MAGELLON_HOME_PATH/JOBS_PATH
       - ${MAGELLON_JOBS_PATH}:/jobs
     ports:
       - "127.0.0.1:${MAGELLON_STACK_MAKER_PLUGIN_PORT:-8040}:80"
@@ -387,6 +427,7 @@ services:
         ipv4_address: 172.16.238.26
 
   magellon_can_classifier_plugin:
+    <<: *magellon-runtime-user
     build:
       context: ../plugins/magellon_can_classifier_plugin
       dockerfile: Dockerfile
@@ -399,21 +440,21 @@ services:
     environment:
       - APP_ENV=production
       - RUN_ENV=docker
+      - MAGELLON_LOG_DIR=/tmp/magellon-logs
+      - MPLCONFIGDIR=/tmp/matplotlib
+      - HOME=/tmp
       - GPFS_ROOT=${MAGELLON_GPFS_PATH}
       - JOBS_PATH=${MAGELLON_JOBS_PATH}
       - DRAGONFLY_HOST=dragonfly
       - DRAGONFLY_PORT=6379
       - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
-      - MAGELLON_LOG_DIR=/tmp/magellon-logs
-      - MPLCONFIGDIR=/tmp/matplotlib
-      - HOME=/tmp
       - MAGELLON_STEP_EVENTS_ENABLED=1
       - MAGELLON_STEP_EVENTS_RMQ=1
       - NATS_URL=nats://nats:4222
       - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_can_classifier_plugin:80
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
-      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_GPFS_PATH}:/gpfs:ro  # research data: read-only, all writes go to MAGELLON_HOME_PATH/JOBS_PATH
       - ${MAGELLON_JOBS_PATH}:/jobs
     ports:
       - "127.0.0.1:${MAGELLON_CAN_CLASSIFIER_PLUGIN_PORT:-8041}:80"
@@ -429,6 +470,7 @@ services:
               capabilities: [gpu]
 
   magellon_template_picker_plugin:
+    <<: *magellon-runtime-user
     build:
       context: ../plugins/magellon_template_picker_plugin
       dockerfile: Dockerfile
@@ -441,21 +483,21 @@ services:
     environment:
       - APP_ENV=production
       - RUN_ENV=docker
+      - MAGELLON_LOG_DIR=/tmp/magellon-logs
+      - MPLCONFIGDIR=/tmp/matplotlib
+      - HOME=/tmp
       - GPFS_ROOT=${MAGELLON_GPFS_PATH}
       - JOBS_PATH=${MAGELLON_JOBS_PATH}
       - DRAGONFLY_HOST=dragonfly
       - DRAGONFLY_PORT=6379
       - DRAGONFLY_PASSWORD=${DRAGONFLY_PASSWORD:-password}
-      - MAGELLON_LOG_DIR=/tmp/magellon-logs
-      - MPLCONFIGDIR=/tmp/matplotlib
-      - HOME=/tmp
       - MAGELLON_STEP_EVENTS_ENABLED=1
       - MAGELLON_STEP_EVENTS_RMQ=1
       - NATS_URL=nats://nats:4222
       - MAGELLON_PLUGIN_HTTP_ENDPOINT=http://magellon_template_picker_plugin:8000
     volumes:
       - ${MAGELLON_HOME_PATH}:/magellon
-      - ${MAGELLON_GPFS_PATH}:/gpfs
+      - ${MAGELLON_GPFS_PATH}:/gpfs:ro  # research data: read-only, all writes go to MAGELLON_HOME_PATH/JOBS_PATH
       - ${MAGELLON_JOBS_PATH}:/jobs
     ports:
       - "127.0.0.1:${MAGELLON_TEMPLATE_PICKER_PLUGIN_PORT:-8042}:8000"
@@ -669,11 +711,18 @@ volumes:
   app_data:  # Define a named volume for application data
   cache:
     driver: local
+  caddy_data:
+  caddy_config:
 
 networks:
+  # Internal network: web, backend, databases, broker and plugins talk to
+  # each other here. Their host ports are bound to 127.0.0.1 only.
   magellon-network:
     driver: bridge
     ipam:
       driver: default
       config:
         - subnet: 172.16.238.0/24
+  # Public-facing network: only the caddy proxy and the web frontend.
+  magellon-public:
+    driver: bridge

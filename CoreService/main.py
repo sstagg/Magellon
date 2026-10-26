@@ -10,6 +10,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from fastapi.openapi.utils import get_openapi
 from starlette.responses import JSONResponse, HTMLResponse
+from services.session_names import SessionNameTaken
 from starlette.staticfiles import StaticFiles
 from starlette import status as starlette_status
 import secrets
@@ -70,6 +71,7 @@ from models.graphql_strawberry_schema import strawberry_graphql_router
 import rich.traceback
 
 from core.application_factory import create_app
+from core.application_lifecycle import application_lifespan
 from core.router_registry import register_routers, register_static_files
 from core.environment import is_production
 from services.casbin_service import CasbinService
@@ -173,6 +175,12 @@ async def _lifespan(_app: FastAPI):
 
 # Disable default docs and openapi endpoints
 app = create_app(lifespan=_lifespan)
+
+
+@app.exception_handler(SessionNameTaken)
+async def _session_name_taken(_request: Request, exc: SessionNameTaken):
+    # Any import submitted under a name that's already used (services/session_names.py).
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 
 # Custom protected docs endpoints
@@ -421,6 +429,11 @@ async def startup_event():
         finally:
             db.close()
 
+        # From here on, role and permission changes apply live (no restart):
+        # importing the module registers its change listeners.
+        import services.security.live_permissions  # noqa: F401
+        logger.info("[OK] Live permission updates enabled")
+
     except Exception as e:
         logger.error(f"[ERROR] Failed to initialize Casbin: {e}")
         logger.warning("[WARNING] Application will start but authorization may not work correctly!")
@@ -429,24 +442,58 @@ async def startup_event():
     # died as aborted (status_id=3). Background import threads cannot
     # survive a restart — leaving them at status_id=1 makes them appear
     # stuck forever in the UI with no way to recover.
+    # Imports now run in separate import workers, so a backend restart no
+    # longer kills them: spare the ones a live worker is still running (fresh
+    # heartbeat in import_job_queue). Worker crashes are handled by the
+    # workers' own stale-heartbeat recovery.
     try:
-        from sqlalchemy import text as _text
+        from uuid import UUID as _UUID
+        from models.sqlalchemy_models import ImageJob as _ImageJob
+        from services import import_queue as _import_queue
         _db = session_local()
         try:
-            _result = _db.execute(
-                _text("UPDATE image_job SET status_id = 3 WHERE status_id = 1")
-            )
+            from services.job_manager import job_manager as _job_manager
+            from models.sqlalchemy_models import ImportJobQueue as _ImportJobQueue
+            _running = [str(oid) for (oid,) in _db.query(_ImageJob.oid).filter(_ImageJob.status_id == 1)]
+            # Imports from the queue are never orphaned by a backend restart:
+            # their worker survives it, and their dispatched CTF / MotionCor
+            # tasks keep reporting back. Worker crashes are recovered by the
+            # workers (stale heartbeat). Just settle the ones that finished.
+            _queued = {row_id for (row_id,) in _db.query(_ImportJobQueue.id)
+                       .filter(_ImportJobQueue.id.in_(_running))} if _running else set()
+            for _job_id in _queued:
+                _job_manager.settle_if_done(_job_id)
+            _candidate_ids = [j for j in _running if j not in _queued]
+            # A job whose tasks all finished just never got settled: settle it
+            # (completed / completed with problems / failed). Only jobs with
+            # unfinished work were really interrupted.
+            _interrupted = [j for j in _candidate_ids if _job_manager.settle_if_done(j) is None]
+            _orphan_count = 0
+            if _interrupted:
+                _orphan_count = (_db.query(_ImageJob)
+                                 .filter(_ImageJob.oid.in_([_UUID(j) for j in _interrupted]), _ImageJob.status_id == 1)
+                                 .update({_ImageJob.status_id: 3}, synchronize_session=False))
             _db.commit()
-            if _result.rowcount:
+            if len(_candidate_ids) > len(_interrupted):
+                logger.info("[STARTUP] Settled %d finished job(s) left as running",
+                            len(_candidate_ids) - len(_interrupted))
+            if _orphan_count:
                 logger.warning(
                     "[STARTUP] Marked %d orphaned import job(s) as aborted "
                     "(status_id 1→3): they were running when the server last restarted.",
-                    _result.rowcount,
+                    _orphan_count,
                 )
         finally:
             _db.close()
     except Exception as _e:
         logger.error("[STARTUP] Failed to mark orphaned import jobs: %s", _e)
+
+    # Forward live progress from import workers to the browsers.
+    try:
+        from services.import_progress import start_relay as _start_import_progress_relay
+        _start_import_progress_relay()
+    except Exception as _e:
+        logger.error("[STARTUP] Import progress relay failed to start: %s", _e)
 
     # Install the process-wide MessageBus before any consumer thread
     # spawns. Result consumer, step-event forwarder, and liveness
@@ -634,25 +681,8 @@ async def shutdown_event():
     logger.info("Shutting down Magellon Core Service...")
     logger.info("=" * 60)
 
-    # Mark any in-progress import jobs as aborted immediately on graceful
-    # shutdown so they show as failed in the UI rather than stuck as running.
-    try:
-        from sqlalchemy import text as _text
-        _db = session_local()
-        try:
-            _result = _db.execute(
-                _text("UPDATE image_job SET status_id = 3 WHERE status_id = 1")
-            )
-            _db.commit()
-            if _result.rowcount:
-                logger.warning(
-                    "[SHUTDOWN] Marked %d running import job(s) as aborted (status_id=3).",
-                    _result.rowcount,
-                )
-        finally:
-            _db.close()
-    except Exception as _e:
-        logger.error("[SHUTDOWN] Failed to mark orphaned import jobs: %s", _e)
+    # Imports run in separate import workers (services/import_worker.py), so
+    # a backend shutdown leaves them running — nothing to abort here.
 
     forwarder = getattr(app.state, "step_event_forwarder", None)
     if forwarder is not None:

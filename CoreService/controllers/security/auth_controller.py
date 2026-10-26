@@ -4,7 +4,7 @@ Authentication Controller
 Provides login, logout, token management, and system setup endpoints.
 """
 from datetime import timedelta, datetime
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 import os
 
@@ -68,12 +68,22 @@ class LoginResponse(BaseModel):
         }
 
 
+class UserCapabilities(BaseModel):
+    """What the UI may offer this user. Display hints only: every endpoint
+    still enforces its own permission check."""
+    admin: bool = False               # Administrator role: users, roles, plugins, tools
+    import_sessions: bool = False     # msession create: run imports
+    view_all_sessions: bool = False   # msession read on every session (Viewer, Admin)
+
+
 class UserInfoResponse(BaseModel):
     """Current user information"""
     user_id: str
     username: str
     email: Optional[str]
     active: bool
+    roles: List[str] = []
+    capabilities: UserCapabilities = UserCapabilities()
 
     class Config:
         json_schema_extra = {
@@ -230,11 +240,21 @@ async def get_current_user_info(
     }
     ```
     """
+    from services.casbin_service import CasbinService
+
+    user_id = str(current_user["user_id"])
+    roles = CasbinService.get_roles_for_user(user_id)
     return UserInfoResponse(
-        user_id=str(current_user["user_id"]),
+        user_id=user_id,
         username=current_user["username"],
         email=current_user.get("email"),
-        active=current_user["active"]
+        active=current_user["active"],
+        roles=roles,
+        capabilities=UserCapabilities(
+            admin="Administrator" in roles,
+            import_sessions=CasbinService.enforce(user_id, "msession:*", "create"),
+            view_all_sessions=CasbinService.enforce(user_id, "msession:*", "read"),
+        ),
     )
 
 

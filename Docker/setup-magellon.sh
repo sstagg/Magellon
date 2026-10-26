@@ -6,6 +6,10 @@
 
 set -e  # Exit immediately if a command exits with non-zero status
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$SCRIPT_DIR"
+
 # Detect operating system
 detect_os() {
     case "$(uname -s)" in
@@ -133,6 +137,38 @@ fi
 ROOT_DIR=$1
 CUDA_VERSION=$2
 
+if [[ "$(id -u)" -eq 0 ]]; then
+    echo "ERROR: Run this script as the deployment user, not as root."
+    exit 1
+fi
+
+if [[ -z "$ROOT_DIR" || "$ROOT_DIR" == "/" ]]; then
+    echo "ERROR: ROOT_DIR must be a non-root directory."
+    exit 1
+fi
+
+umask 0002
+MAGELLON_UID_VALUE="$(id -u)"
+MAGELLON_GID_VALUE="$(id -g)"
+DOCKER_GID_VALUE="$(getent group docker | cut -d: -f3)"
+MAGELLON_GPFS_GID_VALUE="$(getent group cryo_stagg | cut -d: -f3)"
+
+if [[ -z "$DOCKER_GID_VALUE" || -z "$MAGELLON_GPFS_GID_VALUE" ]]; then
+    echo "ERROR: Could not resolve docker and cryo_stagg group IDs."
+    exit 1
+fi
+
+if [[ ! -f .env || ! -r .env ]]; then
+    echo "ERROR: .env must exist and be readable from the Docker directory."
+    exit 1
+fi
+
+MAGELLON_GPFS_PATH_VALUE="$(sed -n 's/^MAGELLON_GPFS_PATH=//p' .env | head -n 1)"
+if [[ -z "$MAGELLON_GPFS_PATH_VALUE" || ! -d "$MAGELLON_GPFS_PATH_VALUE" ]]; then
+    echo "ERROR: MAGELLON_GPFS_PATH in .env must point to the mounted Leginon source tree."
+    exit 1
+fi
+
 # Call the function and get results through global variables
 get_cuda_image "$CUDA_VERSION"
 cuda_image="$CUDA_IMAGE_RESULT"
@@ -186,7 +222,6 @@ log "Creating directory structure..."
 # Define directory structure as an array
 # Only create non-services directories since services will be copied entirely
 directories=(
-    "$ROOT_DIR/gpfs"
     "$ROOT_DIR/home"
     "$ROOT_DIR/jobs"
 )
@@ -196,12 +231,14 @@ for dir in "${directories[@]}"; do
     mkdir -p "$dir"
 done
 
-# Copy services directory if it exists in current directory
-if [ -d "services" ]; then
+# Copy service configuration, but never copy a live MySQL data directory into
+# a new deployment.
+if [ -d "$REPO_ROOT/services" ]; then
     log "Copying services directory and its contents..."
 
-    # Copy entire services directory structure
-    cp -r services "$ROOT_DIR/"
+    mkdir -p "$ROOT_DIR/services"
+    tar -C "$REPO_ROOT" --exclude='services/mysql/data' -cf - services \
+        | tar -C "$ROOT_DIR" -xf -
 
     if [ $? -ne 0 ]; then
         log "WARNING: Failed to copy all services. Check permissions and try again."
@@ -216,12 +253,13 @@ mkdir -p "$ROOT_DIR/services/mysql/data"
 mkdir -p "$ROOT_DIR/services/mysql/conf"
 mkdir -p "$ROOT_DIR/services/mysql/init"
 mkdir -p "$ROOT_DIR/services/prometheus"
-# Set permissions with better security practices
-log "Setting directory permissions..."
+# Group write is shared with the allocation group. Other users get search-only
+# access so the root-squashed Docker daemon can traverse NFS bind-mount paths.
+# File contents remain governed by their own modes; the GPFS source is untouched.
+log "Setting group-shared permissions for application and Docker bind mounts..."
 
-# Define directories that need 777 permissions
 writable_dirs=(
-    "$ROOT_DIR/gpfs"
+    "$ROOT_DIR"
     "$ROOT_DIR/home"
     "$ROOT_DIR/jobs"
     "$ROOT_DIR/services/mysql/data"
@@ -230,32 +268,17 @@ writable_dirs=(
     "$ROOT_DIR/services/prometheus"
 )
 
-# Set 777 permissions on main directories
+# 2771 keeps writes with owner/group while allowing NFS root-squashed traversal.
 for dir in "${writable_dirs[@]}"; do
     if [ -d "$dir" ]; then
-        chmod -R 777 "$dir" 2>/dev/null || log "WARNING: Failed to set permissions on $dir"
+        if ! chmod 2771 "$dir" 2>/dev/null; then
+            log "ERROR: Cannot set permissions on $dir as $(id -un)"
+            exit 1
+        fi
     fi
 done
 
-# Set permissions for services directories if they exist
-if [ -d "$ROOT_DIR/services" ]; then
-    # Set 777 for data directories that need write access
-    # service_data_dirs=(
-    #     "$ROOT_DIR/services/mysql/data"
-    #     "$ROOT_DIR/services/consul/data"
-    # )
-
-    # for dir in "${service_data_dirs[@]}"; do
-    #     if [ -d "$dir" ]; then
-    #         chmod -R 777 "$dir" 2>/dev/null || log "WARNING: Failed to set permissions on $dir"
-    #     fi
-    # done
-
-    # Set appropriate permissions for config files
-    chmod -R 777 "$ROOT_DIR/services" 2>/dev/null || log "WARNING: Failed to set base permissions on services"
-fi
-
-log "Directory structure created with appropriate permissions"
+log "Writable directories created with owner/group permissions; GPFS source was left unchanged."
 
 # Check if we're in the right directory (where docker-compose.yml is)
 if [ ! -f "docker-compose.yml" ]; then
@@ -270,52 +293,106 @@ if [ ! -f ".env" ]; then
     log "Please make sure .env file exists in the current directory"
     exit 1
 else
-    # Update .env file with the new paths
-    log "Updating .env file with correct paths..."
+    env_updates=(
+        "MAGELLON_HOME_PATH=${ROOT_DIR}/home"
+        "MAGELLON_GPFS_PATH=${MAGELLON_GPFS_PATH_VALUE}"
+        "MAGELLON_JOBS_PATH=${ROOT_DIR}/jobs"
+        "MAGELLON_ROOT_DIR=${ROOT_DIR}"
+        "MAGELLON_UID=${MAGELLON_UID_VALUE}"
+        "MAGELLON_GID=${MAGELLON_GID_VALUE}"
+        "MAGELLON_GPFS_GID=${MAGELLON_GPFS_GID_VALUE}"
+        "DOCKER_GID=${DOCKER_GID_VALUE}"
+        "CUDA_IMAGE=${cuda_image}"
+        "MOTIONCOR_BINARY=${motiocor_binary}"
+    )
+    needs_env_update=false
+    for entry in "${env_updates[@]}"; do
+        if ! grep -Fqx "$entry" .env; then
+            needs_env_update=true
+            break
+        fi
+    done
 
-    # Create a backup of the original .env file
-    cp .env .env.backup
-    log "Created backup: .env.backup"
+    if [[ "$needs_env_update" == "true" ]]; then
+        if [[ ! -w .env ]]; then
+            log "ERROR: .env needs updates but is not writable by $(id -un)."
+            log "Grant cryo_magellon write access to this deployment copy or use an account-owned checkout."
+            exit 1
+        fi
 
-    # Show original values
-    log "Original path values in .env:"
-    grep -E "^(MAGELLON_HOME_PATH|MAGELLON_GPFS_PATH|MAGELLON_JOBS_PATH|MAGELLON_ROOT_DIR|CUDA_IMAGE|MOTIONCOR_BINARY)=" .env || true
+        cp .env .env.backup
+        chmod 600 .env .env.backup
+        for entry in "${env_updates[@]}"; do
+            key="${entry%%=*}"
+            value="${entry#*=}"
+            if grep -q "^${key}=" .env; then
+                sed_inplace "s|^${key}=.*|${key}=${value}|" .env
+            else
+                printf '%s=%s\n' "$key" "$value" >> .env
+            fi
+        done
+        log ".env updated; a backup was saved as .env.backup"
+    else
+        log ".env already has the requested paths and runtime IDs; left unchanged."
+    fi
+fi
 
-    # Debug: Show what we're about to update
-    log "Will update with:"
-    log "  MAGELLON_HOME_PATH=${ROOT_DIR}/home"
-    log "  MAGELLON_GPFS_PATH=${ROOT_DIR}/gpfs"
-    log "  MAGELLON_JOBS_PATH=${ROOT_DIR}/jobs"
-    log "  MAGELLON_ROOT_DIR=${ROOT_DIR}"
-    log "  CUDA_IMAGE=${cuda_image}"
-    log "  MOTIONCOR_BINARY=${motiocor_binary}"
+# Generate the GPU-count-aware MotionCor compose overlay. One
+# magellon_motioncor_plugin service can't scale itself to however many
+# GPUs this box has — deploy.replicas is a static number and a GPU
+# device reservation isn't distributed across replicas — so instead of
+# a single hardcoded service in docker-compose.yml, this generates one
+# GPU-pinned service per detected GPU. Safe to re-run: it always
+# regenerates the file from scratch. See generate-motioncor-gpu-compose.sh.
+log "Generating GPU-count-aware MotionCor compose overlay..."
+"$SCRIPT_DIR/generate-motioncor-gpu-compose.sh"
 
-    # Update each variable using cross-platform sed
-    sed_inplace "s|^MAGELLON_HOME_PATH=.*|MAGELLON_HOME_PATH=${ROOT_DIR}/home|" .env
-    sed_inplace "s|^MAGELLON_GPFS_PATH=.*|MAGELLON_GPFS_PATH=${ROOT_DIR}/gpfs|" .env
-    sed_inplace "s|^MAGELLON_JOBS_PATH=.*|MAGELLON_JOBS_PATH=${ROOT_DIR}/jobs|" .env
-    sed_inplace "s|^MAGELLON_ROOT_DIR=.*|MAGELLON_ROOT_DIR=${ROOT_DIR}|" .env
-    sed_inplace "s|^CUDA_IMAGE=.*|CUDA_IMAGE=${cuda_image}|" .env
-    sed_inplace "s|^MOTIONCOR_BINARY=.*|MOTIONCOR_BINARY=${motiocor_binary}|" .env
+# CTF (CPU-bound, fixed replica count — default 4, override via
+# CTF_REPLICA_COUNT) hits the same Compose scaling limitation MotionCor
+# did: a hardcoded container_name/port/IP blocks scaling to >1 replica.
+# See generate-ctf-compose.sh.
+log "Generating CTF compose overlay..."
+"$SCRIPT_DIR/generate-ctf-compose.sh"
 
-    # Show updated values
-    log "Updated path values in .env:"
-    grep -E "^(MAGELLON_HOME_PATH|MAGELLON_GPFS_PATH|MAGELLON_JOBS_PATH|MAGELLON_ROOT_DIR|CUDA_IMAGE|MOTIONCOR_BINARY)=" .env
+COMPOSE_FILES=(-f docker-compose.yml -f "$SCRIPT_DIR/docker-compose.motioncor-gpu.generated.yml" -f "$SCRIPT_DIR/docker-compose.ctf-scale.generated.yml")
 
-    log ".env file updated successfully (backup created as .env.backup)"
+# Start the Caddy HTTPS proxy only on hosts that have a public domain
+# configured in .env (e.g. the RCC deployment); local installs skip it.
+MAGELLON_DOMAIN_VALUE=$(grep -E '^MAGELLON_DOMAIN=' .env | cut -d= -f2- || true)
+if [ -n "$MAGELLON_DOMAIN_VALUE" ]; then
+    COMPOSE_FILES+=(--profile proxy)
+    log "Public domain configured ($MAGELLON_DOMAIN_VALUE) - Caddy HTTPS proxy will be started"
 fi
 
 # Start Docker Compose with proper error handling
 log "Starting Docker containers..."
-if $DOCKER_COMPOSE_CMD up -d; then
+# (No --scale flags: the single magellon_ctf_plugin / magellon_motioncor_plugin
+# services were replaced by the generated per-replica / per-GPU services, and
+# scaling a service that doesn't exist makes compose refuse to start at all.)
+if $DOCKER_COMPOSE_CMD "${COMPOSE_FILES[@]}" up -d --build; then
     log "Docker containers started successfully"
 else
-    log "ERROR: Failed to start Docker containers. Check logs with '$DOCKER_COMPOSE_CMD logs'"
+    log "ERROR: Failed to start Docker containers. Check logs with '$DOCKER_COMPOSE_CMD ${COMPOSE_FILES[*]} logs'"
     exit 1
 fi
 
+# debug_queue receives copies of bus messages but has no consumer, so it
+# grows without bound. Keep one day of messages (and at most 50,000, oldest
+# dropped first). Policies live in RabbitMQ's data volume; setting it again
+# is harmless, and a fresh install gets it here.
+log "Applying RabbitMQ retention policy to debug_queue (1 day)..."
+for _ in $(seq 1 30); do
+    if docker exec magellon-rabbitmq-container rabbitmqctl set_policy debug-queue-retention '^debug_queue$' \
+        '{"message-ttl":86400000,"max-length":50000,"overflow":"drop-head"}' \
+        --apply-to queues --priority 1 >/dev/null 2>&1; then
+        log "debug_queue retention policy set"
+        break
+    fi
+    sleep 2
+done || true
+
 log "Setup complete! Magellon services should now be running."
-log "You can check container status with '$DOCKER_COMPOSE_CMD ps'"
+log "You can check container status with '$DOCKER_COMPOSE_CMD ${COMPOSE_FILES[*]} ps'"
 
 # Wait for services to start (but don't try to open browser in headless environments)
 log "Waiting for services to start up (15 seconds)..."
@@ -324,6 +401,9 @@ sleep 15
 log "Magellon is now available at:"
 log "  - http://localhost:8080/en/panel/images"
 log "  - http://localhost:8000"
+if [ -n "$MAGELLON_DOMAIN_VALUE" ]; then
+    log "  - https://$MAGELLON_DOMAIN_VALUE"
+fi
 
 # Cross-platform browser opening
 open_browser() {

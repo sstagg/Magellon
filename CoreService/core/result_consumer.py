@@ -80,6 +80,14 @@ def _make_handler(session_factory: sessionmaker):
         except Exception:
             logger.debug("envelope tap (in) failed", exc_info=True)
 
+        # Results still in flight for an import the user stopped: its session
+        # was deleted, so don't move files back into it — drop the result.
+        if task_result.job_id:
+            from services import import_queue
+            if import_queue.is_stopped(task_result.job_id):
+                logger.info("Dropping result for task %s: its import was stopped", task_result.task_id)
+                return
+
         db = session_factory()
         out_queues = app_settings.rabbitmq_settings.OUT_QUEUES
         processor = TaskOutputProcessor(db=db, out_queues=out_queues)

@@ -9,10 +9,12 @@ from sqlalchemy import func
 
 from database import get_db, session_local
 from models.pydantic_models import MagellonImportJobDto, EpuImportJobDto, SerialEMImportJobDto
-from models.sqlalchemy_models import ImageJob, ImageJobTask
+from models.sqlalchemy_models import ImageJob, ImageJobTask, ImportJobQueue
 from services.importers.MagellonImporter import MagellonImporter
 from dependencies.auth import get_current_user_id
 from dependencies.permissions import require_permission
+from core.session_ownership import set_import_owner
+from services import import_queue, import_runners
 
 import_router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -70,9 +72,11 @@ def _run_magellon_import(
     already been sent; the failure surfaces on the job row (status_id=5)
     and in the server log.
     """
+    set_import_owner(user_id)  # sessions created by this import belong to the importer
     def _notify(event: str, **extra):
         try:
-            from core.socketio_server import schedule_import_progress
+            # Relay-aware: works in the web backend and in import workers.
+            from services.import_progress import publish as schedule_import_progress
             schedule_import_progress(str(job_id), {"job_id": str(job_id), "event": event, **extra})
         except Exception:
             pass
@@ -216,7 +220,7 @@ def import_directory(
             raise HTTPException(status_code=404, detail=f"Source directory not found: {request.source_dir}")
 
         job_id = uuid.uuid4()
-        background_tasks.add_task(_run_magellon_import, request, job_id, user_id)
+        import_runners.enqueue_magellon(request, job_id, user_id)
 
         return {
             "message": "Import scheduled",
@@ -242,17 +246,17 @@ def get_active_job(
     Used by the frontend on mount to auto-resume progress monitoring after a
     page navigation or browser refresh. Returns 404 when no active job exists.
     """
-    job = (
-        db_session.query(ImageJob)
-        .filter(ImageJob.status_id.in_([0, 1]), ImageJob.type_id == 1)
-        .order_by(ImageJob.created_date.desc())
-        .first()
-    )
-    if not job:
+    # The user's own imports (it used to return anyone's, so a member opening
+    # the import page could be shown someone else's progress). The top-level
+    # fields are the newest; "jobs" lists all of them for the top-bar chips.
+    rows = import_queue.all_active_for_user(user_id)
+    if not rows:
         raise HTTPException(status_code=404, detail="No active import job")
-    return {"job_id": str(job.oid), "name": job.name,
-            "status": "running" if job.status_id == 1 else "queued",
-            "created_at": job.created_date.isoformat() if job.created_date else None}
+    jobs = [{"job_id": row.id, "name": import_queue.job_name(row.kind, row.label),
+             "status": row.status,
+             "created_at": row.created_at.isoformat() if row.created_at else None}
+            for row in rows]
+    return {**jobs[0], "jobs": jobs}
 
 
 @import_router.get("/job/{job_id}")
@@ -303,6 +307,152 @@ def get_job_status(
         )
 
 
+def _is_admin(user_id) -> bool:
+    from services.casbin_service import CasbinService
+    return "Administrator" in CasbinService.get_roles_for_user(str(user_id))
+
+
+@import_router.post("/job/{job_id}/stop")
+def stop_import(job_id: str, user_id: UUID = Depends(get_current_user_id)):
+    """Stop an import and remove everything it created.
+
+    Allowed for the user who started it and for administrators. A queued
+    import is withdrawn. A running one is ended by its worker (even while
+    still reading its session); its waiting CTF / MotionCor tasks are
+    cancelled and late results dropped; then its session — which this
+    import created, one name being one import — is deleted with its files.
+    """
+    import time
+
+    from services import session_deletion
+    from services.job_manager import job_manager
+
+    row = import_queue.get(job_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Import not found: {job_id}")
+    if row.owner_id != str(user_id) and not _is_admin(user_id):
+        raise HTTPException(status_code=403, detail="You can only stop your own imports")
+
+    if row.status == import_queue.QUEUED and import_queue.cancel(job_id):
+        import_runners.cleanup(job_id)
+        logger.warning("[import-stop] job=%s withdrawn from the queue by %s", job_id, user_id)
+        return {"job_id": job_id, "status": "cancelled", "session_deleted": False}
+
+    row = import_queue.get(job_id)
+    if row.status in (import_queue.RUNNING, import_queue.STOPPING):
+        # The worker checks every couple of seconds and ends the import.
+        import_queue.request_stop(job_id)
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline and import_queue.get(job_id).status == import_queue.STOPPING:
+            time.sleep(1)
+    elif row.status == import_queue.DONE:
+        job = job_manager.get_job(job_id, include_result=False) if _job_exists(job_id) else None
+        if job is None or job["status"] not in ("queued", "running"):
+            raise HTTPException(status_code=409, detail="This import has already finished; delete its session instead.")
+    else:
+        raise HTTPException(status_code=409, detail=f"This import is already {row.status}.")
+
+    # From here on, late plugin results for this job are dropped.
+    import_queue.mark_stopped(job_id)
+    try:
+        job_manager.request_cancel(job_id)  # tells CTF / MotionCor to skip its tasks
+    except LookupError:
+        pass  # stopped before it created its job
+    except Exception:
+        logger.warning("[import-stop] job=%s: cancel message not sent", job_id, exc_info=True)
+
+    deleted = None
+    session = session_deletion.find_session(row.label) if row.label else None
+    if session is not None:
+        if session_deletion.other_jobs(session.oid, UUID(job_id)) == 0:
+            deleted = session_deletion.delete_session(session.oid)
+        else:
+            logger.warning("[import-stop] job=%s: session %s also holds other imports; kept", job_id, row.label)
+    if not deleted:
+        try:
+            job_manager.cancel_job(job_id, reason="Stopped by the user")
+        except LookupError:
+            pass
+    logger.warning("[import-stop] job=%s stopped by %s; session deleted: %s", job_id, user_id, bool(deleted))
+    return {"job_id": job_id, "status": "cancelled", "session_deleted": bool(deleted),
+            "session_name": row.label, "removed": deleted}
+
+
+def _job_exists(job_id: str) -> bool:
+    db = session_local()
+    try:
+        return db.query(ImageJob.oid).filter(ImageJob.oid == UUID(job_id)).first() is not None
+    finally:
+        db.close()
+
+
+@import_router.delete("/session/{session_name}")
+def delete_session(session_name: str, user_id: UUID = Depends(get_current_user_id)):
+    """Delete a session: its records and its files in Magellon's storage.
+
+    Allowed for its owner (with a role that can import) and administrators.
+    Refused while an import or processing for it is still running — stop it
+    first. Research storage is never touched.
+    """
+    from core.sqlalchemy_row_level_security import check_session_access
+    from services import session_deletion
+
+    session = session_deletion.find_session(session_name)
+    if session is None:
+        raise HTTPException(status_code=404, detail=f"Session not found: {session_name}")
+    if not (_is_admin(user_id) or check_session_access(user_id, session.oid, "delete")):
+        raise HTTPException(status_code=403, detail="You can only delete your own sessions")
+    db = session_local()
+    try:
+        active_import = (db.query(ImportJobQueue).filter(
+            ImportJobQueue.label == session_name, ImportJobQueue.status.in_(import_queue.ACTIVE)).first())
+        running_job = (db.query(ImageJob).filter(
+            ImageJob.msession_id == str(session.oid), ImageJob.status_id.in_((0, 1))).first())
+    finally:
+        db.close()
+    if active_import is not None or running_job is not None:
+        raise HTTPException(status_code=409, detail=f"'{session_name}' is still being imported or processed; stop it first.")
+    result = session_deletion.delete_session(session.oid)
+    logger.warning("[session-delete] %s deleted by %s", session_name, user_id)
+    return result
+
+
+@import_router.get("/session-name/check")
+def check_session_name(name: str, user_id: UUID = Depends(get_current_user_id)):
+    """Whether a new import may use this session name (one name, one import)."""
+    from services import session_names
+
+    reason = session_names.problem(name)
+    return {"name": name, "available": reason is None, "reason": reason}
+
+
+@import_router.delete("/job/{job_id}/queue")
+def cancel_queued_import(
+    job_id: str,
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """Withdraw an import that is still waiting in the queue.
+
+    Allowed for the user who submitted it and for administrators. An import
+    that has already started can't be withdrawn this way.
+    """
+    from services.casbin_service import CasbinService
+
+    row = import_queue.get(job_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+    is_admin = "Administrator" in CasbinService.get_roles_for_user(str(user_id))
+    if row.owner_id != str(user_id) and not is_admin:
+        raise HTTPException(status_code=403, detail="You can only cancel your own imports")
+    if row.status != "queued":
+        raise HTTPException(status_code=409, detail=f"The import is already {row.status} and can't be cancelled")
+    if not import_queue.cancel(job_id):
+        raise HTTPException(status_code=409, detail="The import started just now and can't be cancelled")
+    import_runners.cleanup(job_id)
+    logger.warning("[import-queue] job=%s cancelled by %s", job_id, user_id)
+    return {"job_id": job_id, "status": "cancelled"}
+
+
 @import_router.get("/job/{job_id}/summary")
 def get_job_summary(
     job_id: str,
@@ -314,6 +464,34 @@ def get_job_summary(
         logger.debug("User %s checking import job summary: %s", user_id, job_id)
         job = db_session.query(ImageJob).filter(ImageJob.oid == job_id).first()
         if not job:
+            # Not started yet (its image_job row is created when it runs), or it
+            # ended before getting that far: answer from the durable queue.
+            queued = import_queue.get(job_id)
+            if queued is not None:
+                queue = import_queue.stats()
+                # "done" with no image_job row: the importer stopped before it
+                # created its job (e.g. an invalid path) — that's a failure.
+                derived = {"queued": "queued", "running": "running", "stopping": "running", "done": "failed",
+                           "failed": "failed", "cancelled": "cancelled"}.get(queued.status, queued.status)
+                error = queued.error or (
+                    "The import stopped before it started processing; check the import "
+                    "settings (paths, session name) and try again."
+                    if queued.status == "done" else None)
+                return {
+                    "job_id": job_id,
+                    "name": import_queue.job_name(queued.kind, queued.label),
+                    "status": derived,
+                    "derived_status": derived,
+                    "error": error,
+                    "queue_position": import_queue.position(job_id) if queued.status == "queued" else None,
+                    "queue_waiting": queue["waiting"],
+                    "queue_limit": queue["limit"],
+                    "total_tasks": 0,
+                    "terminal_tasks": 0,
+                    "totals": {},
+                    "by_category": {},
+                    "created_at": queued.created_at.isoformat() if queued.created_at else None,
+                }
             raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
 
         rows = (
@@ -351,10 +529,17 @@ def get_job_summary(
             4: "cancelled",
         }
         job_status = status_map.get(job.status_id, "unknown")
-        if total > 0 and terminal >= total:
-            if totals.get("failed", 0) > 0:
+        if job_status in ("failed", "cancelled"):
+            # The job can fail before its tasks run (e.g. a missing gains/
+            # folder); tasks then stay queued forever, so the job's own
+            # terminal state wins or the UI would show "running" indefinitely.
+            derived_status = job_status
+        elif total > 0 and terminal >= total:
+            # Partial success: completed unless every task failed; the
+            # failures are listed under "problems" (JobManager.record_task_finished).
+            if totals.get("failed", 0) >= total:
                 derived_status = "failed"
-            elif totals.get("cancelled", 0) > 0:
+            elif totals.get("cancelled", 0) >= total:
                 derived_status = "cancelled"
             else:
                 derived_status = "completed"
@@ -363,11 +548,22 @@ def get_job_summary(
         else:
             derived_status = job_status
 
+        processed = job.processed_json or {}
+        result = processed.get("result") if isinstance(processed.get("result"), dict) else {}
+        problems = result.get("problems")
+        if problems is None and processed.get("failed_tasks"):
+            from collections import Counter
+            grouped = Counter((f.get("step"), f.get("reason")) for f in processed["failed_tasks"].values())
+            problems = [{"step": st, "reason": rs, "count": n} for (st, rs), n in grouped.most_common()]
         return {
             "job_id": job_id,
             "name": job.name,
             "status": job_status,
             "derived_status": derived_status,
+            "error": processed.get("error"),
+            "warning": processed.get("warning"),
+            "problems": problems or [],
+            "queue_position": None,
             "total_tasks": total,
             "terminal_tasks": terminal,
             "totals": totals,
@@ -386,9 +582,11 @@ def get_job_summary(
 
 
 def _run_epu_import(request: EpuImportJobDto, job_id: UUID, user_id: UUID) -> None:
+    set_import_owner(user_id)  # sessions created by this import belong to the importer
     def _notify(event: str, **extra):
         try:
-            from core.socketio_server import schedule_import_progress
+            # Relay-aware: works in the web backend and in import workers.
+            from services.import_progress import publish as schedule_import_progress
             schedule_import_progress(str(job_id), {"job_id": str(job_id), "event": event, **extra})
         except Exception:
             pass
@@ -436,7 +634,7 @@ def import_epu_directory(
         )
     job_id = uuid.uuid4()
     logger.warning("[EPU] scheduling background import: job=%s user=%s", job_id, user_id)
-    background_tasks.add_task(_run_epu_import, request, job_id, user_id)
+    import_runners.enqueue_epu(request, job_id, user_id)
     return {"message": "Import scheduled", "job_id": str(job_id), "imported_by": str(user_id)}
 
 
@@ -506,9 +704,11 @@ def _run_serialem_import(
     Opens its own DB session (the request-scoped session is already closed).
     Exceptions are caught and logged; failure surfaces on the job row and server log.
     """
+    set_import_owner(user_id)  # sessions created by this import belong to the importer
     def _notify(event: str, **extra):
         try:
-            from core.socketio_server import schedule_import_progress
+            # Relay-aware: works in the web backend and in import workers.
+            from services.import_progress import publish as schedule_import_progress
             schedule_import_progress(str(job_id), {"job_id": str(job_id), "event": event, **extra})
         except Exception:
             pass
@@ -581,7 +781,7 @@ def import_serialem_directory(
 
     job_id = uuid.uuid4()
     logger.warning("User %s scheduling SerialEM import from %s (job=%s)", user_id, request.serial_em_dir_path, job_id)
-    background_tasks.add_task(_run_serialem_import, request, job_id, user_id)
+    import_runners.enqueue_serialem(request, job_id, user_id)
 
     return {
         "message": "Import scheduled",

@@ -25,6 +25,7 @@ import BarChartIcon from "@mui/icons-material/BarChart";
 import BlurOnIcon from "@mui/icons-material/BlurOn";
 import VideocamIcon from "@mui/icons-material/Videocam";
 import { CheckCircle, Clock, RefreshCcw } from "lucide-react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import type {
     ImportStatus,
@@ -68,6 +69,16 @@ const formatElapsed = (ms: number) => {
     if (s < 60) return `${s}s`;
     const m = Math.floor(s / 60);
     return `${m}m ${s % 60}s`;
+};
+
+// Rounded, so the estimate reads calmly instead of ticking every second.
+const formatRemaining = (ms: number) => {
+    const minutes = Math.round(ms / 60000);
+    if (minutes < 1) return "less than a minute left";
+    if (minutes < 60) return `about ${minutes} min left`;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return m ? `about ${h} h ${m} min left` : `about ${h} h left`;
 };
 
 // ── Pipeline step row ────────────────────────────────────────────────────────
@@ -173,6 +184,15 @@ export type ImportProgressDialogProps = {
     stepCounts: StepCounts | null;
     stepTotals: StepCounts | null;
     elapsedMs: number;
+    // Estimated time remaining (ms) while running; null until there's a basis.
+    etaMs?: number | null;
+    // Withdraw the import while it still waits in the queue.
+    onCancelQueued?: () => void;
+    // Stop a running import and remove everything it created.
+    onStop?: () => void;
+    stopping?: boolean;
+    // A progress check failed transiently; the window keeps retrying.
+    connectionIssue?: boolean;
     sessionName: string | null;
     // "Magellon import" / "Leginon import" / "SerialEM import" — shown when no
     // session name is available yet (before the first summary poll).
@@ -184,7 +204,8 @@ export type ImportProgressDialogProps = {
 
 export const ImportProgressDialog = ({
     open, onClose, status, error, jobId, summary,
-    stepCounts, stepTotals, elapsedMs, sessionName,
+    stepCounts, stepTotals, elapsedMs, etaMs = null, onCancelQueued, onStop, stopping = false,
+    connectionIssue = false, sessionName,
     titleFallback = "Import",
     steps = DEFAULT_IMPORT_STEPS,
 }: ImportProgressDialogProps) => {
@@ -206,8 +227,11 @@ export const ImportProgressDialog = ({
         ? Math.min(100, Math.round((overallWorkDone / overallWorkTotal) * 100))
         : fallbackPct;
     const overallImages = summary?.total_tasks ?? 0;
-    const isRunningOrSuccess = status === "running" || status === "success";
+    const queuePosition = summary?.derived_status === "queued" ? summary.queue_position ?? null : null;
+    const isQueued = queuePosition !== null;
+    const isRunningOrSuccess = (status === "running" && !isQueued) || status === "success";
     const isBusy = status === "scheduling" || status === "running";
+    const [confirmStop, setConfirmStop] = useState(false);
 
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -226,9 +250,59 @@ export const ImportProgressDialog = ({
                         </Stack>
                     )}
 
-                    {status === "success" && (
+                    {isQueued && (
+                        <Alert
+                            severity="info"
+                            action={onCancelQueued && (
+                                <Button color="inherit" size="small" onClick={onCancelQueued}>
+                                    Cancel import
+                                </Button>
+                            )}
+                        >
+                            Waiting for a free import slot: position {queuePosition} in the queue
+                            {summary?.queue_limit ? ` (${summary.queue_limit} imports run at a time)` : ""}.
+                            It starts automatically when a slot frees up.
+                        </Alert>
+                    )}
+
+                    {status === "running" && !isQueued && onStop && confirmStop && (
+                        <Alert
+                            severity="warning"
+                            action={
+                                <Stack direction="row" spacing={1}>
+                                    <Button color="inherit" size="small" onClick={() => setConfirmStop(false)} disabled={stopping}>
+                                        Keep running
+                                    </Button>
+                                    <Button color="error" variant="contained" size="small" disabled={stopping}
+                                            onClick={() => { onStop(); }}>
+                                        {stopping ? "Stopping…" : "Stop and delete"}
+                                    </Button>
+                                </Stack>
+                            }
+                        >
+                            Stop this import? Everything it created so far (the session{sessionName ? ` ${sessionName}` : ""},
+                            its images and results) will be deleted. The original data is not touched.
+                        </Alert>
+                    )}
+
+                    {status === "success" && !(summary?.problems?.length) && (
                         <Alert icon={<CheckCircle size={20} />} severity="success">
                             Import completed successfully.
+                        </Alert>
+                    )}
+
+                    {status === "success" && !!summary?.problems?.length && (
+                        <Alert severity="warning">
+                            Import completed, but {summary.totals.failed ?? summary.problems.reduce((n, p) => n + p.count, 0)}{" "}
+                            of {summary.total_tasks} tasks had problems:
+                            <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
+                                {summary.problems.slice(0, 5).map((p) => (
+                                    <li key={`${p.step}|${p.reason}`}>
+                                        <strong>{p.step}</strong>: {p.reason} ({p.count} {p.count === 1 ? "image" : "images"})
+                                    </li>
+                                ))}
+                            </Box>
+                            The rest imported normally.
                         </Alert>
                     )}
 
@@ -253,6 +327,11 @@ export const ImportProgressDialog = ({
                                         {formatElapsed(elapsedMs)}
                                     </Typography>
                                 </Stack>
+                            )}
+                            {status === "running" && !isQueued && (
+                                <Typography variant="caption" color="text.secondary">
+                                    · {etaMs !== null ? formatRemaining(etaMs) : "Estimating time left…"}
+                                </Typography>
                             )}
                             {summary.totals.failed > 0 && (
                                 <Chip
@@ -337,9 +416,21 @@ export const ImportProgressDialog = ({
             </DialogContent>
 
             <DialogActions>
+                {connectionIssue && isBusy && (
+                    <Typography variant="caption" color="warning.main" sx={{ mr: "auto", ml: 1 }}>
+                        Connection interrupted, retrying… The import itself keeps running.
+                    </Typography>
+                )}
+                {status === "running" && !isQueued && onStop && !confirmStop && (
+                    <Button color="error" size="small" onClick={() => setConfirmStop(true)} sx={{ mr: "auto" }}>
+                        Stop import
+                    </Button>
+                )}
                 {isBusy ? (
-                    <Button startIcon={<RefreshCcw size={16} />} disabled size="small">
-                        Updating…
+                    // Closing a running import only hides this window; progress
+                    // stays visible in the top bar on every page.
+                    <Button startIcon={<RefreshCcw size={16} />} onClick={onClose} size="small">
+                        Run in background
                     </Button>
                 ) : (
                     <Button onClick={onClose} size="small">Close</Button>

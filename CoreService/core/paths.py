@@ -109,3 +109,63 @@ def is_under_gpfs_root(host_path):
         return True
     except (ValueError, OSError):
         return False
+
+
+# ---------------------------------------------------------------------------
+# Magellon's own storage (MAGELLON_HOME_DIR, wire form ``/magellon/...``).
+#
+# /gpfs (the research data tree) is read-only for Magellon; anything users
+# add — uploaded templates, uploaded files — goes under MAGELLON_HOME_DIR
+# instead. Only these subfolders are browsable/uploadable: the rest of it
+# holds every user's per-session results, which the session access checks
+# protect, so the file browser must not list it.
+# ---------------------------------------------------------------------------
+MAGELLON_WIRE_ROOT = "/magellon"
+MAGELLON_SHARED_DIRS = ("uploads", "templates")
+
+
+def is_magellon_wire_path(path) -> bool:
+    """True for ``/magellon`` or anything below it."""
+    norm = (path or "").replace("\\", "/")
+    return norm == MAGELLON_WIRE_ROOT or norm.startswith(MAGELLON_WIRE_ROOT + "/")
+
+
+def resolve_magellon_shared_path(path):
+    """Map a ``/magellon/...`` wire path to its real location.
+
+    Returns the Magellon root itself for ``/magellon`` (callers list only
+    the shared folders there), or a path inside one of
+    :data:`MAGELLON_SHARED_DIRS`. Raises ``ValueError`` for anything else,
+    including ``..``/symlink escapes. The shared folders are created on
+    first use.
+    """
+    from pathlib import Path
+    from config import MAGELLON_HOME_DIR
+
+    if not is_magellon_wire_path(path):
+        raise ValueError(f"{path!r} is not a {MAGELLON_WIRE_ROOT} path")
+    root = Path(MAGELLON_HOME_DIR).resolve()
+    for name in MAGELLON_SHARED_DIRS:
+        (root / name).mkdir(parents=True, exist_ok=True)
+
+    relative = path.replace("\\", "/")[len(MAGELLON_WIRE_ROOT):].strip("/")
+    if not relative:
+        return root
+    target = (root / relative).resolve()
+    for name in MAGELLON_SHARED_DIRS:
+        base = (root / name).resolve()
+        if target == base or base in target.parents:
+            return target
+    raise ValueError(
+        f"{path!r} is outside the shared Magellon folders "
+        f"({', '.join(MAGELLON_WIRE_ROOT + '/' + n for n in MAGELLON_SHARED_DIRS)})"
+    )
+
+
+def to_magellon_wire_path(real_path) -> str:
+    """Inverse of :func:`resolve_magellon_shared_path`."""
+    from pathlib import Path
+    from config import MAGELLON_HOME_DIR
+
+    relative = Path(real_path).resolve().relative_to(Path(MAGELLON_HOME_DIR).resolve())
+    return MAGELLON_WIRE_ROOT + ("/" + relative.as_posix() if str(relative) != "." else "")

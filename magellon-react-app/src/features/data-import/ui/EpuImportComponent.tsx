@@ -18,6 +18,7 @@ import Button from "@mui/material/Button";
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import { apiErrorMessage, toApiError } from '../../../shared/api/apiError.ts';
 import { useImportJobProgress } from "../lib/useImportJobProgress.ts";
+import { useSessionNameCheck } from "../lib/useSessionNameCheck.ts";
 import { ImportProgressDialog } from "./ImportProgressDialog.tsx";
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
@@ -64,10 +65,12 @@ export const EpuImportComponent = () => {
 
     // New state variables for the additional fields
     const [epuDirPath, setEpuDirPath] = useState<string>("");
-    const [magellonProjectName, setMagellonProjectName] = useState<string>("");
-    const [magellonSessionName, setMagellonSessionName] = useState<string>("");
+    // One name for both: the Magellon session (and its results folder) and
+    // the project it is filed under — the UI has no separate use for projects.
+    const [sessionName, setSessionName] = useState<string>("");
+    const nameCheck = useSessionNameCheck(sessionName);
     const [defaultData, setDefaultData] = useState<DefaultData>({
-        pixel_size: 0,
+        pixel_size: 0.739,
         acceleration_voltage: 300,
         spherical_aberration: 2.7,
         rot_gain:0,
@@ -87,8 +90,13 @@ export const EpuImportComponent = () => {
         if (!selectedDirectory) return;
 
         // Validate required fields
-        if (!epuDirPath || !magellonProjectName || !magellonSessionName) {
+        const name = sessionName.trim();
+        if (!epuDirPath || !name) {
             setError("Please fill in all required fields");
+            return;
+        }
+        if (/[\\/\s]/.test(name)) {
+            setError("Use a session name without slashes or spaces (it becomes a folder name)");
             return;
         }
 
@@ -104,8 +112,8 @@ export const EpuImportComponent = () => {
             const response = await apiClient.post('/export/epu-import', {
                 target_directory: epuDirPath,
                 epu_dir_path: selectedDirectory,
-                magellon_project_name: magellonProjectName,
-                magellon_session_name: magellonSessionName,
+                magellon_project_name: name,
+                magellon_session_name: name,
                 default_data: {
                     pixel_size: defaultData.pixel_size,
                     acceleration_voltage: defaultData.acceleration_voltage,
@@ -307,35 +315,19 @@ Required Folder Structure
                             />
                         </Grid>
 
-                        <Grid
-                            size={{
-                                xs: 12,
-                                md: 6
-                            }}>
+                        <Grid size={12}>
                             <TextField
                                 fullWidth
                                 required
-                                label="Magellon Project Name"
-                                value={magellonProjectName}
-                                onChange={(e) => setMagellonProjectName(e.target.value)}
+                                label="EPU Session Name"
+                                value={sessionName}
+                                onChange={(e) => setSessionName(e.target.value)}
                                 variant="outlined"
                                 margin="normal"
-                            />
-                        </Grid>
-
-                        <Grid
-                            size={{
-                                xs: 12,
-                                md: 6
-                            }}>
-                            <TextField
-                                fullWidth
-                                required
-                                label="Magellon Session Name"
-                                value={magellonSessionName}
-                                onChange={(e) => setMagellonSessionName(e.target.value)}
-                                variant="outlined"
-                                margin="normal"
+                                placeholder="e.g. epudata_jan_25apr04a"
+                                error={!!nameCheck.problem}
+                                helperText={nameCheck.problem
+                                    ?? "Name of the session in Magellon; also its results folder. Must be unique, no slashes or spaces."}
                             />
                         </Grid>
 
@@ -460,7 +452,9 @@ Required Folder Structure
                                 variant="contained"
                                 color="primary"
                                 onClick={handleImport}
-                                disabled={progress.status === "scheduling" || progress.status === "running"}
+                                // Only while the request is in flight: imports queue, so
+                                // more can be started while others run.
+                                disabled={progress.status === "scheduling" || !!nameCheck.problem}
                                 size="large"
                             >
                                 Import EPU Data
@@ -470,7 +464,7 @@ Required Folder Structure
                 </Paper>
             )}
             <ImportProgressDialog
-                open={progress.status !== "idle"}
+                open={progress.status !== "idle" && !progress.minimized}
                 onClose={progress.reset}
                 status={progress.status}
                 error={progress.error}
@@ -479,6 +473,11 @@ Required Folder Structure
                 stepCounts={progress.stepCounts}
                 stepTotals={progress.stepTotals}
                 elapsedMs={progress.elapsedMs}
+                etaMs={progress.etaMs}
+                onCancelQueued={progress.cancelQueued}
+                onStop={progress.stop}
+                stopping={progress.stopping}
+                connectionIssue={progress.connectionIssue}
                 sessionName={progress.sessionName}
                 titleFallback="EPU import"
             />

@@ -30,6 +30,48 @@ class TaskFailedException(Exception):
     pass
 
 
+def _find_sidecar_file(frames_dir: str, directory_names: tuple[str, ...], filename_tokens: tuple[str, ...]):
+    for directory_name in directory_names:
+        sidecar_dir = os.path.join(frames_dir, directory_name)
+        if os.path.isdir(sidecar_dir):
+            candidates = sorted(
+                os.path.join(sidecar_dir, name)
+                for name in os.listdir(sidecar_dir)
+                if os.path.isfile(os.path.join(sidecar_dir, name))
+            )
+            if candidates:
+                return candidates[0]
+
+    if os.path.isdir(frames_dir):
+        candidates = sorted(
+            os.path.join(frames_dir, name)
+            for name in os.listdir(frames_dir)
+            if os.path.isfile(os.path.join(frames_dir, name))
+            and any(token in name.lower() for token in filename_tokens)
+        )
+        if candidates:
+            return candidates[0]
+    return None
+
+
+def find_session_layout(data_dir: str, image_names, frame_names):
+    """A Leginon session's data folder holds ``original/`` (images),
+    ``frames/`` (movies) and ``gains/`` (gain reference). Returns
+    ``(images_dir, frames_dir)``; ``frames_dir`` is None when none of the
+    session's movies are there (images still import, without MotionCor)."""
+    image_names = [n for n in image_names if n][:20]
+    frame_names = [n for n in frame_names if n][:20]
+    images_dir = os.path.join(data_dir, ORIGINAL_IMAGES_SUB_URL.strip("/"))
+    if not any(os.path.isfile(os.path.join(images_dir, n)) for n in image_names):
+        raise FileNotFoundError(
+            f"Couldn't find this session's images (e.g. {image_names[0] if image_names else '?'}) "
+            f"in {images_dir}. Check the data folder.")
+    frames_dir = os.path.join(data_dir, FRAMES_SUB_URL.strip("/"))
+    if not any(check_file_exists(frames_dir, n) for n in frame_names):
+        frames_dir = None
+    return images_dir, frames_dir
+
+
 def update_levels(image_list: list[Image], parent_id=None, level=0):
     queue = deque([(image, level) for image in image_list if image.parent_id == parent_id])
 
@@ -83,6 +125,7 @@ class LeginonFrameTransferJobService:
         self.leginon_cursor: pymysql.cursors.Cursor = None
         self.gains_path: str = None
         self.defects_path: str = None
+        self.images_dir: str = None  # set when importing from a data folder
 
     def setup(self, input_json: str):
         input_data = json.loads(input_json)
@@ -111,19 +154,32 @@ class LeginonFrameTransferJobService:
             magellon_session = self._ensure_session(db_session, magellon_session_name, magellon_project)
 
             self.open_leginon_connection()
-            self._setup_gains_defects(magellon_session_name)
-
             session_result, presets_pattern = self._fetch_leginon_session_data()
+            if session_result is None:
+                raise FileNotFoundError(f"There is no session '{self.params.session_name}' in the Leginon database.")
             leginon_image_list = self._fetch_leginon_images(self.params.session_name)
 
             if not leginon_image_list:
                 return {'status': 'success', 'message': 'No images found in Leginon.'}
+
+            self.images_dir = None
+            if self.params.data_directory:
+                # Find images and frames inside the chosen data folder by name.
+                self.images_dir, frames_dir = find_session_layout(
+                    self.params.data_directory,
+                    [image["image_name"] for image in leginon_image_list],
+                    [image.get("frame_names") for image in leginon_image_list])
+                self.params.camera_directory = frames_dir
+                logger.info("Leginon layout: images in %s, frames in %s", self.images_dir, frames_dir)
+            if self.params.camera_directory or not self.params.data_directory:
+                self._setup_gains_defects(magellon_session_name)
 
             job = self._create_image_job(db_session, session_result, magellon_session)
             db_image_list, db_job_item_list, image_dict = self._build_image_records(
                 leginon_image_list, session_result, presets_pattern, job, magellon_session
             )
             self._link_parent_images(db_image_list, image_dict)
+            self._check_image_files(db_image_list)
 
             db_session.bulk_save_objects(db_image_list)
             db_session.bulk_save_objects(db_job_item_list)
@@ -168,48 +224,64 @@ class LeginonFrameTransferJobService:
         return session
 
     def _setup_gains_defects(self, session_name: str):
-        session_folder_name = session_name
-        if self.params.camera_directory:
-            camera_dir_parts = self.params.camera_directory.replace("\\", "/").split("/")
-            if len(camera_dir_parts) > 2:
-                session_folder_name = camera_dir_parts[2]
+        camera_directory = (self.params.camera_directory or '').replace('\\', '/')
+        if self.params.data_directory:
+            frames_dir = self.params.data_directory  # gains/ sits beside frames/
+        elif camera_directory:
+            camera_directory = os.path.normpath(camera_directory)
+            camera_leaf = os.path.basename(camera_directory).lower()
+            camera_parent = os.path.dirname(camera_directory)
+            parent_leaf = os.path.basename(camera_parent).lower()
+            if camera_leaf == 'rawdata' or (camera_leaf == 'frames' and parent_leaf == 'home'):
+                frames_dir = camera_parent
+            else:
+                frames_dir = camera_directory
+        else:
+            gpfs_root = os.environ.get('MAGELLON_GPFS_PATH', MAGELLON_GPFS_DIR)
+            frames_dir = os.path.join(gpfs_root, session_name, 'home')
 
-        gpfs_root = os.environ.get('MAGELLON_GPFS_PATH', MAGELLON_GPFS_DIR)
-        gpfs_session_home = os.path.join(gpfs_root, session_folder_name, 'home')
-        gpfs_gains_dir = os.path.join(gpfs_session_home, GAINS_SUB_URL)
-        gpfs_defects_dir = os.path.join(gpfs_session_home, DEFECTS_SUB_URL)
+        gains_dir_names = (GAINS_SUB_URL.rstrip('/\\'), 'gain')
+        defects_dir_names = (DEFECTS_SUB_URL.rstrip('/\\'), 'defect')
 
-        os.makedirs(gpfs_gains_dir, exist_ok=True)
-        os.makedirs(gpfs_defects_dir, exist_ok=True)
+        def save_uploaded_file(upload, canonical_directory):
+            sidecar_dir = os.path.join(
+                MAGELLON_HOME_DIR,
+                session_name,
+                canonical_directory.rstrip('/\\'),
+            )
+            os.makedirs(sidecar_dir, exist_ok=True)
+            filename = os.path.basename(upload.filename.replace('\\', '/'))
+            destination = os.path.join(sidecar_dir, filename)
+            with open(destination, 'wb') as output_file:
+                output_file.write(upload.file.read())
+            return destination
 
-        # Save frontend-provided files to GPFS if present
+        # Browser uploads belong in the writable Magellon home mount, not the source tree.
         if getattr(self.params, 'gains_file', None) is not None:
-            gains_file_path = os.path.join(gpfs_gains_dir, self.params.gains_file.filename)
-            with open(gains_file_path, 'wb') as f:
-                f.write(self.params.gains_file.file.read())
-            self.gains_path = gains_file_path
+            self.gains_path = save_uploaded_file(
+                self.params.gains_file, GAINS_SUB_URL
+            )
 
         if getattr(self.params, 'defects_file', None) is not None:
-            defects_file_path = os.path.join(gpfs_defects_dir, self.params.defects_file.filename)
-            with open(defects_file_path, 'wb') as f:
-                f.write(self.params.defects_file.file.read())
-            self.defects_path = defects_file_path
+            self.defects_path = save_uploaded_file(
+                self.params.defects_file, DEFECTS_SUB_URL
+            )
 
         # Fall back to existing files on GPFS
         if self.gains_path is None:
-            gain_candidates = [os.path.join(gpfs_gains_dir, f) for f in os.listdir(gpfs_gains_dir)
-                               if os.path.isfile(os.path.join(gpfs_gains_dir, f))]
-            if not gain_candidates:
+            self.gains_path = _find_sidecar_file(
+                frames_dir, gains_dir_names, ('gain',)
+            )
+            if self.gains_path is None:
                 raise FileNotFoundError(
-                    f"No gains file found for session '{session_name}' in '{gpfs_gains_dir}'. "
-                    "Provide a gains file in the frontend or place one there.")
-            self.gains_path = gain_candidates[0]
+                    f"No gain file found for session '{session_name}' under '{frames_dir}'. "
+                    "Provide one in the frontend, a gain/gains folder, or as a named file in the session root."
+                )
 
         if self.defects_path is None:
-            defect_candidates = [os.path.join(gpfs_defects_dir, f) for f in os.listdir(gpfs_defects_dir)
-                                 if os.path.isfile(os.path.join(gpfs_defects_dir, f))]
-            if defect_candidates:
-                self.defects_path = defect_candidates[0]
+            self.defects_path = _find_sidecar_file(
+                frames_dir, defects_dir_names, ('defect',)
+            )
 
     def _fetch_leginon_session_data(self):
         session_name = self.params.session_name
@@ -280,7 +352,14 @@ class LeginonFrameTransferJobService:
     def _create_image_job(self, db_session: Session, session_result, magellon_session):
         session_name = self.params.session_name
         job = ImageJob(
-            name=f"Leginon Import: {session_name}",
+            # Must match the job_id already handed back to the frontend in
+            # the POST response — /export/job/{job_id}/summary looks up
+            # ImageJob.oid by that value, and a mismatch (e.g. letting this
+            # default-generate its own) means the frontend polls a job_id
+            # that will never resolve to a row, so progress silently never
+            # appears. Mirrors BaseImporter._create_image_job's pattern.
+            oid=self.params.job_id or uuid.uuid4(),
+            name=f"Leginon Import: {self.params.magellon_session_name or session_name}",
             description=f"Leginon Import for session: {session_name} in directory: {session_result['image path']}",
             created_date=datetime.now(),
             output_directory=self.params.camera_directory,
@@ -289,6 +368,22 @@ class LeginonFrameTransferJobService:
         db_session.add(job)
         db_session.flush()
         return job
+
+    def _check_image_files(self, db_image_list):
+        """Stop before queuing any work when the images aren't where the import
+        looks for them (usually a Replace Pattern that doesn't match): every
+        task would otherwise run without its image, leaving the session with
+        no pictures, FFTs or CTF."""
+        paths = [image.path for image in db_image_list if image.path]
+        missing = [path for path in paths if not os.path.exists(path)]
+        if paths and len(missing) == len(paths):
+            raise FileNotFoundError(
+                f"None of the {len(paths)} images were found, e.g. {missing[0]}. "
+                "Check the Replace Type/Pattern/With settings: the pattern must match "
+                "the start of this path."
+            )
+        if missing:
+            logger.warning("%d of %d images not found, e.g. %s", len(missing), len(paths), missing[0])
 
     def _get_default(self, field, fallback):
         return getattr(self.params.default_data, field, fallback) if self.params.default_data else fallback
@@ -336,13 +431,17 @@ class LeginonFrameTransferJobService:
             db_image_list.append(db_image)
             image_dict[filename] = db_image.oid
 
-            source_frame_path = (os.path.join(self.params.camera_directory, image["frame_names"])
-                                 if image.get("frame_names") else None)
-            source_image_path = os.path.join(
-                gpfs_root, session_result["name"], 'home', ORIGINAL_IMAGES_SUB_URL, image["image_name"]
-            )
+            frame_name = image.get("frame_names") if self.params.camera_directory else None
+            source_frame_path = (os.path.join(self.params.camera_directory, frame_name)
+                                 if frame_name else None)
+            if self.images_dir:
+                source_image_path = os.path.join(self.images_dir, image["image_name"])
+            else:
+                source_image_path = os.path.join(
+                    gpfs_root, session_result["name"], 'home', ORIGINAL_IMAGES_SUB_URL, image["image_name"]
+                )
 
-            if self.params.replace_type in ("regex", "standard"):
+            if not self.images_dir and self.params.replace_type in ("regex", "standard"):
                 source_frame_path = custom_replace(
                     source_frame_path, self.params.replace_type,
                     self.params.replace_pattern, self.params.replace_with)
@@ -350,12 +449,19 @@ class LeginonFrameTransferJobService:
                     source_image_path, self.params.replace_type,
                     self.params.replace_pattern, self.params.replace_with)
 
+            # Same gap EPUImporter had: db_image is never constructed with
+            # path=, so without this Image.path stays NULL for every
+            # Leginon import — breaking anything that resolves an image's
+            # file location from the DB instead of the in-flight task DTO
+            # (e.g. particle-picking's manual dispatch/batch endpoints).
+            db_image.path = source_image_path
+
             task_oid = uuid.uuid4()
             db_job_task = ImageJobTask(
                 oid=task_oid,
                 job_id=job.oid,
-                frame_name=image["frame_names"] if image.get("frame_names") else None,
-                frame_path=source_frame_path if image.get("frame_names") else None,
+                frame_name=frame_name or None,
+                frame_path=source_frame_path if frame_name else None,
                 image_path=source_image_path,
                 status_id=1,
                 stage=0,
@@ -372,7 +478,7 @@ class LeginonFrameTransferJobService:
                 file_name=filename,
                 image_id=db_image.oid,
                 image_name=image["image_name"],
-                frame_name=image["frame_names"],
+                frame_name=frame_name,
                 image_path=source_image_path,
                 job_id=job.oid,
                 frame_path=source_frame_path,
@@ -425,16 +531,36 @@ class LeginonFrameTransferJobService:
             # Generate FFT using the REST API
             self.convert_image_to_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
             self.compute_fft_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
-            self.compute_ctf_task(task_dto.image_path, task_dto)
+            ctf = self.compute_ctf_task(task_dto.image_path, task_dto)
 
             if task_dto.frame_name:
                 self.compute_motioncor_task(task_dto.image_path, task_dto)
+            elif "on the way" not in (ctf or {}).get("message", ""):
+                # Nothing was sent to a plugin for this image (an atlas/grid
+                # overview: no movie, and CTF skipped for its pixel size), so
+                # nothing will ever report it; it's done once its pictures are.
+                self._finish_local_task(task_dto)
 
             return {'status': 'success', 'message': 'Task completed successfully.'}
 
         except Exception as e:
             raise TaskFailedException(f"Task failed with error: {str(e)}")
             # return {'status': 'failure', 'message': f'Task failed with error: {str(e)}'}
+
+    def _finish_local_task(self, task_dto) -> None:
+        from database import session_local
+        from services.job_manager import job_manager
+        db = session_local()
+        try:
+            db.query(ImageJobTask).filter(ImageJobTask.oid == task_dto.task_id).update(
+                {ImageJobTask.status_id: 2}, synchronize_session=False)
+            db.commit()
+        finally:
+            db.close()
+        try:
+            job_manager.record_task_finished(str(task_dto.job_id), str(task_dto.task_id))
+        except LookupError:
+            pass
 
     def transfer_frame(self, task_dto):
         try:
@@ -609,7 +735,9 @@ class LeginonFrameTransferJobService:
                 label_objects[""] = [obj]
 
         # images = create_atlas_images(session_id, label_objects)
-        images = create_atlas_images(session_name, label_objects)
+        # Leginon is queried by its session name; the pictures go to the
+        # Magellon session's folder.
+        images = create_atlas_images(magellon_session.name if magellon_session else session_name, label_objects)
         atlases_to_insert = []
         for image in images:
             file_name = os.path.basename(image['imageFilePath'])
