@@ -402,6 +402,7 @@ class RmqBinder:
 
         def _callback(ch, method, properties, body):
             redelivery_count = _redelivery_count(method, properties)
+            envelope = None
             try:
                 envelope = _reconstruct_envelope(body, properties)
                 _invoke(handler, envelope)
@@ -429,6 +430,8 @@ class RmqBinder:
                         retry_after_seconds=cls.retry_after_seconds,
                     )
                 else:
+                    if cls.action is AckAction.DLQ:
+                        _notify_dead_letter(policy, envelope, exc, queue_name)
                     # ACK or DLQ both nack-no-requeue; DLQ topology (if
                     # configured on the queue) routes to the dead-letter
                     # exchange.
@@ -905,3 +908,14 @@ def _invoke(handler: Callable, envelope: Envelope) -> None:
 
 
 __all__ = ["RmqBinder"]
+
+
+def _notify_dead_letter(policy: TaskConsumerPolicy, envelope, exc: BaseException, queue_name: str) -> None:
+    """Run the policy's dead-letter hook; a failing hook must not stop the nack."""
+    hook = getattr(policy, "on_dead_letter", None)
+    if hook is None:
+        return
+    try:
+        hook(envelope, exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("RmqBinder[%s]: on_dead_letter hook failed", queue_name)

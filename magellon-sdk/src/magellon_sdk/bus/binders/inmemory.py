@@ -430,6 +430,7 @@ class InMemoryBinder:
         handler: TaskHandler,
         policy: TaskConsumerPolicy,
     ) -> None:
+        envelope = None
         try:
             envelope = _envelope_from_delivery(delivery)
             result = handler(envelope)
@@ -460,6 +461,11 @@ class InMemoryBinder:
                     self._in_flight += 1  # re-enqueued, still in-flight
                 self._task_queues[delivery.subject].put(delivery)
             else:
+                if cls.action is AckAction.DLQ and policy.on_dead_letter is not None:
+                    try:
+                        policy.on_dead_letter(envelope, exc)
+                    except Exception:  # noqa: BLE001
+                        logger.exception("InMemoryBinder[%s]: on_dead_letter hook failed", delivery.subject)
                 # ACK or DLQ — DLQ routing if policy enabled.
                 if policy.dlq_enabled:
                     self._dlq[delivery.subject].append(delivery)

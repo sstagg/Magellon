@@ -140,7 +140,7 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
                             <em>Select Collection...</em>
                         </MenuItem>
                         {Sessions?.map((session) => (
-                            <MenuItem key={session.Oid} value={session.name}>
+                            <MenuItem key={session.name} value={session.name}>
                                 {session.name}
                             </MenuItem>
                         ))}

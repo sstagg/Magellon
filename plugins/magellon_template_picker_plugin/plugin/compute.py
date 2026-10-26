@@ -14,6 +14,7 @@ import glob
 import json
 import logging
 import os
+import uuid
 from pathlib import Path
 from threading import Lock
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -251,10 +252,23 @@ def _resolve_template_paths(spec: Any) -> List[str]:
 
 
 def _resolve_output_path(image_path: str, output_dir: Optional[str]) -> str:
-    """``<output_dir or image_dir>/particles.json`` next to the image."""
+    """``<output_dir>/particles.json``; without an output_dir, a scratch
+    folder of its own under the jobs directory.
+
+    Not next to the image: images usually sit in read-only research storage,
+    and every image of a folder would share (and overwrite) one
+    particles.json. The result processor reads the file into the database
+    right away; the nightly jobs clean-up removes the scratch folder.
+    """
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
         return os.path.join(output_dir, "particles.json")
+    jobs_dir = os.environ.get("MAGELLON_JOBS_DIR") or ("/jobs" if os.path.isdir("/jobs") else None)
+    if jobs_dir:
+        stem = os.path.splitext(os.path.basename(image_path))[0]
+        scratch = os.path.join(jobs_dir, f"template-pick-{stem}-{uuid.uuid4().hex[:8]}")
+        os.makedirs(scratch, exist_ok=True)
+        return os.path.join(scratch, "particles.json")
     image_dir = os.path.dirname(os.path.abspath(image_path))
     return os.path.join(image_dir, "particles.json")
 

@@ -10,7 +10,7 @@ See ``Documentation/MESSAGE_BUS_SPEC.md`` §4 (Bus API) and
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from typing import Any, Callable, Optional, Tuple
 
 
 @dataclass(frozen=True)
@@ -49,6 +49,10 @@ class TaskConsumerPolicy:
     max_retries: int = 3
     dlq_enabled: bool = True
     concurrency: int = 1
+    # Called with (envelope, exception) when a task is given up on (sent to
+    # the DLQ), so the consumer can report the failure instead of the task
+    # vanishing silently. ``envelope`` is None if it couldn't be decoded.
+    on_dead_letter: Optional[Callable[[Any, BaseException], None]] = field(default=None, compare=False)
 
 
 @dataclass(frozen=True)

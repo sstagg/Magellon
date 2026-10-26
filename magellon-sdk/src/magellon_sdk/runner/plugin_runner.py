@@ -54,6 +54,7 @@ from magellon_sdk.bus.routes import TaskResultRoute, TaskRoute
 from magellon_sdk.categories.contract import CategoryContract
 from magellon_sdk.config_broker import ConfigSubscriber
 from magellon_sdk.discovery import DiscoveryPublisher, HeartbeatLoop
+from magellon_sdk.bus.policy import TaskConsumerPolicy
 from magellon_sdk.envelope import Envelope
 from magellon_sdk.models import FAILED, TaskMessage, TaskResultMessage
 from magellon_sdk.progress import JobCancelledError
@@ -222,6 +223,35 @@ class PluginBrokerRunner:
                 self._out_route.subject,
                 receipt.error,
             )
+
+    def _report_dead_letter(self, envelope: Optional[Envelope], exc: BaseException) -> None:
+        """A task was given up on (after its retries): publish a FAILED
+        result with the error, so the job and the UI see the failure instead
+        of waiting forever for a result that never comes."""
+        if envelope is None:
+            return
+        try:
+            task = self._task_from_envelope(envelope)
+        except Exception:  # noqa: BLE001 — undecodable: nothing to report against
+            return
+        reason = f"{type(exc).__name__}: {exc}"
+        logger.error("PluginBrokerRunner[%s]: task %s failed: %s",
+                     self.plugin.get_info().name, task.id, reason)
+        image_id = task.data.get("image_id") if isinstance(task.data, dict) else None
+        result = TaskResultMessage(
+            task_id=task.id,
+            image_id=image_id,
+            type=task.type,
+            code=FAILED.code,
+            message=f"{self.plugin.get_info().name} failed: {reason}",
+            description=reason,
+            status=FAILED,
+            output_data={"error": reason},
+            job_id=task.job_id,
+        )
+        self._stamp_provenance(result)
+        self._stamp_subject(task, result)
+        self._publish_result(result)
 
     def _build_cancelled_result(self, task: TaskMessage, reason: str) -> TaskResultMessage:
         """Minimal cancelled-status result. Uses ``FAILED`` as the wire
@@ -466,7 +496,8 @@ class PluginBrokerRunner:
         """
         bus = self._require_bus()
         self._task_handle = bus.tasks.consumer(
-            self._in_route, self._handle_task
+            self._in_route, self._handle_task,
+            policy=TaskConsumerPolicy(on_dead_letter=self._report_dead_letter),
         )
         self._start_discovery()
         self._start_config_subscriber()

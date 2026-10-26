@@ -296,7 +296,7 @@ export const CTFForm: React.FC<CTFFormProps> = ({
                                 <em>{sessionsLoading ? "Loading sessions..." : "Select a session"}</em>
                             </MenuItem>
                             {(sessions as SessionDto[])?.map((session) => (
-                                <MenuItem key={session.Oid} value={session.name}>
+                                <MenuItem key={session.name} value={session.name}>
                                     {session.name}
                                 </MenuItem>
                             ))}

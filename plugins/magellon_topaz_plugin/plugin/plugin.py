@@ -84,6 +84,14 @@ def _session_home() -> str:
     depending on the deployment; derive from MAGELLON_GPFS_PATH + 'home'
     so the path is always correct regardless of how the env var is configured.
     """
+    # Deployments that keep research data read-only mount Magellon's own
+    # writable home separately (MAGELLON_HOME_DIR, normally /magellon);
+    # results must go there, never into the research mount.
+    home = os.environ.get("MAGELLON_HOME_DIR")
+    if not home and os.path.isdir("/magellon"):
+        home = "/magellon"
+    if home:
+        return home
     from core.settings import AppSettingsSingleton
     gpfs = AppSettingsSingleton.get_instance().MAGELLON_GPFS_PATH or "/gpfs"
     return os.path.join(gpfs, "home")

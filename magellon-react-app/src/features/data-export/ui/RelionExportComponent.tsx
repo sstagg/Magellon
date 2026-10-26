@@ -334,7 +334,7 @@ export const RelionExportComponent = () => {
                                     <MenuItem disabled>Loading sessions...</MenuItem>
                                 ) : (
                                     sessions.map((session) => (
-                                        <MenuItem key={session.Oid} value={session.name}>
+                                        <MenuItem key={session.name} value={session.name}>
                                             {session.name}
                                         </MenuItem>
                                     ))
