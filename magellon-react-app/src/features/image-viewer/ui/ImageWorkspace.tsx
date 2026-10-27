@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import type {
     SelectChangeEvent} from "@mui/material";
 import {
@@ -63,6 +63,14 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
     } = useImageViewerStore();
 
     const sessionName = currentSession?.name || selectedSession?.name || '';
+
+    // The selected session was deleted elsewhere (another tab or user, or its
+    // import was stopped): once the refreshed list no longer has it, let it go.
+    useEffect(() => {
+        if (selectedSession?.name && Sessions?.length && !Sessions.some((s) => s.name === selectedSession.name)) {
+            OnSessionSelected({ target: { value: '' } } as SelectChangeEvent);
+        }
+    }, [Sessions, selectedSession?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleViewModeChange = (
         _event: React.MouseEvent<HTMLElement>,

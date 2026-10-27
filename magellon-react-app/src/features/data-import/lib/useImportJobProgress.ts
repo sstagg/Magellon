@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import getAxiosClient from "../../../shared/api/AxiosClient.ts";
 import { settings } from "../../../shared/config/settings.ts";
 import { useSocket } from "../../../shared/lib/useSocket.ts";
+import { announceSessionDeleted } from "../../session-delete/DeleteSessionDialog.tsx";
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
@@ -331,7 +332,8 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
         if (!id) return;
         setStopping(true);
         try {
-            await apiClient.post(`/export/job/${id}/stop`);
+            const { data } = await apiClient.post(`/export/job/${id}/stop`);
+            if (data?.session_deleted && data.session_name) announceSessionDeleted(data.session_name);
         } catch (err) {
             setError(errorMessage(err, "Could not stop the import"));
         } finally {

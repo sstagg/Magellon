@@ -1,11 +1,14 @@
 """
-Result processor for motioncor test tasks.
-Listens to the motioncor test output queue and broadcasts results to WebSocket clients.
-"""
+Result processor for single-file test tasks (Run Processing Jobs page).
 
+Listens to the MotionCor and CTF test output queues and broadcasts each
+result to the WebSocket clients waiting on that task. Nothing is stored in
+the database: the outputs stay in the task's scratch folder under /jobs.
+"""
+import asyncio
 import json
 import logging
-import asyncio
+import threading
 from datetime import datetime
 
 from config import app_settings
@@ -14,105 +17,67 @@ from services.motioncor_test_service import broadcast_to_task_connections
 
 logger = logging.getLogger(__name__)
 
+# The web server's event loop; the WebSockets belong to it, so results are
+# sent from there (set by result_consumer_engine at startup).
+_web_loop = None
+
+
+def _broadcast(task_id, message) -> None:
+    coro = broadcast_to_task_connections(task_id, message)
+    if _web_loop is not None and _web_loop.is_running():
+        asyncio.run_coroutine_threadsafe(coro, _web_loop).result(timeout=30)
+    else:
+        asyncio.run(coro)
+
 
 def process_result_message(ch, method, properties, body):
-    """
-    Process a motioncor test result from the output queue and broadcast to WebSocket clients.
-    
-    This callback:
-    1. Parses the incoming result
-    2. Broadcasts to all connected WebSocket clients for that task
-    3. Acknowledges the message
-    """
+    """Broadcast one test result to the task's WebSocket clients, then ack."""
     try:
-        message_text = body.decode("utf-8")
-        logger.info(f"Received motioncor test result message")
-        
-        # Parse the result message
-        result_dict = json.loads(message_text)
-        # Try to get task_id first (from TaskResultMessage), then fall back to id
-        task_id = result_dict.get("task_id") or result_dict.get("id")
-        
-        logger.info(f"Processing result for task: {task_id}")
-        logger.debug(f"Full result dict keys: {list(result_dict.keys())}")
-        logger.debug(f"Result code: {result_dict.get('code')}, Message: {result_dict.get('message')}")
-        
-        # Check if result has output_files
-        output_files = result_dict.get('output_files', [])
-        logger.info(f"Result has {len(output_files)} output file(s)")
-        
-        # Broadcast the full result to all connected WebSocket clients
-        broadcast_message = {
+        result_dict = json.loads(body.decode("utf-8"))
+        # TaskResultMessage carries task_id; fall back to id.
+        task_id = str(result_dict.get("task_id") or result_dict.get("id"))
+        output_files = result_dict.get("output_files", [])
+        logger.info("Test result for task %s: %d output file(s)", task_id, len(output_files))
+        _broadcast(task_id, {
             "type": "result",
             "task_id": task_id,
-            "status": "completed" if result_dict.get("code", 200) < 400 else "failed",
+            "status": "completed" if (result_dict.get("code") or 200) < 400 else "failed",
             "data": result_dict,
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        logger.debug(f"Broadcasting message with keys: {list(broadcast_message.keys())}")
-        logger.debug(f"Data section has keys: {list(result_dict.keys())}")
-        
-        asyncio.run(broadcast_to_task_connections(
-            task_id,
-            broadcast_message
-        ))
-        logger.info(f"Successfully broadcasted result for task: {task_id}")
-        
-        # Acknowledge the message
+            "timestamp": datetime.now().isoformat(),
+        })
         ch.basic_ack(delivery_tag=method.delivery_tag)
-        logger.info(f"Result processed and broadcasted for task: {task_id}")
-        
     except json.JSONDecodeError as e:
         logger.error(f"Error decoding JSON result: {e}")
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
     except Exception as e:
-        logger.error(f"Error processing result message: {e}")
+        logger.error(f"Error processing test result message: {e}")
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
 
-def result_consumer_engine():
-    """
-    Main consumer engine for the motioncor test output queue.
-    Listens to results and broadcasts them to WebSocket clients.
-    """
-    logger.info("Starting Motioncor Test Result Processor")
-    
-    rabbitmq_settings = app_settings.rabbitmq_settings
-    rabbitmq_client = RabbitmqClient(rabbitmq_settings)
-    
+def _consume(queue_name: str) -> None:
+    rabbitmq_client = RabbitmqClient(app_settings.rabbitmq_settings)
     try:
-        # Connect to RabbitMQ
         rabbitmq_client.connect()
-        logger.info("Connected to RabbitMQ")
-        
-        # Declare the output queue
-        queue_name = "motioncor_test_outqueue"
         rabbitmq_client.declare_queue(queue_name)
-        logger.info(f"Declared queue: {queue_name}")
-        
-        # Set up consumer callback
         rabbitmq_client.consume(queue_name, process_result_message)
-        logger.info(f"Started consuming from queue: {queue_name}")
-        
-        # Start consuming messages
-        logger.info("Waiting for result messages. To exit press CTRL+C")
+        logger.info(f"Test result processor consuming {queue_name}")
         rabbitmq_client.start_consuming()
-        
-    except KeyboardInterrupt:
-        logger.info("Result processor interrupted by user")
     except Exception as e:
-        logger.error(f"Error in result consumer engine: {e}")
+        logger.error(f"Test result processor for {queue_name} stopped: {e}")
     finally:
         rabbitmq_client.close_connection()
-        logger.info("Result processor stopped")
 
 
-if __name__ == "__main__":
-    # Configure logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    
-    result_consumer_engine()
+def result_consumer_engine(web_loop=None):
+    """Consume the MotionCor and CTF test output queues (one thread each)."""
+    global _web_loop
+    _web_loop = web_loop
+    settings = app_settings.rabbitmq_settings
+    queues = [getattr(settings, "MOTIONCOR_TEST_OUT_QUEUE_NAME", None) or "motioncor_test_outqueue",
+              getattr(settings, "CTF_TEST_OUT_QUEUE_NAME", None) or "ctf_test_outqueue"]
+    threads = [threading.Thread(target=_consume, args=(q,), name=f"test-results-{q}", daemon=True)
+               for q in queues]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()

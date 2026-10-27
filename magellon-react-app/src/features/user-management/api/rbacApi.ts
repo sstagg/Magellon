@@ -688,10 +688,9 @@ export class SessionAccessAPI {
    * Get all sessions from the database (for admin selection)
    */
   static async getAllSessions(): Promise<unknown> {
-    const response = await apiClient.get('/db/msessions/', {
-      params: { limit: 1000 } // Get first 1000 sessions
-    });
-    return response.data;
+    // The sessions the Images page lists (every session for admins).
+    const response = await apiClient.get('/web/sessions');
+    return (response.data as Array<{ Oid: string; name?: string }>).map((s) => ({ oid: s.Oid, name: s.name }));
   }
 }
 

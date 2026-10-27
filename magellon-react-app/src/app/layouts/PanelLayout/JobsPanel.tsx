@@ -32,7 +32,7 @@ import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 import { useAuth } from '../../../features/auth/model/AuthContext.tsx';
 import { notify, updateNotice } from '../../../shared/ui/Notifications.tsx';
-import { askDeleteSession, SESSION_DELETED_EVENT } from '../../../features/session-delete/DeleteSessionDialog.tsx';
+import { announceSessionDeleted, askDeleteSession, SESSION_DELETED_EVENT } from '../../../features/session-delete/DeleteSessionDialog.tsx';
 
 const api = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
@@ -114,6 +114,7 @@ export const JobsPanel: React.FC = () => {
         const notice = notify(`Stopping ${job.name}…`, 'info', true);
         try {
             const { data } = await api.post(`/export/job/${job.job_id}/stop`);
+            if (data?.session_deleted && data.session_name) announceSessionDeleted(data.session_name);
             updateNotice(notice, data?.session_deleted
                 ? `Stopped ${job.name}; session ${data.session_name} and its files deleted`
                 : `Stopped ${job.name}`, 'success');

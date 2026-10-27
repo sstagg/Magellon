@@ -31,7 +31,7 @@ from magellon_sdk.models import (
 
 from core.helper import publish_message_to_queue
 from core.settings import AppSettingsSingleton
-from service.service import do_execute
+from service.ctf_service import do_ctf
 
 logger = logging.getLogger(__name__)
 
@@ -122,8 +122,11 @@ def _on_envelope(envelope: Envelope) -> None:
         raise PermanentError(f"ctf test-task translation failed: {exc}") from exc
 
     logger.info("ctf test consumer: executing task %s", task_dto.id)
-    future = asyncio.run_coroutine_threadsafe(do_execute(params=normalized), _loop)
-    result = future.result()
+    future = asyncio.run_coroutine_threadsafe(do_ctf(normalized), _loop)
+    try:
+        result = future.result()
+    except Exception as exc:  # the computation itself failed
+        result = {"error": str(exc)}
 
     if isinstance(result, dict) and "error" in result:
         error_result = TaskResultMessage(
@@ -164,6 +167,10 @@ def start_test_consumer() -> Optional[ConsumerHandle]:
         return None
     bus = get_bus()
     handle = bus.tasks.consumer(TaskRoute.named(test_in_queue), _on_envelope)
+    # The handle only consumes while something runs its loop; without this
+    # thread the broker drops the idle connection and the queue goes unserved.
+    threading.Thread(target=handle.run_until_shutdown, name="ctf-test-consumer",
+                     daemon=True).start()
     logger.info("ctf test consumer: subscribed to %s", test_in_queue)
     return handle
 

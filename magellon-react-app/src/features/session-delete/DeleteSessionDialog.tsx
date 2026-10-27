@@ -14,6 +14,11 @@ const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 /** Fired on window when a session was deleted (detail: its name). */
 export const SESSION_DELETED_EVENT = 'magellon:session-deleted';
 
+/** Tell the open pages a session is gone (deleted here, or by stopping its
+ * import): session lists reload and a page showing it lets it go. */
+export const announceSessionDeleted = (name: string) =>
+    window.dispatchEvent(new CustomEvent(SESSION_DELETED_EVENT, { detail: name }));
+
 const useDeleteSessionStore = create<{ name: string | null; ask: (name: string) => void; close: () => void }>((set) => ({
     name: null,
     ask: (name) => set({ name }),
@@ -44,7 +49,7 @@ export const DeleteSessionDialog = () => {
             await apiClient.delete(`/export/session/${encodeURIComponent(session)}`);
             updateNotice(notice, `Session ${session} deleted`, 'success');
             await queryClient.invalidateQueries({ queryKey: ['sessionNames'] });
-            window.dispatchEvent(new CustomEvent(SESSION_DELETED_EVENT, { detail: session }));
+            announceSessionDeleted(session);
         } catch (err) {
             updateNotice(notice, `Could not delete ${session}: ${apiErrorMessage(err, 'unknown error')}`, 'error');
         }

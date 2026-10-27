@@ -517,7 +517,9 @@ async def startup_event():
     try:
         from core.motioncor_test_result_processor import result_consumer_engine
         logger.info("Starting motioncor test result processor...")
-        result_processor_thread = threading.Thread(target=result_consumer_engine, daemon=True)
+        # Results are sent to the WebSockets from this (the web) event loop.
+        result_processor_thread = threading.Thread(target=result_consumer_engine,
+                                                   args=(asyncio.get_running_loop(),), daemon=True)
         result_processor_thread.start()
         app.state.motioncor_test_result_processor = result_processor_thread
         background_services.started("motioncor_test_result_processor", result_processor_thread)

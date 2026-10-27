@@ -533,8 +533,8 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
                                         .filter((file) => file.path && (file.path.endsWith('_DW.mrc') || file.path.endsWith('_DWS.mrc')))
                                         .map((file, idx: number) => {
                                             const filename = file.path.split('/').pop();
-                                            // ✅ FIXED: Use the file path directly with query parameter
-                                            const downloadUrl = `${settings.ConfigData.SERVER_API_URL}/web/download-file?path=${encodeURIComponent(file.path)}`;
+                                            // Served from the task's scratch folder (/jobs/{task id}).
+                                            const downloadUrl = `${settings.ConfigData.SERVER_API_URL}/web/test-output/${processingState.taskId}/${encodeURIComponent(filename || '')}`;
                                             return (
                                                 <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                                                     {filename && (

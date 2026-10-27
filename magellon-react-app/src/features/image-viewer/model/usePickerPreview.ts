@@ -68,7 +68,9 @@ export function usePickerPreview({
             });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({ detail: res.statusText }));
-                throw new Error(err.detail || `${res.status}`);
+                // detail may be an object or a list (validation errors).
+                const detail = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail ?? res.status);
+                throw new Error(detail);
             }
             const data = await res.json();
             setPreviewId(data.preview_id);
@@ -121,7 +123,9 @@ export function usePickerPreview({
             });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({ detail: res.statusText }));
-                throw new Error(err.detail || `${res.status}`);
+                // detail may be an object or a list (validation errors).
+                const detail = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail ?? res.status);
+                throw new Error(detail);
             }
             const data = await res.json();
             const nextParams = { ...pickerParams, ...data.engine_opts };

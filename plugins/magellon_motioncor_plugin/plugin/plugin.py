@@ -154,8 +154,10 @@ class MotioncorPlugin(PluginBase[MotionCorInput, MotioncorPluginOutput]):
                 publisher, job_id=job_id, task_id=task_id,
                 percent=10.0, message="running motioncor3",
             ))
-            future = asyncio.run_coroutine_threadsafe(do_motioncor(task), get_step_event_loop())
-            result_dto: TaskResultMessage = future.result()
+            from core.gpu_turn import gpu_turn
+            with gpu_turn():
+                future = asyncio.run_coroutine_threadsafe(do_motioncor(task), get_step_event_loop())
+                result_dto: TaskResultMessage = future.result()
 
             emit_step(safe_emit_progress(
                 publisher, job_id=job_id, task_id=task_id,

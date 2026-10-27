@@ -3,6 +3,7 @@ import io
 import json
 import mimetypes
 import os
+import re
 import uuid
 from datetime import datetime
 from typing import List, Optional, Dict
@@ -15,7 +16,7 @@ from pydantic import BaseModel, Field
 from pathlib import Path
 from starlette.responses import FileResponse, StreamingResponse
 
-from config import app_settings
+from config import MAGELLON_JOBS_DIR, app_settings
 from core.helper import dispatch_ctf_task, create_motioncor_task
 from dependencies.auth import get_current_user_id
 from services.mrc_image_service import MrcImageService
@@ -514,11 +515,45 @@ async def upload_files(
     return out
 
 
+async def _save_test_upload(upload: UploadFile, task_id) -> Path:
+    """Stream a single-file test upload into /jobs/{task_id}/input/."""
+    folder = Path(MAGELLON_JOBS_DIR) / str(task_id) / "input"
+    folder.mkdir(parents=True, exist_ok=True)
+    name = re.sub(r"[^A-Za-z0-9._-]", "_", os.path.basename((upload.filename or "upload").replace("\\", "/")))
+    path = folder / (name or "upload")
+    with open(path, "wb") as f:
+        while chunk := await upload.read(16 * 1024 * 1024):
+            f.write(chunk)
+    return path
+
+
+_TEST_OUTPUT_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                      ".txt": "text/plain", ".mrc": "application/octet-stream"}
+
+
+@motioncor_router.get("/test-output/{task_id}/{filename}")
+async def test_output_file(task_id: str, filename: str, user_id: UUID = Depends(get_current_user_id)):
+    """A single-file test task's output (plots, power spectrum, text, MRC),
+    from its scratch folder /jobs/{task_id}/, so the page can show it."""
+    try:
+        uuid.UUID(task_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid task id")
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in _TEST_OUTPUT_TYPES or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=403, detail="This file type can't be downloaded")
+    path = os.path.join(MAGELLON_JOBS_DIR, task_id, filename)
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="File not found (outputs are removed by the nightly clean-up)")
+    return FileResponse(path=path, filename=filename, media_type=_TEST_OUTPUT_TYPES[ext])
+
+
 @motioncor_router.post("/test-motioncor")
 async def test_motioncor(
         image_file: UploadFile = File(...),
         gain_file: UploadFile = File(...),
         defects_path: Optional[str] = Form(None),
+        defects_file: Optional[UploadFile] = File(None),
         data: str = Form(...),  # JSON string
         session_name: str = Form("testing"),
         user_id: UUID = Depends(get_current_user_id)
@@ -541,18 +576,12 @@ async def test_motioncor(
     try:
         # Parse JSON parameters
         params: dict = json.loads(data)
-        base_tmp_dir = Path("/gpfs/tmp")
-        base_tmp_dir.mkdir(parents=True, exist_ok=True)
-
-        # Save uploaded files
-        image_path = base_tmp_dir / image_file.filename
-        gain_path = base_tmp_dir / gain_file.filename
-
-        with open(image_path, "wb") as f:
-            f.write(await image_file.read())
-
-        with open(gain_path, "wb") as f:
-            f.write(await gain_file.read())
+        # Uploads go in the task's own scratch folder under /jobs (research
+        # storage is read-only); the nightly clean-up removes it later.
+        image_path = await _save_test_upload(image_file, task_id)
+        gain_path = await _save_test_upload(gain_file, task_id)
+        if defects_file is not None and defects_file.filename:
+            defects_path = str(await _save_test_upload(defects_file, task_id))
 
         # Extract params from form data (params contains the actual form parameters directly)
         params.setdefault("magellon_project_name", "test_project")
@@ -646,11 +675,11 @@ async def download_motioncor_output(
 
     try:
         # Construct the file path - files are stored in /jobs/{task_id}/
-        file_path = os.path.join(app_settings.jobs_dir, task_id, filename)
+        file_path = os.path.join(MAGELLON_JOBS_DIR, task_id, filename)
 
         # Security: Ensure the file path is within the jobs directory
         file_path = os.path.abspath(file_path)
-        jobs_dir = os.path.abspath(app_settings.jobs_dir)
+        jobs_dir = os.path.abspath(MAGELLON_JOBS_DIR)
 
         if not file_path.startswith(jobs_dir):
             logger.error(f"Security: Attempted to access file outside jobs directory: {file_path}")
@@ -689,7 +718,7 @@ async def test_ctf(
     """
     Test CTF estimation with an uploaded micrograph.
 
-    Saves the file to /gpfs/tmp/, publishes to ctf_test_inqueue, and
+    Saves the file in /jobs/{task_id}/input/, publishes to ctf_test_inqueue, and
     returns task_id immediately. Client subscribes to the WebSocket
     /ws/ctf-test/{task_id} for the result.
 
@@ -703,12 +732,7 @@ async def test_ctf(
 
     try:
         params: dict = json.loads(data)
-        base_tmp_dir = Path("/gpfs/tmp")
-        base_tmp_dir.mkdir(parents=True, exist_ok=True)
-
-        image_path = base_tmp_dir / image_file.filename
-        with open(image_path, "wb") as f:
-            f.write(await image_file.read())
+        image_path = await _save_test_upload(image_file, task_id)
 
         # CTF params from frontend: PixSize, kV, Cs, AmpContrast, SpectrumSize,
         # MinRes, MaxRes, MinDefocus, MaxDefocus, DefocusStep, Astigmatism, PhaseShift

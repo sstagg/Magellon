@@ -238,7 +238,22 @@ def _resolve_preview_image_path(session_name: Optional[str], image_path: str) ->
     normalized = image_path.replace("\\", "/")
     if os.path.isabs(image_path) or normalized.startswith("/gpfs/"):
         return image_path
-    return _resolve_mrc_path(session_name, image_path)
+    return _resolve_mrc_path(session_name, image_path, fallback_path=_image_source_path(session_name, image_path))
+
+
+def _image_source_path(session_name: str, image_name: str) -> Optional[str]:
+    """The raw source path recorded on the session's Image row (used when
+    the import didn't copy images into the session folder), as save does."""
+    from database import session_local
+
+    stem = os.path.splitext(os.path.basename(image_name))[0]
+    with session_local() as db:
+        row = (db.query(Image.path)
+               .join(Msession, Msession.oid == Image.session_id)
+               .filter(Msession.name == session_name, Msession.GCRecord.is_(None),
+                       Image.name.in_([image_name, stem]))
+               .first())
+    return row[0] if row else None
 
 
 def _preview_payload(req: PreviewRequest, is_topaz: bool) -> Dict[str, Any]:

@@ -1,6 +1,3 @@
-import type {
-    SelectChangeEvent
-} from "@mui/material";
 import {
     Typography,
     Box,
@@ -14,19 +11,15 @@ import {
     InputAdornment,
     Accordion,
     AccordionSummary,
-    AccordionDetails,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem
+    AccordionDetails
 } from "@mui/material";
 import { useRef, useState } from "react";
 import { Upload, Settings2, ChevronDown, Focus } from "lucide-react";
 import { settings } from "../../../shared/config/settings.ts";
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import { apiErrorMessage } from '../../../shared/api/apiError.ts';
-import { useSessionNames } from "../../image-viewer/api/FetchUseSessionNames.ts";
-import type { SessionDto } from "../../../entities/image/types.ts";
+import { CtfTestResult } from "./CtfTestResult.tsx";
+import type { CtfTestData } from "./CtfTestResult.tsx";
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
@@ -80,7 +73,7 @@ const DEFAULT_PARAMS: CTFParams = {
 type JobStatus = 'idle' | 'processing' | 'success' | 'error';
 
 export const CTFForm: React.FC<CTFFormProps> = ({
-    initialSessionName = "",
+    initialSessionName = "testing",
     initialParams,
     onSuccess,
     onError,
@@ -89,7 +82,6 @@ export const CTFForm: React.FC<CTFFormProps> = ({
     title = "CTF Estimation",
     description = "Estimates Contrast Transfer Function parameters using CTFFIND4"
 }) => {
-    const { data: sessions, isLoading: sessionsLoading, error: sessionsError } = useSessionNames();
 
     const [sessionName, setSessionName] = useState<string>(initialSessionName);
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -102,11 +94,8 @@ export const CTFForm: React.FC<CTFFormProps> = ({
     const [jobStatus, setJobStatus] = useState<JobStatus>('idle');
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [ctfResult, setCtfResult] = useState<{ taskId: string; data: CtfTestData } | null>(null);
     const wsRef = useRef<WebSocket | null>(null);
-
-    const handleSessionChange = (event: SelectChangeEvent) => {
-        setSessionName(event.target.value);
-    };
 
     const handleParamChange = (field: keyof CTFParams, value: string) => {
         const numValue = parseFloat(value);
@@ -129,6 +118,7 @@ export const CTFForm: React.FC<CTFFormProps> = ({
         setParams({ ...DEFAULT_PARAMS, ...initialParams });
         setError(null);
         setSuccessMessage(null);
+        setCtfResult(null);
         setJobStatus('idle');
         if (wsRef.current) {
             wsRef.current.close();
@@ -153,6 +143,7 @@ export const CTFForm: React.FC<CTFFormProps> = ({
             try {
                 const message = JSON.parse(event.data);
                 if (message.type === 'result') {
+                    setCtfResult({ taskId, data: message.data });
                     setJobStatus('success');
                     setSuccessMessage(`CTF estimation complete. Task ID: ${taskId}`);
                     onSuccess?.(taskId, sessionName);
@@ -184,6 +175,7 @@ export const CTFForm: React.FC<CTFFormProps> = ({
     const handleSubmit = async () => {
         setError(null);
         setSuccessMessage(null);
+        setCtfResult(null);
 
         if (!imageFile) {
             const errMsg = "Please select an image file (MRC/TIFF)";
@@ -191,13 +183,6 @@ export const CTFForm: React.FC<CTFFormProps> = ({
             onError?.(errMsg);
             return;
         }
-        if (!sessionName) {
-            const errMsg = "Please select a session";
-            setError(errMsg);
-            onError?.(errMsg);
-            return;
-        }
-
         setJobStatus('processing');
 
         if (onSubmit) {
@@ -279,37 +264,15 @@ export const CTFForm: React.FC<CTFFormProps> = ({
                     {successMessage}
                 </Alert>
             )}
+            {ctfResult && <CtfTestResult taskId={ctfResult.taskId} data={ctfResult.data} />}
 
             <Grid container spacing={3}>
-                {/* Session Selector */}
-                <Grid size={{ xs: 12, md: 6 }}>
-                    <FormControl fullWidth required variant="filled">
-                        <InputLabel id="ctf-session-select-label">Session</InputLabel>
-                        <Select
-                            labelId="ctf-session-select-label"
-                            id="ctf-session-select"
-                            value={sessionName}
-                            onChange={handleSessionChange}
-                            disabled={sessionsLoading}
-                        >
-                            <MenuItem value="">
-                                <em>{sessionsLoading ? "Loading sessions..." : "Select a session"}</em>
-                            </MenuItem>
-                            {(sessions as SessionDto[])?.map((session) => (
-                                <MenuItem key={session.name} value={session.name}>
-                                    {session.name}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                        {sessionsError && (
-                            <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                                Failed to load sessions
-                            </Typography>
-                        )}
-                    </FormControl>
+                <Grid size={12}>
+                    <Typography variant="body2" color="textSecondary">
+                        A quick test on one file: nothing is saved to a session. The result shows below;
+                        its files are removed by the nightly clean-up.
+                    </Typography>
                 </Grid>
-
-                <Grid size={{ xs: 12, md: 6 }} />
 
                 {/* Image File Upload */}
                 <Grid size={{ xs: 12, md: 6 }}>
@@ -577,7 +540,7 @@ export const CTFForm: React.FC<CTFFormProps> = ({
                     disabled={jobStatus === 'processing'}
                     startIcon={jobStatus === 'processing' ? <CircularProgress size={18} color="inherit" /> : <Focus size={18} />}
                 >
-                    {jobStatus === 'processing' ? 'Submitting...' : 'Run CTF Estimation'}
+                    {jobStatus === 'processing' ? 'Running…' : 'Run CTF Estimation'}
                 </Button>
             </Box>
         </>

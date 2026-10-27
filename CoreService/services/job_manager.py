@@ -426,7 +426,7 @@ class JobManager:
         Caller decides whether to call ``complete_job`` based on the result.
         """
         with session_local() as db:
-            job = self._get_or_404(db, job_id)
+            job = self._get_or_404(db, job_id, lock=True)
             processed = dict(job.processed_json or {})
             completed = list(processed.get("completed_tasks") or [])
             if task_id not in completed:
@@ -463,7 +463,7 @@ class JobManager:
         Returns ``{completed, expected, failed, progress_pct, settled}``.
         """
         with session_local() as db:
-            job = self._get_or_404(db, job_id)
+            job = self._get_or_404(db, job_id, lock=True)
             processed = dict(job.processed_json or {})
             completed = list(processed.get("completed_tasks") or [])
             if task_id not in completed:
@@ -488,7 +488,7 @@ class JobManager:
         """Settle a job whose tasks have all finished (used at startup for jobs
         left "running"); returns "completed" / "failed", or None if work remains."""
         with session_local() as db:
-            job = self._get_or_404(db, job_id)
+            job = self._get_or_404(db, job_id, lock=True)
             processed = dict(job.processed_json or {})
             settled = self._settle(db, job, processed)
             db.commit()
@@ -588,8 +588,11 @@ class JobManager:
     # -- internals ----------------------------------------------------------
 
     @staticmethod
-    def _get_or_404(db: Session, job_id: str) -> ImageJob:
-        job = db.query(ImageJob).filter(ImageJob.oid == uuid.UUID(job_id)).first()
+    def _get_or_404(db: Session, job_id: str, *, lock: bool = False) -> ImageJob:
+        # lock=True holds the row until commit, so concurrent task reports
+        # (import worker and backend) can't overwrite each other's counts.
+        query = db.query(ImageJob).filter(ImageJob.oid == uuid.UUID(job_id))
+        job = (query.with_for_update() if lock else query).first()
         if job is None:
             raise LookupError(f"Job {job_id} not found")
         return job

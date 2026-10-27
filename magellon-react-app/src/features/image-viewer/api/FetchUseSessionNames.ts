@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {useQuery} from "@tanstack/react-query";
 import {settings} from "../../../shared/config/settings.ts";
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
@@ -21,8 +22,20 @@ export async function FetchSessionNames() {
     }
 }
 
+// Same name as SESSION_DELETED_EVENT (features/session-delete), kept literal
+// to avoid an import cycle with that feature.
+const SESSION_DELETED_EVENT = 'magellon:session-deleted';
+
 export function useSessionNames() {
-    return useQuery({ queryKey: ['sessionNames'], queryFn: () => FetchSessionNames() });
+    const query = useQuery({ queryKey: ['sessionNames'], queryFn: () => FetchSessionNames() });
+    // A deleted session (or one removed by stopping its import) leaves the list at once.
+    const { refetch } = query;
+    useEffect(() => {
+        const reload = () => { refetch(); };
+        window.addEventListener(SESSION_DELETED_EVENT, reload);
+        return () => window.removeEventListener(SESSION_DELETED_EVENT, reload);
+    }, [refetch]);
+    return query;
 }
 
 
