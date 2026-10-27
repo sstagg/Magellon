@@ -851,10 +851,12 @@ def process_image_job(
         replace_with=replace_with,
         job_id=job_id,
         target_directory=os.path.join(MAGELLON_HOME_DIR, magellon_session_name),
-        defects_file=defects_proxy,
-        gains_file=gains_proxy,
         task_list=[],
     )
+    # Attached after validation (the fields are typed UploadFile; the proxies
+    # hold the bytes read above), as the import worker does.
+    job_dto.defects_file = defects_proxy
+    job_dto.gains_file = gains_proxy
 
     logger.warning("[Leginon] scheduling background import: job=%s user=%s session=%s", job_id, user_id, magellon_session_name)
     import_runners.enqueue_leginon(job_dto, user_id)

@@ -63,7 +63,9 @@ def _child(row: dict, conn) -> None:
         import_runners.run(SimpleNamespace(**row))
     except Exception as exc:
         logging.getLogger("import_worker").exception("Import %s raised", row["id"])
-        error = f"{type(exc).__name__}: {exc}"
+        # An import's own failure reads as its message alone.
+        error = (str(exc) if type(exc).__name__ == "_ImportFailedBeforeJob"
+                 else f"{type(exc).__name__}: {exc}")
     conn.send(error)
     conn.close()
 

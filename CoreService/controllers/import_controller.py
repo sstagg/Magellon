@@ -581,6 +581,19 @@ def get_job_summary(
         )
 
 
+class _ImportFailedBeforeJob(RuntimeError):
+    """An import failed before its image_job row existed; raised so the import
+    queue (services/import_queue.py) records the reason for the UI."""
+
+
+def _has_epu_metadata(path: str) -> bool:
+    """Whether an EPU folder holds any .xml metadata (stops at the first)."""
+    for _, _, files in os.walk(path):
+        if any(name.lower().endswith(".xml") for name in files):
+            return True
+    return False
+
+
 def _run_epu_import(request: EpuImportJobDto, job_id: UUID, user_id: UUID) -> None:
     set_import_owner(user_id)  # sessions created by this import belong to the importer
     def _notify(event: str, **extra):
@@ -602,20 +615,28 @@ def _run_epu_import(request: EpuImportJobDto, job_id: UUID, user_id: UUID) -> No
         importer.setup(request, db)
         result = importer.process(db)
         if result.get("status") == "failure":
-            _jm.fail_job(str(job_id), error=result.get("message") or "EPU import failed")
-            _notify("failed", message=result.get("message"))
+            error = result.get("message") or "EPU import failed"
+            _notify("failed", message=error)
+            try:
+                _jm.fail_job(str(job_id), error=error)
+            except LookupError:
+                # Failed before its job row existed: raise so the import
+                # queue records the reason for the progress window.
+                raise _ImportFailedBeforeJob(error)
         else:
             _jm.complete_job(str(job_id), result={"session_name": result.get("session_name")})
             _notify("dispatched", session_name=result.get("session_name"))
             logger.info("[EPU] background import completed: job=%s session=%s", job_id, result.get("session_name"))
-    except Exception:
+    except _ImportFailedBeforeJob:
+        raise
+    except Exception as exc:
         logger.exception("[EPU] unhandled exception in background import for job=%s", job_id)
+        _notify("failed", message="Unhandled exception during EPU import")
         try:
             from services.job_manager import job_manager as _jm2
-            _jm2.fail_job(str(job_id), error="Unhandled exception during EPU import")
-        except Exception:
-            pass
-        _notify("failed", message="Unhandled exception during EPU import")
+            _jm2.fail_job(str(job_id), error=f"Unhandled exception during EPU import: {exc}")
+        except LookupError:
+            raise _ImportFailedBeforeJob(f"Unhandled exception during EPU import: {exc}")
     finally:
         db.close()
 
@@ -631,6 +652,13 @@ def import_epu_directory(
         raise HTTPException(
             status_code=404,
             detail=f"EPU directory not found: {request.epu_dir_path}"
+        )
+    if not _has_epu_metadata(request.epu_dir_path):
+        raise HTTPException(
+            status_code=422,
+            detail=(f"No EPU metadata (.xml files) found in {request.epu_dir_path}. "
+                    "Choose the EPU session folder (the one holding the grid-square folders), "
+                    "not a sub-folder such as gains."),
         )
     job_id = uuid.uuid4()
     logger.warning("[EPU] scheduling background import: job=%s user=%s", job_id, user_id)

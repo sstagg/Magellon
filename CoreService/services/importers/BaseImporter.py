@@ -56,6 +56,40 @@ class FileError(ImportError):
 class TaskFailedException(Exception):
     pass
 
+def _sent_to_plugin(results: Dict[str, Any], steps) -> bool:
+    """Whether any of these recipe steps dispatched work to a plugin."""
+    for name in steps:
+        result = results.get(name)
+        if not isinstance(result, dict):
+            continue
+        message = str(result.get("message", ""))
+        if result.get("status") == "skipped" or "error" in result or message.startswith("Skipping"):
+            continue
+        return True
+    return False
+
+
+def _finish_local_task(task_dto: Any) -> None:
+    """Mark an import task done that has no plugin work to wait for."""
+    from database import session_local
+    from services.job_manager import job_manager
+
+    task_id, job_id = getattr(task_dto, "task_id", None), getattr(task_dto, "job_id", None)
+    if not task_id or not job_id:
+        return
+    db = session_local()
+    try:
+        db.query(ImageJobTask).filter(ImageJobTask.oid == task_id).update(
+            {ImageJobTask.status_id: 2}, synchronize_session=False)
+        db.commit()
+    finally:
+        db.close()
+    try:
+        job_manager.record_task_finished(str(job_id), str(task_id))
+    except LookupError:
+        pass
+
+
 class BaseImporter(ABC):
     """
        Abstract base class for all importers
@@ -925,7 +959,14 @@ class BaseImporter(ABC):
     ) -> Dict[str, Any]:
         """Run a named activity recipe for a single imported image."""
         pipeline = ImportTaskPipeline(recipe)
-        return pipeline.run(self, task_dto, image_path=image_path).results
+        results = pipeline.run(self, task_dto, image_path=image_path).results
+        if not _sent_to_plugin(results, ("ctf", "motioncor", "topaz_pick", "topaz_denoise")):
+            # Nothing was sent to a plugin for this image (an atlas / grid /
+            # foil-hole overview: no movie, and CTF skipped for its pixel
+            # size), so nothing will ever report it; it's done once its
+            # pictures are. Otherwise its job never settles.
+            _finish_local_task(task_dto)
+        return results
 
     def run_tasks(self, task_list: List[Any] = None) -> None:
         """
