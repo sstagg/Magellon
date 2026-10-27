@@ -41,13 +41,32 @@ const statusConfig = {
     completed: { icon: <CheckCircle sx={{ fontSize: 14 }} />, color: 'success', label: 'Done' },
     failed: { icon: <ErrorIcon sx={{ fontSize: 14 }} />, color: 'error', label: 'Failed' },
     queued: { icon: <HourglassEmpty sx={{ fontSize: 14 }} />, color: 'default', label: 'Queued' },
+    cancelled: { icon: <StopIcon sx={{ fontSize: 14 }} />, color: 'default', label: 'Cancelled' },
 } as const;
+
+/** Finished jobs older than this are left out of the panel. */
+const HISTORY_DAYS = 30;
+
+const isActive = (job: Job) => job.status === 'queued' || job.status === 'running';
+
+function jobTime(job: Job): number {
+    const when = job.ended_at || job.started_at || job.queued_at;
+    return when ? new Date(when).getTime() : Date.now();
+}
 
 function timeLeft(seconds: number): string {
     const minutes = Math.round(seconds / 60);
     if (minutes < 1) return '<1 min';
     if (minutes < 60) return `${minutes} min`;
     return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+}
+
+/** Time of day for today's jobs, date and time for older ones. */
+function shortTime(iso: string): string {
+    const when = new Date(iso);
+    const time = when.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+    if (when.toDateString() === new Date().toDateString()) return time;
+    return `${when.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${time}`;
 }
 
 async function fetchJobs(): Promise<Job[]> {
@@ -84,6 +103,12 @@ export const JobsPanel: React.FC = () => {
         && (capabilities.admin || (capabilities.import_sessions && !!user && job.owner_id === user.id));
     const [stopTarget, setStopTarget] = useState<Job | null>(null);
 
+    // Everyone sees every job (with its owner); stop / delete stay limited.
+    const historyStart = Date.now() - HISTORY_DAYS * 86_400_000;
+    const visible = jobs.filter((job) => isActive(job) || jobTime(job) >= historyStart);
+    const active = visible.filter(isActive);
+    const recent = visible.filter((job) => !isActive(job));
+
     const stopImport = async (job: Job) => {
         setStopTarget(null);
         const notice = notify(`Stopping ${job.name}…`, 'info', true);
@@ -105,41 +130,8 @@ export const JobsPanel: React.FC = () => {
         return () => window.removeEventListener(SESSION_DELETED_EVENT, reload);
     }, [setJobs]);
 
-    return (
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Header */}
-            <Box sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                px: 1.5,
-                py: 0.5,
-                borderBottom: `1px solid ${theme.palette.divider}`,
-            }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Cpu size={14} />
-                    <Typography variant="caption" sx={{
-                        fontWeight: 600
-                    }}>Jobs</Typography>
-                    <Chip label={jobs.length} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
-                </Box>
-                <Tooltip title="Refresh">
-                    <IconButton size="small" sx={{ p: 0.25 }} onClick={handleRefresh}>
-                        <Refresh sx={{ fontSize: 14 }} />
-                    </IconButton>
-                </Tooltip>
-            </Box>
-            {/* Job list */}
-            <Box sx={{ flex: 1, overflow: 'auto' }}>
-                {jobs.length === 0 && (
-                    <Box sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography variant="caption" sx={{
-                            color: "text.secondary"
-                        }}>No jobs yet</Typography>
-                    </Box>
-                )}
-                {jobs.map((job) => {
-                    const config = statusConfig[job.status] || statusConfig.queued;
+    const renderJob = (job: Job) => {
+        const config = statusConfig[job.status] || statusConfig.queued;
                     return (
                         <Box
                             key={job.job_id}
@@ -179,6 +171,18 @@ export const JobsPanel: React.FC = () => {
                                         {job.plugin_id}
                                     </Typography>
                                 )}
+                                {job.owner_name && (
+                                    <Typography
+                                        variant="caption"
+                                        noWrap
+                                        sx={{
+                                            color: "text.secondary",
+                                            display: "block",
+                                            fontSize: '0.6rem'
+                                        }}>
+                                        by {job.owner_name}
+                                    </Typography>
+                                )}
                                 {job.status === 'running' && job.progress !== undefined && (
                                     <LinearProgress
                                         variant={job.preparing ? 'indeterminate' : 'determinate'}
@@ -201,6 +205,16 @@ export const JobsPanel: React.FC = () => {
                                               + (job.eta_seconds !== undefined ? ` · ~${timeLeft(job.eta_seconds)} left` : '')}
                                     </Typography>
                                 ) : null}
+                                {job.status === 'failed' && job.error && (
+                                    <Tooltip title={job.error}>
+                                        <Typography
+                                            variant="caption"
+                                            noWrap
+                                            sx={{ color: 'error.main', display: 'block', fontSize: '0.6rem' }}>
+                                            {job.error}
+                                        </Typography>
+                                    </Tooltip>
+                                )}
                                 {job.status === 'completed' && job.num_items !== undefined && job.num_items > 0 && (
                                     <Typography
                                         variant="caption"
@@ -220,7 +234,7 @@ export const JobsPanel: React.FC = () => {
                                             color: "text.secondary",
                                             fontSize: '0.65rem'
                                         }}>
-                                        {new Date((job.started_at || job.queued_at) as string).toLocaleTimeString('en-US', { hour12: false })}
+                                        {shortTime((job.started_at || job.queued_at) as string)}
                                     </Typography>
                                 )}
                                 {canManage(job) && (job.status === 'running' || job.status === 'queued') && (
@@ -248,7 +262,64 @@ export const JobsPanel: React.FC = () => {
                             </Box>
                         </Box>
                     );
-                })}
+    };
+
+    const sectionTitle = (title: string, count: number) => (
+        <Typography variant="caption" sx={{
+            display: 'block', px: 1.5, pt: 1, pb: 0.25, fontSize: '0.6rem', fontWeight: 600,
+            letterSpacing: 0.5, textTransform: 'uppercase', color: 'text.secondary',
+        }}>
+            {title} ({count})
+        </Typography>
+    );
+
+    return (
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Header */}
+            <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                px: 1.5,
+                py: 0.5,
+                borderBottom: `1px solid ${theme.palette.divider}`,
+            }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Cpu size={14} />
+                    <Typography variant="caption" sx={{
+                        fontWeight: 600
+                    }}>Jobs</Typography>
+                    <Chip label={visible.length} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
+                </Box>
+                <Box sx={{ flex: 1 }} />
+                <Tooltip title="Refresh">
+                    <IconButton size="small" sx={{ p: 0.25 }} onClick={handleRefresh}>
+                        <Refresh sx={{ fontSize: 14 }} />
+                    </IconButton>
+                </Tooltip>
+            </Box>
+            {/* Job list: running and queued first, then the recent history */}
+            <Box sx={{ flex: 1, overflow: 'auto' }}>
+                {visible.length === 0 && (
+                    <Box sx={{ p: 2, textAlign: 'center' }}>
+                        <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                        }}>No jobs yet</Typography>
+                    </Box>
+                )}
+                {visible.length > 0 && (
+                    <>
+                        {sectionTitle('Active', active.length)}
+                        {active.length === 0 && (
+                            <Typography variant="caption" sx={{ display: 'block', px: 1.5, pb: 0.75, color: 'text.secondary' }}>
+                                Nothing running
+                            </Typography>
+                        )}
+                        {active.map(renderJob)}
+                        {recent.length > 0 && sectionTitle(`Recent · last ${HISTORY_DAYS} days`, recent.length)}
+                        {recent.map(renderJob)}
+                    </>
+                )}
             </Box>
             <Dialog open={!!stopTarget} onClose={() => setStopTarget(null)} maxWidth="xs" fullWidth>
                 <DialogTitle>Stop {stopTarget?.name}?</DialogTitle>

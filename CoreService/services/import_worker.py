@@ -150,13 +150,17 @@ def _slot(name: str) -> None:
 
 
 def _maintenance() -> None:
-    from services import jobs_cleanup
+    from services import jobs_cleanup, stale_jobs
 
     while not _stop.wait(MAINTENANCE_SECONDS):
         try:
             import_queue.recover_stale()
         except Exception:
             logger.warning("stale-import recovery failed", exc_info=True)
+        try:
+            stale_jobs.fail_stale_queued()
+        except Exception:
+            logger.warning("stale plugin-job check failed", exc_info=True)
         # Nightly removal of finished scratch folders in the jobs directory.
         jobs_cleanup.run_if_due()
 

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type JobStatus = 'queued' | 'running' | 'completed' | 'failed';
+export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 
 export interface Job {
     job_id: string;
@@ -24,6 +24,7 @@ export interface Job {
     session_name?: string | null;
     // Owner of the session / import (may stop or delete it, like admins).
     owner_id?: string | null;
+    owner_name?: string | null;
     error?: string;
     settings?: Record<string, unknown>;
     result?: Record<string, unknown>;

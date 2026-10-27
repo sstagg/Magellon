@@ -576,6 +576,15 @@ class JobManager:
             query = query.order_by(ImageJob.created_date.desc()).limit(limit)
             return [_envelope(job, include_result=False) for job in query.all()]
 
+    def list_active(self) -> List[Dict[str, Any]]:
+        """Every queued or running job, however old."""
+        with session_local() as db:
+            query = (db.query(ImageJob)
+                     .filter(ImageJob.GCRecord.is_(None),
+                             ImageJob.status_id.in_((STATUS_QUEUED, STATUS_RUNNING)))
+                     .order_by(ImageJob.created_date.desc()))
+            return [_envelope(job, include_result=False) for job in query.all()]
+
     # -- internals ----------------------------------------------------------
 
     @staticmethod

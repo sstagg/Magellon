@@ -62,12 +62,21 @@ async def list_all_jobs(plugin_id: Optional[str] = None, limit: int = 100):
         # whole picture.
         from services import import_queue
         known = {job["job_id"] for job in jobs}
-        jobs = import_queue.list_waiting() + import_queue.list_preparing(known) + jobs
+        # Long-running jobs older than the newest `limit` stay listed.
+        older_active = [job for job in job_manager.list_active() if job["job_id"] not in known]
+        _add_task_progress(older_active)
+        _add_session_names(older_active)
+        jobs = older_active + jobs
+        known |= {job["job_id"] for job in older_active}
+        waiting = import_queue.list_waiting() + import_queue.list_preparing(known)
+        _add_owner_names(waiting)
+        jobs = waiting + jobs
     return jobs
 
 
 def _add_session_names(jobs: list) -> None:
-    """Name the session each job wrote into (for the Jobs panel's delete)."""
+    """Name the session each job wrote into (for the Jobs panel's delete),
+    and who owns the job (the Jobs panel shows each user their own)."""
     import uuid
 
     from database import session_local
@@ -76,17 +85,41 @@ def _add_session_names(jobs: list) -> None:
     if not jobs:
         return
     with session_local() as db:
-        session_of = dict(db.query(ImageJob.oid, ImageJob.msession_id)
-                          .filter(ImageJob.oid.in_([uuid.UUID(job["job_id"]) for job in jobs])))
-        ids = [uuid.UUID(s) for s in set(session_of.values()) if s]
+        rows = {oid: (sid, user) for oid, sid, user in
+                db.query(ImageJob.oid, ImageJob.msession_id, ImageJob.user_id)
+                .filter(ImageJob.oid.in_([uuid.UUID(job["job_id"]) for job in jobs]))}
+        ids = [uuid.UUID(sid) for sid, _ in rows.values() if sid]
         sessions = {oid: (name, owner) for oid, name, owner in
                     db.query(Msession.oid, Msession.name, Msession.user_id).filter(Msession.oid.in_(ids))} if ids else {}
     for job in jobs:
-        sid = session_of.get(uuid.UUID(job["job_id"]))
+        sid, job_user = rows.get(uuid.UUID(job["job_id"]), (None, None))
         name, owner = sessions.get(uuid.UUID(sid), (None, None)) if sid else (None, None)
         job["session_name"] = name
-        # Who may stop / delete it besides admins: the session's owner.
+        # Imports belong to their session's owner; plugin jobs (picks) to
+        # the user who started them. Besides admins, they may stop / delete it.
+        owner = owner or job_user
         job["owner_id"] = str(owner) if owner else None
+    _add_owner_names(jobs)
+
+
+def _add_owner_names(jobs: list) -> None:
+    """Owner usernames, shown to admins viewing everyone's jobs."""
+    import uuid
+
+    from database import session_local
+    from models.sqlalchemy_models import SysSecUser
+
+    owners = {str(job["owner_id"]) for job in jobs if job.get("owner_id")}
+    names = {}
+    if owners:
+        with session_local() as db:
+            names = {str(oid): username for oid, username in
+                     db.query(SysSecUser.oid, SysSecUser.USERNAME)
+                     .filter(SysSecUser.oid.in_([uuid.UUID(o) for o in owners]))}
+    for job in jobs:
+        if job.get("owner_id"):
+            job["owner_id"] = str(job["owner_id"])
+        job["owner_name"] = names.get(job.get("owner_id"))
 
 
 def _add_task_progress(jobs: list) -> None:
