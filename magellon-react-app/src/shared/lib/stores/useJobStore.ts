@@ -18,6 +18,8 @@ export interface Job {
     tasks_total?: number;
     tasks_done?: number;
     eta_seconds?: number;
+    /** Running imports: per plugin step, results so far and the commonest failure. */
+    steps?: { step: string; total: number; ok: number; failed: number; reason?: string | null }[];
     // A running import still reading its session (no tasks yet).
     preparing?: boolean;
     // The session the job wrote into (finished imports can be deleted).

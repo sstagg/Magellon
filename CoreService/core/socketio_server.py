@@ -506,6 +506,16 @@ def schedule_import_progress(job_id: str, data: dict) -> None:
         logger.debug("schedule_import_progress: scheduling failed", exc_info=True)
 
 
+def schedule_log(level: str, source: str, message: str) -> None:
+    """Sync wrapper for :func:`emit_log` (the Logs panel), safe from any thread."""
+    if _asgi_loop is None:
+        return
+    try:
+        asyncio.run_coroutine_threadsafe(emit_log(level, source, message), _asgi_loop)
+    except Exception:
+        logger.debug("schedule_log: scheduling failed", exc_info=True)
+
+
 def schedule_test_envelope(
     direction: str,
     kind: str,

@@ -1,26 +1,29 @@
-import {Button, Checkbox, FormControl, FormControlLabel, Box, InputAdornment, TextField, Typography} from "@mui/material";
+import {Alert, Button, Checkbox, FormControl, FormControlLabel, Box, InputAdornment, TextField, Typography} from "@mui/material";
 
-import {useEffect, useState} from "react";
-import {useForm} from "react-hook-form";
-import {Cached, CalendarMonthOutlined, AttachFile} from "@mui/icons-material";
+import {useEffect, useRef, useState} from "react";
+import {useForm, UseFormRegisterReturn} from "react-hook-form";
+import {Cached, CalendarMonthOutlined, AttachFile, FolderOpen} from "@mui/icons-material";
 import Grid from '@mui/material/Grid';
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import { settings } from '../../../shared/config/settings.ts';
 import { useImportJobProgress } from "../lib/useImportJobProgress.ts";
 import { ImportProgressDialog } from "./ImportProgressDialog.tsx";
+import { PathBrowseDialog } from "./PathBrowseDialog.tsx";
 import { useSessionNameCheck } from "../lib/useSessionNameCheck.ts";
 import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
 
-// The user gives the session's data folder (holding original/, frames/ and
-// gains/) and its Leginon session name; the new Magellon session takes the
+// The user gives the session's images folder, its frames (movies) folder and
+// gain file (a path, or uploaded), and its Leginon session name; the new Magellon session takes the
 // Leginon name unless a custom name is typed (one name, one import). The Leginon DB
 // connection is server config (LEGINON_DB_* in Docker/.env), not a form field.
 interface ILeginonImportForm {
     magellon_project_name: string;
-    data_directory: string;
+    images_directory: string;
+    frames_directory: string;
+    gain_path: string;
     session_name: string;
     magellon_session_name: string;
     if_do_subtasks: boolean;
@@ -29,7 +32,9 @@ interface ILeginonImportForm {
 }
 const defaultValues: ILeginonImportForm = {
     magellon_project_name: "Leginon",
-    data_directory: "",
+    images_directory: "",
+    frames_directory: "",
+    gain_path: "",
     session_name: "",
     magellon_session_name: "",
     if_do_subtasks: false,
@@ -64,11 +69,73 @@ const toServerPath = (input: string): string => {
     return relative ? `/gpfs/${relative}` : '/gpfs';
 };
 
+/** A path below the GPFS root, typed or chosen with Browse; the root is shown
+ *  in front and the full path below. */
+const PathField = ({ label, placeholder, help, value, error, disabled, mode, onBrowse, registration }: {
+    label: string;
+    placeholder: string;
+    help: string;
+    value: string;
+    error?: string;
+    disabled?: boolean;
+    mode: "folder" | "file";
+    onBrowse: (relativePath: string) => void;
+    registration: UseFormRegisterReturn;
+}) => {
+    const [browsing, setBrowsing] = useState(false);
+    const current = toServerPath(value);
+    return (
+        <FormControl fullWidth>
+            <TextField
+                label={label}
+                variant="filled"
+                margin="dense"
+                placeholder={placeholder}
+                disabled={disabled}
+                {...registration}
+                error={!!error}
+                helperText={error ?? (toRelativePath(value) ? `${help}. Full path: ${GPFS_HOST_ROOT}/${toRelativePath(value)}` : help)}
+                slotProps={{
+                    inputLabel: { shrink: true },
+                    input: {
+                        startAdornment: (
+                            <InputAdornment position="start">{GPFS_HOST_ROOT}/</InputAdornment>
+                        ),
+                        endAdornment: (
+                            <InputAdornment position="end">
+                                <Button size="small" startIcon={<FolderOpen />} disabled={disabled}
+                                        onClick={() => setBrowsing(true)}>
+                                    Browse
+                                </Button>
+                            </InputAdornment>
+                        ),
+                    }
+                }} />
+            <PathBrowseDialog
+                open={browsing}
+                mode={mode}
+                title={`Choose the ${label.replace(/ \(optional\)$/i, '').toLowerCase()}`}
+                startPath={mode === "file" && toRelativePath(value) ? current.split('/').slice(0, -1).join('/') : current}
+                onClose={() => setBrowsing(false)}
+                onChoose={(path) => onBrowse(toRelativePath(path))} />
+        </FormControl>
+    );
+};
+
+const FOLDER_FIELDS = ['images_directory', 'frames_directory', 'gain_path'] as const;
+type FolderField = typeof FOLDER_FIELDS[number];
+
+const FOLDER_LABELS: Record<FolderField, string> = {
+    images_directory: 'images folder',
+    frames_directory: 'frames folder',
+    gain_path: 'gain file',
+};
+
 const SESSION_NAME_RULE = (value: string) =>
     !/[\\/\s]/.test(value.trim()) || 'Use a name without slashes or spaces';
 
 export const LeginonImportComponent = () => {
-    const { handleSubmit, register, setValue, watch, formState: { errors } } = useForm<ILeginonImportForm>({
+    const { handleSubmit, register, getValues, setValue, trigger, watch, formState: { errors } } = useForm<ILeginonImportForm>({
         mode: 'onChange',
         defaultValues
     });
@@ -81,14 +148,54 @@ export const LeginonImportComponent = () => {
     // Only while the request is in flight: imports queue, so more can be
     // started while others run.
     const isSubmitting = progress.status === "scheduling";
-    const dataDirectory = watch('data_directory');
+    const imagesDirectory = watch('images_directory');
+    const framesDirectory = watch('frames_directory');
+    const gainPath = watch('gain_path');
     const leginonName = watch('session_name');
     const magellonName = watch('magellon_session_name');
     const nameCheck = useSessionNameCheck(magellonName);
+    // Import stays off until every required field has a value.
+    const allFilled = !!leginonName.trim() && !!magellonName.trim() && !!watch('magellon_project_name').trim()
+        && !!toRelativePath(imagesDirectory) && !!toRelativePath(framesDirectory)
+        && (!!gainsFile || !!toRelativePath(gainPath));
 
     useEffect(() => {
         if (!magellonNameEdited) setValue('magellon_session_name', leginonName, { shouldValidate: !!leginonName });
     }, [leginonName, magellonNameEdited, setValue]);
+
+    // The folders and gain file are filled in from the Leginon name, where the
+    // lab keeps them; a field the user changed keeps their value.
+    const suggested = useRef<Partial<Record<FolderField, string>>>({});
+    // Fields the lookup couldn't fill, for the note asking the user to.
+    const [notFound, setNotFound] = useState<{ session: string; fields: FolderField[] } | null>(null);
+    useEffect(() => {
+        const name = leginonName.trim();
+        setNotFound(null);
+        if (!name || /[\\/\s]/.test(name)) return;
+        let stale = false;
+        const timer = setTimeout(async () => {
+            try {
+                const { data } = await apiClient.get('/image/leginon_folders', { params: { session_name: name } });
+                if (stale) return;
+                const missing: FolderField[] = [];
+                for (const field of FOLDER_FIELDS) {
+                    const current = getValues(field);
+                    if (current && current !== suggested.current[field]) continue;
+                    const value: string = data?.[field] ?? '';
+                    suggested.current[field] = value;
+                    setValue(field, value, { shouldValidate: !!value });
+                    if (!value) missing.push(field);
+                }
+                setNotFound(missing.length ? { session: name, fields: missing } : null);
+            } catch { /* nothing suggested: the user fills the fields in */ }
+        }, 400);
+        return () => { stale = true; clearTimeout(timer); };
+    }, [leginonName, getValues, setValue]);
+
+    // An uploaded gain file stands in for the path.
+    useEffect(() => {
+        if (gainsFile) trigger('gain_path');
+    }, [gainsFile, trigger]);
 
     const onFormSubmit = async (data: ILeginonImportForm) => {
         progress.scheduling();
@@ -97,7 +204,11 @@ export const LeginonImportComponent = () => {
             formData.append('magellon_project_name', data.magellon_project_name);
             formData.append('magellon_session_name', data.magellon_session_name.trim());
             formData.append('session_name', data.session_name.trim());
-            formData.append('data_directory', toServerPath(data.data_directory));
+            formData.append('images_directory', toServerPath(data.images_directory));
+            formData.append('frames_directory', toServerPath(data.frames_directory));
+            if (!gainsFile && toRelativePath(data.gain_path)) {
+                formData.append('gain_path', toServerPath(data.gain_path));
+            }
             formData.append('if_do_subtasks', String(data.if_do_subtasks));
             formData.append('copy_images', String(data.copy_images));
             formData.append('retries', String(data.retries));
@@ -146,30 +257,6 @@ export const LeginonImportComponent = () => {
                     </FormControl>
                 </Grid>
 
-                <Grid size={12}>
-                    <FormControl fullWidth>
-                        <TextField
-                            label={"Data Folder"}
-                            variant="filled"
-                            margin="dense"
-                            placeholder="magellon_demo/24dec03a/home"
-                            {...register('data_directory', {
-                                required: 'Data folder is required',
-                                validate: (value) => !!toRelativePath(value) || 'Enter the folder below the GPFS root',
-                            })}
-                            error={!!errors.data_directory}
-                            helperText={errors.data_directory?.message
-                                ?? `The folder that contains original/, frames/ and gains/. Full path: ${GPFS_HOST_ROOT}/${toRelativePath(dataDirectory)}`}
-                            slotProps={{
-                                input: {
-                                    startAdornment: (
-                                        <InputAdornment position="start">{GPFS_HOST_ROOT}/</InputAdornment>
-                                    ),
-                                }
-                            }} />
-                    </FormControl>
-                </Grid>
-
                 <Grid size={6}>
                     <FormControl fullWidth>
                         <TextField
@@ -182,7 +269,7 @@ export const LeginonImportComponent = () => {
                                 validate: SESSION_NAME_RULE,
                             })}
                             error={!!errors.session_name}
-                            helperText={errors.session_name?.message ?? 'The session name in Leginon'}
+                            helperText={errors.session_name?.message ?? 'The session name in Leginon; fills in the folders and gain file below'}
                             slotProps={{
                                 input: {
                                     startAdornment: (
@@ -210,8 +297,68 @@ export const LeginonImportComponent = () => {
                             error={!!errors.magellon_session_name || !!nameCheck.problem}
                             helperText={errors.magellon_session_name?.message ?? nameCheck.problem
                                 ?? 'Same as the Leginon name unless you change it; must not be used already'}
+                            // Filled in from the Leginon name by code, which the label can't see.
+                            slotProps={{ inputLabel: { shrink: !!magellonName || undefined } }}
                         />
                     </FormControl>
+                </Grid>
+
+                {notFound && (
+                    <Grid size={12}>
+                        <Alert severity="warning">
+                            {`Couldn't find the ${notFound.fields.map((f) => FOLDER_LABELS[f]).join(', ').replace(/, ([^,]*)$/, ' or $1')} `
+                                + `for ${notFound.session} in ${GPFS_HOST_ROOT}/leginondata or ${GPFS_HOST_ROOT}/framesdata. `
+                                + 'All three are needed: please fill them in below, or use Browse.'}
+                        </Alert>
+                    </Grid>
+                )}
+
+                <Grid size={12}>
+                    <PathField
+                        label="Images Folder"
+                        placeholder="leginondata/24dec03a"
+                        help="The session's images folder (subfolders such as rawdata are searched too), filled in from the session name"
+                        value={imagesDirectory}
+                        error={errors.images_directory?.message}
+                        mode="folder"
+                        onBrowse={(path) => setValue('images_directory', path, { shouldValidate: true, shouldDirty: true })}
+                        registration={register('images_directory', {
+                            required: 'Images folder is required',
+                            validate: (value) => !!toRelativePath(value) || 'Enter the folder below the GPFS root',
+                        })} />
+                </Grid>
+
+                <Grid size={12}>
+                    <PathField
+                        label="Frames Folder"
+                        placeholder="framesdata/24dec03a"
+                        help="The session's movies folder (subfolders are searched too), filled in from the session name"
+                        value={framesDirectory}
+                        error={errors.frames_directory?.message}
+                        mode="folder"
+                        onBrowse={(path) => setValue('frames_directory', path, { shouldValidate: true, shouldDirty: true })}
+                        registration={register('frames_directory', {
+                            required: 'Frames folder is required',
+                            validate: (value) => !!toRelativePath(value) || 'Enter the folder below the GPFS root',
+                        })} />
+                </Grid>
+
+                <Grid size={12}>
+                    <PathField
+                        label="Gain File"
+                        placeholder="framesdata/24dec03a/20241202_53597_gain_multi_ref.tif"
+                        help={gainsFile
+                            ? `Using the uploaded file ${gainsFile.name} instead`
+                            : 'The gain reference for the movies, filled in from the session name, or upload it below'}
+                        value={gainPath}
+                        disabled={!!gainsFile}
+                        error={errors.gain_path?.message}
+                        mode="file"
+                        onBrowse={(path) => setValue('gain_path', path, { shouldValidate: true, shouldDirty: true })}
+                        registration={register('gain_path', {
+                            validate: (value) => !!gainsFile || !!toRelativePath(value)
+                                || 'Give the gain file, or upload it below',
+                        })} />
                 </Grid>
 
                 <Grid size={6}>
@@ -322,7 +469,7 @@ export const LeginonImportComponent = () => {
                         mt: 1
                     }}
                     >
-                    {gainsFile ? gainsFile.name : 'Gains File (Optional)'}
+                    {gainsFile ? gainsFile.name : 'Upload Gain File (instead of a path)'}
                     <input
                         type="file"
                         hidden
@@ -366,7 +513,7 @@ export const LeginonImportComponent = () => {
                         variant="contained"
                         color="primary"
                         type="submit"
-                        disabled={isSubmitting || !!nameCheck.problem}
+                        disabled={isSubmitting || !!nameCheck.problem || !allFilled}
                         sx={{ mr: 2 }}
                     >
                         {isSubmitting

@@ -199,6 +199,12 @@ class LeginonFrameTransferJobBase(ImportJobBase):
     # The session's data folder: images, frames and gains are found inside it
     # by name, so no path rewriting (replace_*) or frames folder is needed.
     data_directory: Optional[str] = None
+    # Or the session's images and movies in separate folders (e.g.
+    # leginondata/<session>/rawdata and framesdata/<session>/frames), with the
+    # gain reference given as a file path (or uploaded).
+    images_directory: Optional[str] = None
+    frames_directory: Optional[str] = None
+    gain_path: Optional[str] = None
 
 class EpuImportJobBase(ImportJobBase):
     epu_dir_path: Optional[str] = None

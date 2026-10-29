@@ -156,6 +156,55 @@ def _add_task_progress(jobs: list) -> None:
         if started and 0 < done < total:
             elapsed = (now - datetime.fromisoformat(started.replace("Z", "+00:00"))).total_seconds()
             job["eta_seconds"] = round(elapsed / done * (total - done))
+    _add_step_results(running)
+
+
+# Plugin steps of an import, with the metadata each successful result saves.
+_IMPORT_STEPS = (("CTF", "CTF Data"), ("MotionCor", "MotionCor Meta Data"))
+
+
+def _add_step_results(running: dict) -> None:
+    """Per plugin step of each running import: how many images it applies to,
+    how many succeeded and failed so far, and the most common failure reason
+    — so a step failing for every image shows up while the import runs."""
+    import uuid
+    from collections import Counter
+
+    from sqlalchemy import text
+
+    from database import session_local
+    from models.sqlalchemy_models import ImageJob
+
+    imports = [job_id for job_id, job in running.items() if "Import:" in (job.get("name") or "")]
+    if not imports:
+        return
+    with session_local() as db:
+        for job_id in imports:
+            params = {"job": uuid.UUID(job_id).bytes}
+            totals = db.execute(text(
+                "SELECT SUM(t.frame_name IS NOT NULL AND t.frame_name <> ''),"
+                " SUM(i.pixel_size IS NOT NULL AND i.pixel_size * 1e10 <= 5)"
+                " FROM image_job_task t JOIN image i ON i.oid = t.image_id WHERE t.job_id = :job"),
+                params).one()
+            ok = dict(db.execute(text(
+                "SELECT m.name, COUNT(DISTINCT m.image_id) FROM image_meta_data m"
+                " JOIN image_job_task t ON t.image_id = m.image_id"
+                " WHERE t.job_id = :job AND m.name IN ('CTF Data', 'MotionCor Meta Data') GROUP BY m.name"),
+                params).all())
+            job = db.query(ImageJob).filter(ImageJob.oid == uuid.UUID(job_id)).first()
+            failures = ((job.processed_json or {}).get("failed_tasks") or {}) if job else {}
+            by_step = Counter((f.get("step") or "").lower() for f in failures.values())
+            steps = []
+            for (step, meta_name), total in zip(_IMPORT_STEPS, (totals[1], totals[0])):
+                failed = by_step.get(step.lower(), 0)
+                if not total and not failed:
+                    continue
+                reasons = Counter(f.get("reason") for f in failures.values()
+                                  if (f.get("step") or "").lower() == step.lower())
+                steps.append({"step": step, "total": int(total or 0), "ok": int(ok.get(meta_name, 0)),
+                              "failed": failed,
+                              "reason": reasons.most_common(1)[0][0] if reasons else None})
+            running[job_id]["steps"] = steps
 
 
 @jobs_router.get("/jobs/{job_id}", summary="Get plugin job detail")

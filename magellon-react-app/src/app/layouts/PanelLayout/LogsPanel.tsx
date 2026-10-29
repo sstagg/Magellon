@@ -135,9 +135,9 @@ export const LogsPanel: React.FC = () => {
                             color: 'text.primary',
                             flex: 1,
                             minWidth: 0,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                            // Long messages (e.g. a plugin's error) wrap instead of being cut off.
+                            whiteSpace: 'pre-wrap',
+                            overflowWrap: 'anywhere',
                         }}>
                             {log.message}
                         </Typography>

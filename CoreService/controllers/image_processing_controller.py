@@ -776,6 +776,63 @@ def _run_leginon_import(job_dto, user_id: UUID) -> None:
         db.close()
 
 
+# Where the lab keeps a Leginon session's data, below the GPFS root: images in
+# leginondata/<session>, movies (and the gain reference) in framesdata/<session>.
+LEGINON_IMAGES_BASE = "leginondata"
+LEGINON_FRAMES_BASE = "framesdata"
+_GAIN_EXTENSIONS = (".mrc", ".tif", ".tiff", ".dm4", ".gain")
+
+
+def _guess_leginon_folders(gpfs_root: str, session: str) -> dict:
+    """A session's images folder, frames folder and gain file, as paths below
+    the GPFS root (None where nothing fits). The import looks for the files in
+    subfolders too, so the folders are the session's own. The user can change them."""
+    def rel(path):
+        return os.path.relpath(path, gpfs_root).replace(os.sep, "/")
+
+    def first_dir(*candidates):
+        return next((c for c in candidates if os.path.isdir(c)), None)
+
+    images_root = os.path.join(gpfs_root, LEGINON_IMAGES_BASE, session)
+    images = first_dir(images_root)
+
+    frames_root = os.path.join(gpfs_root, LEGINON_FRAMES_BASE, session)
+    frames = first_dir(frames_root)
+
+    # A file named like a gain reference in the session folder, else one folder below.
+    gain = None
+    if os.path.isdir(frames_root):
+        def gains_in(folder):
+            with os.scandir(folder) as entries:
+                return sorted(e.path for e in entries if e.is_file()
+                              and "gain" in e.name.lower() and e.name.lower().endswith(_GAIN_EXTENSIONS))
+        found = gains_in(frames_root)
+        if not found:
+            with os.scandir(frames_root) as entries:
+                for sub in sorted(e.path for e in entries if e.is_dir()):
+                    found = gains_in(sub)
+                    if found:
+                        break
+        gain = found[0] if found else None
+
+    return {"images_directory": rel(images) if images else None,
+            "frames_directory": rel(frames) if frames else None,
+            "gain_path": rel(gain) if gain else None}
+
+
+@image_processing_router.get("/leginon_folders")
+def leginon_folders(
+    session_name: str,
+    _: None = Depends(require_permission('msession', 'create')),
+):
+    """Suggested folders and gain file for a Leginon session (Leginon import form)."""
+    session = session_name.strip()
+    if not session or "/" in session or "\\" in session or session.startswith("."):
+        raise HTTPException(status_code=422, detail="Enter a Leginon session name.")
+    from controllers.import_controller import _resolve_gpfs_path
+    return _guess_leginon_folders(_resolve_gpfs_path("/gpfs"), session)
+
+
 @image_processing_router.post("/import_leginon_job")
 def process_image_job(
     background_tasks: BackgroundTasks,
@@ -783,6 +840,9 @@ def process_image_job(
     magellon_session_name: str = Form(...),
     session_name: str = Form(...),
     data_directory: Optional[str] = Form(None),
+    images_directory: Optional[str] = Form(None),
+    frames_directory: Optional[str] = Form(None),
+    gain_path: Optional[str] = Form(None),
     camera_directory: Optional[str] = Form(None),
     copy_images: bool = Form(False),
     retries: int = Form(0),
@@ -810,7 +870,24 @@ def process_image_job(
     # Data folder (or, for older clients, a frames folder) as the backend
     # sees it; a folder that doesn't exist is rejected before queuing.
     from controllers.import_controller import _resolve_gpfs_path
-    if data_directory:
+    if images_directory:
+        # Images and movies in separate folders, and the gain file as a path
+        # or uploaded: all three are required.
+        if not (frames_directory or "").strip():
+            raise HTTPException(status_code=422, detail="Choose the session's frames folder.")
+        if not ((gain_path or "").strip() or gains_file):
+            raise HTTPException(status_code=422, detail="Give the gain file's path, or upload it.")
+        images_directory = _resolve_gpfs_path(images_directory.strip())
+        if not os.path.isdir(images_directory):
+            raise HTTPException(status_code=404, detail=f"Images folder not found: {images_directory}")
+        frames_directory = _resolve_gpfs_path(frames_directory.strip())
+        if not os.path.isdir(frames_directory):
+            raise HTTPException(status_code=404, detail=f"Frames folder not found: {frames_directory}")
+        gain_path = None if gains_file else _resolve_gpfs_path(gain_path.strip())
+        if gain_path and not os.path.isfile(gain_path):
+            raise HTTPException(status_code=404, detail=f"Gain file not found: {gain_path}")
+        data_directory = None
+    elif data_directory:
         data_directory = _resolve_gpfs_path(data_directory.strip())
         if not os.path.isdir(data_directory):
             raise HTTPException(status_code=404, detail=f"Data folder not found: {data_directory}")
@@ -824,7 +901,7 @@ def process_image_job(
                 detail=(f"The data folder must contain original/, frames/ and gains/. "
                         f"Missing in {data_directory}: {', '.join(missing)}"))
     elif not camera_directory:
-        raise HTTPException(status_code=422, detail="Choose the session's data folder.")
+        raise HTTPException(status_code=422, detail="Choose the session's images folder.")
     magellon_session_name = magellon_session_name.strip()
     session_name = session_name.strip()
 
@@ -838,6 +915,9 @@ def process_image_job(
         magellon_session_name=magellon_session_name,
         camera_directory=camera_directory,
         data_directory=data_directory,
+        images_directory=images_directory,
+        frames_directory=frames_directory if images_directory else None,
+        gain_path=gain_path if images_directory else None,
         session_name=session_name,
         copy_images=copy_images,
         retries=retries,

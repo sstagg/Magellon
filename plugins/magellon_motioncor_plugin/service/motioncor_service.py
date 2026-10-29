@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import subprocess
 import json
 import concurrent.futures
@@ -11,6 +12,23 @@ from magellon_sdk.models import MotionCorInput, OutputFile, TaskMessage, TaskRes
 
 logger = logging.getLogger(__name__)
 
+
+
+def motioncor_errors(*outputs: str) -> str:
+    """MotionCor's own error report, on one line. It prints errors such as a
+    gain/frame size mismatch, skips the movie and still exits 0, so without
+    this the only symptom is a missing output file."""
+    found = []
+    for text in outputs:
+        for line in (text or "").splitlines():
+            raw = line.strip()
+            if not (raw.lower().startswith("error") or raw.startswith("......")
+                    or raw == "Motion correction skipped."):
+                continue
+            message = re.sub(r"^error:\s*", "", raw.lstrip(".").strip(), flags=re.I).rstrip(".")
+            if message and message not in found:
+                found.append(message)
+    return "; ".join(found)
 
 def _get_frame_count(file_path: str, extension: str) -> int:
     """Return number of frames in the movie file."""
@@ -149,6 +167,7 @@ async def do_motioncor(params: TaskMessage)->TaskResultMessage:
         output = process.stdout.strip()
         error_output = process.stderr.strip()
         return_code = process.returncode
+        mc_errors = motioncor_errors(output, error_output)
         print(output)
         print(error_output)
         if return_code != 0:
@@ -158,7 +177,7 @@ async def do_motioncor(params: TaskMessage)->TaskResultMessage:
                 worker_instance_id=params.worker_instance_id, task_id=params.id,
                 job_id=params.job_id, image_id=params.data["image_id"],
                 image_path=params.data["image_path"], session_name=params.session_name,
-                code=500, message="MotionCor3 execution failed", description=process.stderr.strip(),
+                code=500, message="MotionCor3 execution failed", description=mc_errors or process.stderr.strip(),
                 status=FAILED, type=params.type, created_date=datetime.now(),
                 started_on=params.start_on, ended_on=datetime.now(), meta_data=[], output_files=[]
             )
@@ -173,7 +192,8 @@ async def do_motioncor(params: TaskMessage)->TaskResultMessage:
         if dw_file:
             output_files.append(OutputFile(name="outputDWMrc", path=dw_file, required=True))
         else:
-            raise Exception("output_DW or output_DWS output file not found")
+            raise Exception(f"MotionCor failed: {mc_errors}" if mc_errors
+                            else "output_DW or output_DWS output file not found")
         
         with concurrent.futures.ThreadPoolExecutor() as executor:
 

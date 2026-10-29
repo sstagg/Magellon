@@ -122,6 +122,30 @@ def _move_file_to_directory(file_path: str, destination_dir: str) -> bool:
 
 
 
+# (job, step, reason) already shown in the Logs panel: an import whose every
+# movie fails the same way logs it once, not once per image.
+_logged_failures: set = set()
+
+
+def _log_failure(task_result, step: str, reason: str) -> None:
+    """Show a failed plugin task in the frontend's Logs panel."""
+    key = (str(task_result.job_id), step, reason)
+    if key in _logged_failures:
+        return
+    if len(_logged_failures) > 10000:
+        _logged_failures.clear()
+    _logged_failures.add(key)
+    image = os.path.basename(getattr(task_result, "image_path", None) or "") or "an image"
+    session = getattr(task_result, "session_name", None) or "?"
+    try:
+        from core.socketio_server import schedule_log
+        schedule_log("error", step.lower(),
+                     f"{step} failed for {image} in {session}: {reason} "
+                     "(other images with the same error aren't listed again)")
+    except Exception:
+        logger.debug("could not send the failure to the Logs panel", exc_info=True)
+
+
 def _failure_reason(task_result) -> str:
     """The most useful one-line reason a plugin gave for a failed task.
 
@@ -745,6 +769,8 @@ class TaskOutputProcessor:
                 job_id_s = str(task_result.job_id) if task_result.job_id else None
                 task_id_s = str(task_result.task_id) if task_result.task_id else None
                 failed = final_status == STATUS_FAILED
+                if failed:
+                    _log_failure(task_result, type_name, _failure_reason(task_result))
                 if job_id_s and task_id_s:
                     # Partial success: a failed task is recorded with its
                     # reason and the job settles once all tasks are done

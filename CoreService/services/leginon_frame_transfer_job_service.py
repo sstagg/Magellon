@@ -72,6 +72,45 @@ def find_session_layout(data_dir: str, image_names, frame_names):
     return images_dir, frames_dir
 
 
+# How far below the chosen images and frames folders files are looked for:
+# the folder itself, its subfolders and theirs (e.g. framesdata/<session>/rawdata).
+FILE_SEARCH_DEPTH = 2
+_MOVIE_EXTENSIONS = (".eer", ".tiff", ".tif", ".mrc")
+
+
+def index_files(root: str, depth: int = FILE_SEARCH_DEPTH) -> dict:
+    """The folder holding each file under ``root`` (up to ``depth`` levels of
+    subfolders), by file name; a file higher up wins over a same-named one below."""
+    folders = {}
+    level = [root]
+    for _ in range(depth + 1):
+        below = []
+        for folder in level:
+            try:
+                with os.scandir(folder) as entries:
+                    for entry in entries:
+                        if entry.is_file():
+                            folders.setdefault(entry.name, folder)
+                        elif entry.is_dir():
+                            below.append(entry.path)
+            except OSError:
+                continue
+        level = below
+    return folders
+
+
+def index_movies(root: str) -> dict:
+    """The folder holding each movie under ``root``, by Leginon frame name:
+    the file name without its movie extension (``x.mrc.tif`` is frame ``x.mrc``)."""
+    movies = {}
+    for name, folder in index_files(root).items():
+        stem, ext = os.path.splitext(name)
+        if ext.lower() in _MOVIE_EXTENSIONS and "gain" not in name.lower():
+            movies.setdefault(stem, folder)
+            movies.setdefault(stem.split(".")[0], folder)
+    return movies
+
+
 def update_levels(image_list: list[Image], parent_id=None, level=0):
     queue = deque([(image, level) for image in image_list if image.parent_id == parent_id])
 
@@ -126,6 +165,14 @@ class LeginonFrameTransferJobService:
         self.gains_path: str = None
         self.defects_path: str = None
         self.images_dir: str = None  # set when importing from a data folder
+        # With separate images/frames folders: where each file actually is.
+        self.image_folders: dict = {}
+        self.frame_folders: dict = {}
+        # Per-step progress counters (set up in run_tasks).
+        self._step_counts = {"png": 0, "fft": 0, "ctf": 0, "motioncor": 0}
+        self._step_totals: dict = {}
+        self._step_start_time = datetime.now()
+        self._step_sent_at = 0.0
 
     def setup(self, input_json: str):
         input_data = json.loads(input_json)
@@ -163,7 +210,17 @@ class LeginonFrameTransferJobService:
                 return {'status': 'success', 'message': 'No images found in Leginon.'}
 
             self.images_dir = None
-            if self.params.data_directory:
+            if self.params.images_directory:
+                self.images_dir = self.params.images_directory
+                # Files may sit in subfolders (rawdata/, frames/, ...): find each one.
+                self.image_folders = index_files(self.images_dir)
+                self.frame_folders = (index_movies(self.params.frames_directory)
+                                      if self.params.frames_directory else {})
+                self.params.camera_directory = self.params.frames_directory
+                logger.info("Leginon folders: images in %s (%d files), frames in %s (%d movies)",
+                            self.images_dir, len(self.image_folders),
+                            self.params.frames_directory, len(self.frame_folders))
+            elif self.params.data_directory:
                 # Find images and frames inside the chosen data folder by name.
                 self.images_dir, frames_dir = find_session_layout(
                     self.params.data_directory,
@@ -171,7 +228,7 @@ class LeginonFrameTransferJobService:
                     [image.get("frame_names") for image in leginon_image_list])
                 self.params.camera_directory = frames_dir
                 logger.info("Leginon layout: images in %s, frames in %s", self.images_dir, frames_dir)
-            if self.params.camera_directory or not self.params.data_directory:
+            if self.params.camera_directory or not (self.params.data_directory or self.images_dir):
                 self._setup_gains_defects(magellon_session_name)
 
             job = self._create_image_job(db_session, session_result, magellon_session)
@@ -225,7 +282,9 @@ class LeginonFrameTransferJobService:
 
     def _setup_gains_defects(self, session_name: str):
         camera_directory = (self.params.camera_directory or '').replace('\\', '/')
-        if self.params.data_directory:
+        if self.params.images_directory:
+            frames_dir = self.params.frames_directory  # a defects file may sit with the movies
+        elif self.params.data_directory:
             frames_dir = self.params.data_directory  # gains/ sits beside frames/
         elif camera_directory:
             camera_directory = os.path.normpath(camera_directory)
@@ -266,6 +325,9 @@ class LeginonFrameTransferJobService:
             self.defects_path = save_uploaded_file(
                 self.params.defects_file, DEFECTS_SUB_URL
             )
+
+        if self.gains_path is None and getattr(self.params, 'gain_path', None):
+            self.gains_path = self.params.gain_path
 
         # Fall back to existing files on GPFS
         if self.gains_path is None:
@@ -432,10 +494,12 @@ class LeginonFrameTransferJobService:
             image_dict[filename] = db_image.oid
 
             frame_name = image.get("frame_names") if self.params.camera_directory else None
-            source_frame_path = (os.path.join(self.params.camera_directory, frame_name)
-                                 if frame_name else None)
+            frame_folder = (self.frame_folders.get(frame_name) or self.frame_folders.get(frame_name.split(".")[0])
+                            if frame_name else None) or self.params.camera_directory
+            source_frame_path = os.path.join(frame_folder, frame_name) if frame_name else None
             if self.images_dir:
-                source_image_path = os.path.join(self.images_dir, image["image_name"])
+                source_image_path = os.path.join(
+                    self.image_folders.get(image["image_name"], self.images_dir), image["image_name"])
             else:
                 source_image_path = os.path.join(
                     gpfs_root, session_result["name"], 'home', ORIGINAL_IMAGES_SUB_URL, image["image_name"]
@@ -507,9 +571,22 @@ class LeginonFrameTransferJobService:
     def run_tasks(self, db_session: Session,magellon_session :Msession):
         try:
             create_directories(self.params.target_directory)
+            # Per-step counters for the progress window, as the Magellon
+            # importer reports them: totals are what each step will be sent.
+            tasks = self.params.task_list
+            self._step_counts = {"png": 0, "fft": 0, "ctf": 0, "motioncor": 0}
+            self._step_totals = {
+                "png": len(tasks),
+                "fft": len(tasks),
+                "ctf": sum(1 for t in tasks if t.pixel_size and t.pixel_size * 10 ** 10 <= 5),
+                "motioncor": sum(1 for t in tasks if t.frame_name),
+            }
+            self._step_start_time = datetime.now()
+            self._emit_step_progress(force=True)
             # Iterate over each task in the task list and run it synchronously
-            for task in self.params.task_list:
+            for task in tasks:
                 self.run_task(task,magellon_session)
+            self._emit_step_progress(force=True)
             self.create_atlas_pics(self.params.session_name, db_session,magellon_session)
         except Exception as e:
             print("An unexpected error occurred:", str(e))
@@ -530,22 +607,53 @@ class LeginonFrameTransferJobService:
 
             # Generate FFT using the REST API
             self.convert_image_to_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
+            self._step_counts["png"] += 1
             self.compute_fft_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
+            self._step_counts["fft"] += 1
             ctf = self.compute_ctf_task(task_dto.image_path, task_dto)
+            if "on the way" in (ctf or {}).get("message", ""):
+                self._step_counts["ctf"] += 1
 
             if task_dto.frame_name:
-                self.compute_motioncor_task(task_dto.image_path, task_dto)
+                motioncor = self.compute_motioncor_task(task_dto.image_path, task_dto)
+                if "on the way" in (motioncor or {}).get("message", ""):
+                    self._step_counts["motioncor"] += 1
+                self._emit_step_progress()
             elif "on the way" not in (ctf or {}).get("message", ""):
                 # Nothing was sent to a plugin for this image (an atlas/grid
                 # overview: no movie, and CTF skipped for its pixel size), so
                 # nothing will ever report it; it's done once its pictures are.
                 self._finish_local_task(task_dto)
+                self._emit_step_progress()
+            else:
+                self._emit_step_progress()
 
             return {'status': 'success', 'message': 'Task completed successfully.'}
 
         except Exception as e:
             raise TaskFailedException(f"Task failed with error: {str(e)}")
             # return {'status': 'failure', 'message': f'Task failed with error: {str(e)}'}
+
+    def _emit_step_progress(self, force: bool = False) -> None:
+        """Send the per-step counters to the progress window (best effort,
+        at most once a second unless forced)."""
+        now = time.monotonic()
+        if not force and now - self._step_sent_at < 1.0:
+            return
+        self._step_sent_at = now
+        try:
+            # Relay-aware: works in the web backend and in import workers.
+            from services.import_progress import publish as schedule_import_progress
+            job_id = str(self.params.job_id)
+            schedule_import_progress(job_id, {
+                "job_id": job_id,
+                "event": "step_progress",
+                "step_counts": dict(self._step_counts),
+                "step_totals": dict(self._step_totals),
+                "elapsed_ms": int((datetime.now() - self._step_start_time).total_seconds() * 1000),
+            })
+        except Exception:
+            pass
 
     def _finish_local_task(self, task_dto) -> None:
         from database import session_local
@@ -566,7 +674,9 @@ class LeginonFrameTransferJobService:
         try:
             # copy frame if exists
             if task_dto.frame_name:
-                frame_path = check_file_exists(self.params.camera_directory, task_dto.frame_name)
+                frame_dir = (os.path.dirname(task_dto.frame_path) if task_dto.frame_path
+                             else self.params.camera_directory)
+                frame_path = check_file_exists(frame_dir, task_dto.frame_name)
 
                 if frame_path:
                     _, file_extension = os.path.splitext(frame_path)

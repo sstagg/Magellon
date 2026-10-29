@@ -206,6 +206,33 @@ export const JobsPanel: React.FC = () => {
                                               + (job.eta_seconds !== undefined ? ` · ~${timeLeft(job.eta_seconds)} left` : '')}
                                     </Typography>
                                 ) : null}
+                                {job.status === 'running' && job.steps?.map((st) => (
+                                    <Box key={st.step} sx={{ fontSize: '0.6rem', lineHeight: 1.4 }}>
+                                        <Typography component="span" variant="caption"
+                                            sx={{ color: 'text.secondary', fontSize: 'inherit' }}>
+                                            {st.step}: ✓ {st.ok}
+                                        </Typography>
+                                        {st.failed > 0 && (
+                                            <Typography component="span" variant="caption"
+                                                sx={{ color: 'error.main', fontSize: 'inherit', fontWeight: st.ok === 0 ? 600 : 400 }}>
+                                                {` ✗ ${st.failed}`}
+                                            </Typography>
+                                        )}
+                                        <Typography component="span" variant="caption"
+                                            sx={{ color: 'text.secondary', fontSize: 'inherit' }}>
+                                            {` of ${st.total}`}
+                                            {st.failed > 0 && st.ok === 0 ? ' · all failing so far' : ''}
+                                        </Typography>
+                                        {st.failed > 0 && st.reason && (
+                                            <Tooltip title={st.reason}>
+                                                <Typography variant="caption" noWrap
+                                                    sx={{ color: 'error.main', display: 'block', fontSize: 'inherit' }}>
+                                                    {st.reason}
+                                                </Typography>
+                                            </Tooltip>
+                                        )}
+                                    </Box>
+                                ))}
                                 {job.status === 'failed' && job.error && (
                                     <Tooltip title={job.error}>
                                         <Typography
