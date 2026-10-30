@@ -845,6 +845,7 @@ def process_image_job(
     gain_path: Optional[str] = Form(None),
     camera_directory: Optional[str] = Form(None),
     copy_images: bool = Form(False),
+    copy_frames: bool = Form(False),
     retries: int = Form(0),
 
     leginon_mysql_host: Optional[str] = Form(None),
@@ -920,6 +921,7 @@ def process_image_job(
         gain_path=gain_path if images_directory else None,
         session_name=session_name,
         copy_images=copy_images,
+        copy_frames=copy_frames,
         retries=retries,
         leginon_mysql_host=leginon_mysql_host or leginon_db.HOST,
         leginon_mysql_port=leginon_mysql_port or leginon_db.PORT,

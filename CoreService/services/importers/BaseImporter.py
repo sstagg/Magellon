@@ -921,7 +921,7 @@ class BaseImporter(ABC):
             task_dto: Any,
             *,
             image_path: str = None,
-            transfer_frame: bool = True,
+            transfer_frame: bool = None,
             copy_images: bool = None,
             ctf: bool = True,
             motioncor: bool = True,
@@ -935,6 +935,8 @@ class BaseImporter(ABC):
         """
         if copy_images is None:
             copy_images = bool(getattr(self.params, 'copy_images', False))
+        if transfer_frame is None:  # movies are copied only when the import asked for it
+            transfer_frame = bool(getattr(self.params, 'copy_frames', False))
         if topaz_pick is None:
             topaz_pick = bool(getattr(app_settings, 'AUTO_DISPATCH_TOPAZ_PICK', False))
         if topaz_denoise is None:

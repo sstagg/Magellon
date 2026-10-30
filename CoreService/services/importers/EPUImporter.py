@@ -848,7 +848,8 @@ class EPUImporter(BaseImporter):
             self.run_task_recipe(
                 task_dto,
                 build_epu_import_task_recipe(
-                    transfer_frame=bool(task_dto.frame_path),
+                    # Movies are copied only when the import asked for it.
+                    transfer_frame=bool(task_dto.frame_path) and bool(getattr(task_dto.job_dto, 'copy_frames', False)),
                     copy_image=bool(task_dto.job_dto.copy_images),
                 ),
                 image_path=source_image_path,

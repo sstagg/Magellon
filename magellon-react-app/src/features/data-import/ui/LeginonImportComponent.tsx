@@ -28,6 +28,7 @@ interface ILeginonImportForm {
     magellon_session_name: string;
     if_do_subtasks: boolean;
     copy_images: boolean;
+    copy_frames: boolean;
     retries: number;
 }
 const defaultValues: ILeginonImportForm = {
@@ -39,6 +40,7 @@ const defaultValues: ILeginonImportForm = {
     magellon_session_name: "",
     if_do_subtasks: false,
     copy_images: false,
+    copy_frames: false,
     retries: 0,
 };
 
@@ -211,6 +213,7 @@ export const LeginonImportComponent = () => {
             }
             formData.append('if_do_subtasks', String(data.if_do_subtasks));
             formData.append('copy_images', String(data.copy_images));
+            formData.append('copy_frames', String(data.copy_frames));
             formData.append('retries', String(data.retries));
 
             if (defectsFile) formData.append('defects_file', defectsFile);
@@ -393,15 +396,17 @@ export const LeginonImportComponent = () => {
                     />
                 </Grid>
 
-                <Grid size={6}>
+                <Grid size={12}>
                     <FormControlLabel
-                        control={
-                            <Checkbox
-                                {...register('copy_images')}
-                                color="primary"
-                            />
-                        }
-                        label={"Copy Images"}
+                        control={<Checkbox {...register('copy_images')} color="primary" />}
+                        label="Copy images into the session (only to export it, e.g. back to another site; uses space)"
+                    />
+                </Grid>
+
+                <Grid size={12}>
+                    <FormControlLabel
+                        control={<Checkbox {...register('copy_frames')} color="primary" />}
+                        label="Copy movies into the session (only to export it, e.g. back to another site; slow and uses space)"
                     />
                 </Grid>
 

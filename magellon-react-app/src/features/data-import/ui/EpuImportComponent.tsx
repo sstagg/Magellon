@@ -8,7 +8,9 @@ import {
     Box,
     TextField,
     Grid,
-    Paper
+    Paper,
+    Checkbox,
+    FormControlLabel
 } from "@mui/material";
 import FolderIcon from '@mui/icons-material/Folder';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
@@ -68,6 +70,8 @@ export const EpuImportComponent = () => {
     // One name for both: the Magellon session (and its results folder) and
     // the project it is filed under — the UI has no separate use for projects.
     const [sessionName, setSessionName] = useState<string>("");
+    // Off by default: movies stay where they are and plugins read them there.
+    const [copyFrames, setCopyFrames] = useState(false);
     const nameCheck = useSessionNameCheck(sessionName);
     const [defaultData, setDefaultData] = useState<DefaultData>({
         pixel_size: 0.739,
@@ -114,6 +118,7 @@ export const EpuImportComponent = () => {
                 epu_dir_path: selectedDirectory,
                 magellon_project_name: name,
                 magellon_session_name: name,
+                copy_frames: copyFrames,
                 default_data: {
                     pixel_size: defaultData.pixel_size,
                     acceleration_voltage: defaultData.acceleration_voltage,
@@ -446,6 +451,13 @@ Required Folder Structure
                           ))}
                         </TextField>
                       </Grid>
+
+                        <Grid size={12}>
+                            <FormControlLabel
+                                control={<Checkbox checked={copyFrames} onChange={(e) => setCopyFrames(e.target.checked)} />}
+                                label="Copy movies into the session (only to export it, e.g. back to another site; slow and uses space)"
+                            />
+                        </Grid>
 
                         <Grid sx={{ mt: 2 }} size={12}>
                             <Button

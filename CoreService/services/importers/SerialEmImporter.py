@@ -1107,10 +1107,11 @@ class SerialEmImporter(BaseImporter):
                 logger.info(f"Skipping CTF and MotionCor for montage image: {image_path}")
 
             copy_images = bool(getattr(self.params, 'copy_images', False))
+            copy_frames = bool(getattr(self.params, 'copy_frames', False))  # movies, only when asked
             recipe = (
-                build_serialem_montage_task_recipe(copy_image=copy_images)
+                build_serialem_montage_task_recipe(copy_image=copy_images, transfer_frame=copy_frames)
                 if is_montage
-                else build_serialem_exposure_task_recipe(copy_image=copy_images)
+                else build_serialem_exposure_task_recipe(copy_image=copy_images, transfer_frame=copy_frames)
             )
 
             self.run_task_recipe(

@@ -288,10 +288,11 @@ def build_epu_import_task_recipe(
 def build_serialem_exposure_task_recipe(
     *,
     copy_image: bool,
+    transfer_frame: bool = False,
 ) -> ImportTaskRecipe:
     return build_standard_import_task_recipe(
         name="serialem_exposure_import",
-        transfer_frame=True,
+        transfer_frame=transfer_frame,
         copy_image=copy_image,
         ctf=True,
         motioncor=True,
@@ -303,10 +304,11 @@ def build_serialem_exposure_task_recipe(
 def build_serialem_montage_task_recipe(
     *,
     copy_image: bool,
+    transfer_frame: bool = False,
 ) -> ImportTaskRecipe:
     return build_standard_import_task_recipe(
         name="serialem_montage_import",
-        transfer_frame=True,
+        transfer_frame=transfer_frame,
         copy_image=copy_image,
         ctf=False,
         motioncor=False,

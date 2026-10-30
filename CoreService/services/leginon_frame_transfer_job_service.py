@@ -597,8 +597,10 @@ class LeginonFrameTransferJobService:
 
     def run_task(self, task_dto: LeginonFrameTransferTaskDto,magellon_session :Msession) -> Dict[str, str]:
         try:
-            # 1
-            self.transfer_frame(task_dto)
+            # 1: the movie is copied into the session only when the import asked
+            # for it (to export the session); plugins read it where it is.
+            if task_dto.job_dto.copy_frames:
+                self.transfer_frame(task_dto)
             # 2
             if task_dto.job_dto.copy_images:
                 target_image_path = task_dto.job_dto.target_directory + "/" + ORIGINAL_IMAGES_SUB_URL + task_dto.image_name

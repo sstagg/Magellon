@@ -143,6 +143,9 @@ class ImportJobBase(BaseModel):
     session_name: Optional[str] = None
     if_do_subtasks: Optional[bool] = True
     copy_images: Optional[bool] = False
+    # Copy the movies into the session's folder, so an exported session
+    # carries them (e.g. back to another site). Off: plugins read them in place.
+    copy_frames: Optional[bool] = False
     retries: Optional[int] = None
     task_list: Optional[List] = None  # List to store the tasks List[LeginonFrameTransferTaskDto]
     replace_type: ReplaceType = ReplaceType.NONE
