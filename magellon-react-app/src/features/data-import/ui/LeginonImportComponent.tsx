@@ -1,6 +1,6 @@
 import {Alert, Button, Checkbox, FormControl, FormControlLabel, Box, InputAdornment, TextField, Typography} from "@mui/material";
 
-import {useEffect, useRef, useState} from "react";
+import {useEffect, useState} from "react";
 import {useForm, UseFormRegisterReturn} from "react-hook-form";
 import {Cached, CalendarMonthOutlined, AttachFile, FolderOpen} from "@mui/icons-material";
 import Grid from '@mui/material/Grid';
@@ -137,7 +137,7 @@ const SESSION_NAME_RULE = (value: string) =>
     !/[\\/\s]/.test(value.trim()) || 'Use a name without slashes or spaces';
 
 export const LeginonImportComponent = () => {
-    const { handleSubmit, register, getValues, setValue, trigger, watch, formState: { errors } } = useForm<ILeginonImportForm>({
+    const { handleSubmit, register, setValue, trigger, watch, formState: { errors } } = useForm<ILeginonImportForm>({
         mode: 'onChange',
         defaultValues
     });
@@ -166,8 +166,8 @@ export const LeginonImportComponent = () => {
     }, [leginonName, magellonNameEdited, setValue]);
 
     // The folders and gain file are filled in from the Leginon name, where the
-    // lab keeps them; a field the user changed keeps their value.
-    const suggested = useRef<Partial<Record<FolderField, string>>>({});
+    // lab keeps them. A new name replaces all three (empty where nothing was
+    // found) and drops an uploaded gain file, which belonged to the old one.
     // Fields the lookup couldn't fill, for the note asking the user to.
     const [notFound, setNotFound] = useState<{ session: string; fields: FolderField[] } | null>(null);
     useEffect(() => {
@@ -176,23 +176,22 @@ export const LeginonImportComponent = () => {
         if (!name || /[\\/\s]/.test(name)) return;
         let stale = false;
         const timer = setTimeout(async () => {
+            let data: Partial<Record<FolderField, string | null>> = {};
             try {
-                const { data } = await apiClient.get('/image/leginon_folders', { params: { session_name: name } });
-                if (stale) return;
-                const missing: FolderField[] = [];
-                for (const field of FOLDER_FIELDS) {
-                    const current = getValues(field);
-                    if (current && current !== suggested.current[field]) continue;
-                    const value: string = data?.[field] ?? '';
-                    suggested.current[field] = value;
-                    setValue(field, value, { shouldValidate: !!value });
-                    if (!value) missing.push(field);
-                }
-                setNotFound(missing.length ? { session: name, fields: missing } : null);
-            } catch { /* nothing suggested: the user fills the fields in */ }
+                ({ data } = await apiClient.get('/image/leginon_folders', { params: { session_name: name } }));
+            } catch { /* nothing found: the user fills the fields in */ }
+            if (stale) return;
+            const missing: FolderField[] = [];
+            for (const field of FOLDER_FIELDS) {
+                const value = data?.[field] ?? '';
+                setValue(field, value, { shouldValidate: !!value });
+                if (!value) missing.push(field);
+            }
+            setGainsFile(null);
+            setNotFound(missing.length ? { session: name, fields: missing } : null);
         }, 400);
         return () => { stale = true; clearTimeout(timer); };
-    }, [leginonName, getValues, setValue]);
+    }, [leginonName, setValue]);
 
     // An uploaded gain file stands in for the path.
     useEffect(() => {
