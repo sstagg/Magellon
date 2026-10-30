@@ -23,7 +23,7 @@ from config import MAGELLON_HOME_DIR, MAGELLON_JOBS_DIR
 from database import session_local
 from models.sqlalchemy_models import (
     Artifact, Atlas, Image, ImageJob, ImageJobTask, ImageMetaData, JobEvent,
-    Msession, PipelineRun, SampleMaterial,
+    Msession, PipelineRun, SampleMaterial, TaskResultDeadLetter, TaskResultReceipt,
 )
 
 logger = logging.getLogger(__name__)
@@ -81,6 +81,11 @@ def delete_session(session_id) -> dict:
         counts["metadata"] = db.query(ImageMetaData).filter(or_(
             _in(ImageMetaData.image_id, image_ids), _in(ImageMetaData.job_id, job_ids),
             _in(ImageMetaData.task_id, task_ids))).delete(synchronize_session=False)
+        # Result receipts and dead letters keep the job / task ids as text.
+        job_texts, task_texts = [str(j) for j in job_ids], [str(t) for t in task_ids]
+        for model in (TaskResultReceipt, TaskResultDeadLetter):
+            db.query(model).filter(or_(_in(model.job_id, job_texts), _in(model.task_id, task_texts))
+                                   ).delete(synchronize_session=False)
         counts["tasks"] = db.query(ImageJobTask).filter(_in(ImageJobTask.oid, task_ids)).delete(synchronize_session=False)
         # Images point at their parent image and their atlas; unlink first.
         db.query(Image).filter(Image.session_id == session_id).update(

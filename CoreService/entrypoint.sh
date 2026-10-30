@@ -10,4 +10,6 @@ if ! alembic upgrade head 2>&1; then
 fi
 echo "Migrations complete. Starting server..."
 
-exec uvicorn main:app --host 0.0.0.0 --port 8000
+# On stop: close open connections (browser sockets) within 10 s, then run the
+# shutdown that lets result consumers finish their result (compose allows 60 s).
+exec uvicorn main:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 10

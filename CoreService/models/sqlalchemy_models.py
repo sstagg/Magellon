@@ -854,3 +854,32 @@ class ImportJobQueue(Base):
     heartbeat_at = Column(MYSQL_DATETIME(fsp=6))
     worker = Column(String(128))
     error = Column(Text)
+
+
+
+class TaskResultReceipt(Base):
+    """A plugin result already processed (migration 0013). One row per task
+    and step: a redelivered result finds its row and is skipped, so a result
+    is applied once even if it arrives twice (e.g. after a restart)."""
+    __tablename__ = 'task_result_receipt'
+
+    task_id = Column(String(36), primary_key=True)
+    step = Column(String(32), primary_key=True)     # ctf, motioncor, ...
+    job_id = Column(String(36), index=True)
+    processed_at = Column(MYSQL_DATETIME(fsp=6), nullable=False)
+
+
+class TaskResultDeadLetter(Base):
+    """A plugin result that couldn't be processed after its retries
+    (migration 0013): kept, not dropped, so it can be inspected and replayed."""
+    __tablename__ = 'task_result_dead_letter'
+
+    id = Column(String(36), primary_key=True)
+    queue = Column(String(128))
+    task_id = Column(String(36), index=True)
+    job_id = Column(String(36), index=True)
+    step = Column(String(32))
+    error = Column(Text)
+    payload = Column(JSON)                          # the result envelope's data
+    created_at = Column(MYSQL_DATETIME(fsp=6), nullable=False)
+    replayed_at = Column(MYSQL_DATETIME(fsp=6))

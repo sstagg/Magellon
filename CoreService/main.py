@@ -686,6 +686,16 @@ async def shutdown_event():
     # Imports run in separate import workers (services/import_worker.py), so
     # a backend shutdown leaves them running — nothing to abort here.
 
+    # Let the result consumers finish the results in hand (unstarted ones
+    # stay queued for the next start), so no result is cut off halfway.
+    try:
+        from core.result_consumer import stop_result_consumers
+        stop_result_consumers()
+        background_services.stopped("result_consumer", getattr(app.state, "result_consumer", None))
+    except Exception as e:
+        background_services.failed("result_consumer", e)
+        logger.error(f"[WARNING] Result consumer stop failed: {e}")
+
     forwarder = getattr(app.state, "step_event_forwarder", None)
     if forwarder is not None:
         try:

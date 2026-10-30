@@ -446,6 +446,7 @@ class JobManager:
     def record_task_finished(
         self, job_id: str, task_id: str, *, failed: bool = False,
         step: Optional[str] = None, reason: Optional[str] = None,
+        db: Optional[Session] = None,
     ) -> Dict[str, Any]:
         """Record that a task finished — successfully or not — and settle the
         job once every task has.
@@ -461,24 +462,36 @@ class JobManager:
         and the result processor) may report the same task: a later failure
         report overrides an earlier success, never the other way round.
         Returns ``{completed, expected, failed, progress_pct, settled}``.
+
+        With ``db`` the update joins the caller's transaction (the caller
+        commits), so a result and its effect on the job commit together.
         """
-        with session_local() as db:
-            job = self._get_or_404(db, job_id, lock=True)
-            processed = dict(job.processed_json or {})
-            completed = list(processed.get("completed_tasks") or [])
-            failures = dict(processed.get("failed_tasks") or {})
-            if failed:
-                failures[task_id] = {"step": step or "task", "reason": (reason or "task failed")[:500]}
-            # A task with several plugin steps (CTF and MotionCor) is
-            # finished only when all of them have reported.
-            if self._tick_task_step(db, task_id, step, task_failed=task_id in failures) and task_id not in completed:
-                completed.append(task_id)
-            processed["completed_tasks"] = completed
-            processed["failed_tasks"] = failures
-            expected = self._expected_tasks(db, job, processed)
-            processed["progress"] = int(round(100 * len(completed) / expected)) if expected else 0
-            settled = self._settle(db, job, processed)
-            db.commit()
+        if db is not None:
+            return self._record_task_finished(db, job_id, task_id, failed=failed, step=step, reason=reason)
+        with session_local() as own:
+            outcome = self._record_task_finished(own, job_id, task_id, failed=failed, step=step, reason=reason)
+            own.commit()
+        return outcome
+
+    def _record_task_finished(
+        self, db: Session, job_id: str, task_id: str, *, failed: bool,
+        step: Optional[str], reason: Optional[str],
+    ) -> Dict[str, Any]:
+        job = self._get_or_404(db, job_id, lock=True)
+        processed = dict(job.processed_json or {})
+        completed = list(processed.get("completed_tasks") or [])
+        failures = dict(processed.get("failed_tasks") or {})
+        if failed:
+            failures[task_id] = {"step": step or "task", "reason": (reason or "task failed")[:500]}
+        # A task with several plugin steps (CTF and MotionCor) is
+        # finished only when all of them have reported.
+        if self._tick_task_step(db, task_id, step, task_failed=task_id in failures) and task_id not in completed:
+            completed.append(task_id)
+        processed["completed_tasks"] = completed
+        processed["failed_tasks"] = failures
+        expected = self._expected_tasks(db, job, processed)
+        processed["progress"] = int(round(100 * len(completed) / expected)) if expected else 0
+        settled = self._settle(db, job, processed)
         if settled:
             self._clear_cancel(job_id)
         return {

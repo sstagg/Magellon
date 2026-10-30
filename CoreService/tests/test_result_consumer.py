@@ -80,16 +80,15 @@ def test_handler_raises_permanent_error_on_undecodable_payload():
     factory.assert_not_called()
 
 
-def test_handler_raises_permanent_error_when_processor_fails():
-    """Processor exception → PermanentError so classify routes to DLQ.
-    The processor's own try/except has already attempted the FAILED-
-    state best-effort write; the bus just needs to clear the message."""
+def test_handler_propagates_processor_failure_for_retry():
+    """A processing error propagates unchanged, so the binder retries the
+    result (the processor rolled back, so nothing of it was kept) and,
+    after its retries, dead-letters it — instead of dropping it."""
     factory = MagicMock()
     handler = rc._make_handler(factory)
-
     with patch.object(rc, "TaskOutputProcessor") as mock_proc_cls:
         mock_proc_cls.return_value.process.side_effect = RuntimeError("boom")
-        with pytest.raises(PermanentError, match="processor failed"):
+        with pytest.raises(RuntimeError, match="boom"):
             handler(_valid_envelope())
 
 

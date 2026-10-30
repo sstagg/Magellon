@@ -137,6 +137,8 @@ services:
     image: magellon-core-image
     container_name: magellon-core-container
     restart: unless-stopped
+    # Time to finish work in hand on stop (results, a running import step).
+    stop_grace_period: 60s
     ports:
       - "127.0.0.1:${MAGELLON_BACKEND_PORT}:8000"
     volumes:
@@ -204,6 +206,8 @@ services:
     image: magellon-core-image          # built by the backend service
     container_name: magellon-import-worker
     restart: unless-stopped
+    # Time to finish work in hand on stop (results, a running import step).
+    stop_grace_period: 60s
     command: ["python", "-m", "services.import_worker"]
     depends_on:
       - backend

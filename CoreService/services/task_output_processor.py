@@ -24,15 +24,17 @@ import math
 import os
 import shutil
 import uuid
+from datetime import datetime
 from typing import Any, Dict, Iterable, Optional
 
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import DBAPIError, IntegrityError, InterfaceError, OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from config import MAGELLON_HOME_DIR
 from magellon_sdk.models import TaskResultMessage
 from models.pydantic_models_settings import OutQueueConfig, OutQueueType
-from models.sqlalchemy_models import Artifact, ImageJobTask, ImageMetaData
+from magellon_sdk.errors import RetryableError
+from models.sqlalchemy_models import Artifact, ImageJob, ImageJobTask, ImageMetaData, TaskResultReceipt
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +75,29 @@ _ARTIFACT_KIND_CLASS_AVERAGES = "class_averages"
 # Default category id when no OutQueueConfig matches — preserves the
 # old plugin's fallback so existing rows keep their lineage.
 _DEFAULT_CATEGORY_ID = 10
+# Result values bigger than this (e.g. MotionCor's patch-alignment data,
+# CTFFIND's rotational average) are written to a file in the session folder;
+# the database keeps {"file": path, "bytes": n}.
+OFFLOAD_BYTES = 8 * 1024
+# Wait before retrying a result that failed on a transient database error.
+TRANSIENT_RETRY_SECONDS = 5
+
+
+def offload_to_file(destination_dir: str, stem: str, key: str, text: str, ext: str) -> Dict[str, Any]:
+    """Write one large result value to a file in ``destination_dir`` and
+    return the reference the database keeps instead."""
+    os.makedirs(destination_dir, exist_ok=True)
+    path = os.path.join(destination_dir, f"{stem}_{key}{ext}")
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(text)
+    return {"file": path, "bytes": len(text.encode("utf-8"))}
+
+
+def _is_transient(exc: BaseException) -> bool:
+    """A database error worth retrying: lost connection, deadlock, lock
+    timeout, server restarting."""
+    return isinstance(exc, (OperationalError, InterfaceError)) or (
+        isinstance(exc, DBAPIError) and exc.connection_invalidated)
 
 
 def _confidence_from_score(score: float, *, is_log_likelihood: bool) -> float:
@@ -114,7 +139,10 @@ def _move_file_to_directory(file_path: str, destination_dir: str) -> bool:
         host_path = from_canonical_gpfs_path(file_path)
         os.makedirs(destination_dir, exist_ok=True)
         filename = os.path.basename(host_path)
-        shutil.move(host_path, os.path.join(destination_dir, filename))
+        target = os.path.join(destination_dir, filename)
+        if not os.path.exists(host_path) and os.path.exists(target):
+            return True  # moved by an earlier delivery of the same result
+        shutil.move(host_path, target)
         return True
     except Exception as exc:
         logger.warning("Could not move %s to %s: %s", file_path, destination_dir, exc)
@@ -453,9 +481,6 @@ class TaskOutputProcessor:
                     category_id=category_id,
                 )
             )
-        except SQLAlchemyError as db_err:
-            self.db.rollback()
-            logger.error("DB error saving metadata: %s", db_err)
         except (ValueError, TypeError, json.JSONDecodeError) as json_err:
             logger.error("JSON error saving metadata: %s", json_err)
 
@@ -694,6 +719,26 @@ class TaskOutputProcessor:
         ):
             db_task.subject_id = task_result.subject_id
 
+    def _already_processed(self, task_id, step: str) -> bool:
+        return self.db.get(TaskResultReceipt, (str(task_id), step)) is not None
+
+    def _offload_large_values(self, task_result: TaskResultMessage, destination_dir: str) -> None:
+        """Write result values bigger than OFFLOAD_BYTES to files next to the
+        result's other outputs, keeping only a reference in the database."""
+        stem = (os.path.splitext(os.path.basename(task_result.image_path or ""))[0]
+                or str(task_result.task_id or uuid.uuid4()))
+        for item in task_result.meta_data or []:
+            value = getattr(item, "value", None)
+            if isinstance(value, str) and len(value) > OFFLOAD_BYTES:
+                item.value = json.dumps(offload_to_file(destination_dir, stem, item.key, value, ".json"))
+        output = task_result.output_data
+        if isinstance(output, dict):
+            for key, value in list(output.items()):
+                text = value if isinstance(value, str) else json.dumps(value)
+                if len(text) > OFFLOAD_BYTES:
+                    output[key] = offload_to_file(destination_dir, stem, key, text,
+                                                  ".txt" if isinstance(value, str) else ".json")
+
     def process(self, task_result: TaskResultMessage) -> Dict[str, Any]:
         """Project the result. Returns a small dict for caller logging.
 
@@ -704,8 +749,24 @@ class TaskOutputProcessor:
         ``class_averages_id`` for classification) so downstream
         consumers can address by id without joining through the
         producing task.
+
+        Each (task, step) result is applied once: its receipt, outputs,
+        task state and effect on the job commit in one transaction, and a
+        redelivered result finds its receipt and is skipped. Failures raise
+        (``RetryableError`` for transient database errors) so the consumer
+        retries the result and, if it keeps failing, dead-letters it —
+        never drops it.
         """
+        type_name = task_result.type.name if task_result.type else "unknown"
+        step = type_name.lower()
+        task_id = str(task_result.task_id) if task_result.task_id else None
+        job_id = str(task_result.job_id) if task_result.job_id else None
         try:
+            if task_id and self._already_processed(task_id, step):
+                logger.info("TaskOutputProcessor: %s result for task %s already applied — skipped",
+                            type_name, task_id)
+                return {"message": f"{type_name} result already processed"}
+
             self._use_task_session_name(task_result)
             destination_dir = self._get_destination_dir(task_result)
 
@@ -746,116 +807,108 @@ class TaskOutputProcessor:
                 if type_code in (_TASK_TYPE_PARTICLE_PICKING, _TASK_TYPE_TOPAZ_PARTICLE_PICKING):
                     self._save_particle_picks(task_result)
 
+            # Large values go to files only now: the picks and artifacts
+            # above read them from the result as sent.
+            self._offload_large_values(task_result, destination_dir)
             self._save_output_data(task_result)
             self._save_metadata(task_result)
 
             final_status = (
                 STATUS_FAILED if reported_code == STATUS_FAILED else STATUS_COMPLETED
             )
+            failed = final_status == STATUS_FAILED
+            if job_id and task_id:
+                # Lock the job before its task, the order every job update
+                # uses, so concurrent updates can't deadlock.
+                self.db.query(ImageJob).filter(ImageJob.oid == uuid.UUID(job_id)).with_for_update().first()
             self._advance_task_state(task_result, status_id=final_status)
 
+            if task_id:
+                self.db.add(TaskResultReceipt(task_id=task_id, step=step, job_id=job_id,
+                                              processed_at=datetime.utcnow()))
+                if job_id:
+                    # Same transaction: the result and its effect on the job
+                    # (the task's step ticked off, the job settled when all
+                    # are done) commit together or not at all.
+                    from services.job_manager import job_manager as _jm
+                    try:
+                        _jm.record_task_finished(
+                            job_id, task_id, failed=failed, step=type_name,
+                            reason=_failure_reason(task_result) if failed else None, db=self.db,
+                        )
+                    except LookupError:
+                        pass  # the job is gone (e.g. its session was deleted)
+
             self.db.commit()
-            type_name = task_result.type.name if task_result.type else "unknown"
             logger.info("TaskOutputProcessor: %s projected", type_name)
 
-            outcome = "failed" if final_status == STATUS_FAILED else "completed"
-
-            # Advance parent ImageJob status. The step-event projector handles
-            # this via NATS, but external plugins (Ptolemy, CTF, etc.) may use
-            # RMQ-only transport where NATS JetStream is unavailable. Calling
-            # job_manager here guarantees the job settles regardless.
-            try:
-                from services.job_manager import job_manager as _jm
-                job_id_s = str(task_result.job_id) if task_result.job_id else None
-                task_id_s = str(task_result.task_id) if task_result.task_id else None
-                failed = final_status == STATUS_FAILED
-                if failed:
-                    _log_failure(task_result, type_name, _failure_reason(task_result))
-                if job_id_s and task_id_s:
-                    # Partial success: a failed task is recorded with its
-                    # reason and the job settles once all tasks are done
-                    # (JobManager.record_task_finished) — one bad movie no
-                    # longer fails a whole import.
-                    _jm.record_task_finished(
-                        job_id_s, task_id_s, failed=failed, step=type_name,
-                        reason=_failure_reason(task_result) if failed else None,
-                    )
-                elif job_id_s:
-                    # Single-shot job without task ids: its result is the job's.
-                    if failed:
-                        _jm.fail_job(job_id_s, error=_failure_reason(task_result))
-                    else:
-                        _jm.complete_job(job_id_s, result={})
-            except Exception:
-                logger.warning(
-                    "TaskOutputProcessor: could not advance parent job %s — non-fatal",
-                    task_result.job_id, exc_info=True,
-                )
-
-            # Structured operational event — queryable later via DuckDB.
-            try:
-                from services.ops_event_logger import get_logger as _ops
-                _ops().log_task_result(
-                    job_id=str(task_result.job_id) if task_result.job_id else None,
-                    task_id=str(task_result.task_id) if task_result.task_id else None,
-                    category=type_name.lower(),
-                    status=outcome,
-                    session_name=task_result.session_name,
-                    image_name=os.path.splitext(
-                        os.path.basename(task_result.image_path or "")
-                    )[0] or None,
-                )
-            except Exception:
-                pass
-
-            # Push a lightweight wake-up to any UI watching this job.
-            # Best-effort: never blocks the writer or affects DLQ routing.
-            try:
-                from core.socketio_server import schedule_import_progress
-                if task_result.job_id:
-                    schedule_import_progress(str(task_result.job_id), {
-                        "job_id": str(task_result.job_id),
-                        "event": "task_complete",
-                        "category": type_name.lower(),
-                        "status": outcome,
-                    })
-            except Exception:
-                pass
-
-            return {
-                "message": f"{type_name} successfully processed",
-                "artifact_id": str(artifact_id) if artifact_id else None,
-            }
-
-        except Exception as exc:
-            type_name = task_result.type.name if task_result.type else "unknown"
-            logger.error("TaskOutputProcessor: %s failed: %s", type_name, exc, exc_info=True)
+        except IntegrityError:
+            # The same result applied concurrently by another delivery.
             self.db.rollback()
-            try:
-                self._advance_task_state(task_result, status_id=STATUS_FAILED)
-                self.db.commit()
-            except Exception as state_err:
-                logger.error("Could not mark ImageJobTask as FAILED: %s", state_err)
-                self.db.rollback()
-            try:
-                from services.ops_event_logger import get_logger as _ops
-                _ops().log_task_result(
-                    job_id=str(task_result.job_id) if task_result.job_id else None,
-                    task_id=str(task_result.task_id) if task_result.task_id else None,
-                    category=type_name.lower(),
-                    status="failed",
-                    session_name=task_result.session_name,
-                    extra={"processor_error": str(exc)},
-                )
-            except Exception:
-                pass
-            return {"error": str(exc)}
-
+            if task_id and self._already_processed(task_id, step):
+                return {"message": f"{type_name} result already processed"}
+            raise
+        except Exception as exc:
+            self.db.rollback()
+            logger.error("TaskOutputProcessor: %s failed: %s", type_name, exc, exc_info=True)
+            if _is_transient(exc):
+                raise RetryableError(f"{type_name} result: transient database error: {exc}",
+                                     retry_after_seconds=TRANSIENT_RETRY_SECONDS) from exc
+            raise
         finally:
             try:
                 self.db.close()
             except Exception as close_err:
                 logger.error("Error closing DB session: %s", close_err)
+
+        outcome = "failed" if failed else "completed"
+        if failed:
+            _log_failure(task_result, type_name, _failure_reason(task_result))
+        if job_id and not task_id:
+            # Single-shot job without task ids: its result is the job's.
+            try:
+                from services.job_manager import job_manager as _jm
+                if failed:
+                    _jm.fail_job(job_id, error=_failure_reason(task_result))
+                else:
+                    _jm.complete_job(job_id, result={})
+            except Exception:
+                logger.warning("TaskOutputProcessor: could not settle job %s", job_id, exc_info=True)
+
+        # Structured operational event — queryable later via DuckDB.
+        try:
+            from services.ops_event_logger import get_logger as _ops
+            _ops().log_task_result(
+                job_id=job_id,
+                task_id=task_id,
+                category=type_name.lower(),
+                status=outcome,
+                session_name=task_result.session_name,
+                image_name=os.path.splitext(
+                    os.path.basename(task_result.image_path or "")
+                )[0] or None,
+            )
+        except Exception:
+            pass
+
+        # Push a lightweight wake-up to any UI watching this job.
+        # Best-effort: never blocks the writer or affects DLQ routing.
+        try:
+            from core.socketio_server import schedule_import_progress
+            if job_id:
+                schedule_import_progress(job_id, {
+                    "job_id": job_id,
+                    "event": "task_complete",
+                    "category": type_name.lower(),
+                    "status": outcome,
+                })
+        except Exception:
+            pass
+
+        return {
+            "message": f"{type_name} successfully processed",
+            "artifact_id": str(artifact_id) if artifact_id else None,
+        }
 
 
 __all__ = [

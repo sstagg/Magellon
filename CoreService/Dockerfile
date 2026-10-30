@@ -42,6 +42,7 @@ COPY CoreService/static ./static
 COPY CoreService/dependencies ./dependencies
 COPY CoreService/domain ./domain
 COPY CoreService/plugins ./plugins
+COPY CoreService/scripts ./scripts
 
 COPY CoreService/configs/app_settings_dev.yaml ./configs/app_settings_dev.yaml
 COPY CoreService/configs/app_settings_prod.yaml ./configs/app_settings_prod.yaml

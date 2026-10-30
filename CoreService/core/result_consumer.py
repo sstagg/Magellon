@@ -8,9 +8,13 @@ module owns the CoreService-specific glue:
 - Decodes each bus :class:`Envelope` into a :class:`TaskResultMessage`
   and projects it through :class:`TaskOutputProcessor`, which writes
   into CoreService's MySQL on a fresh SQLAlchemy session.
-- Classifies failures — malformed payloads and projection errors both
-  become :class:`PermanentError` so the binder routes them to the DLQ
-  rather than requeuing a poison message.
+- Classifies failures: a malformed payload is a :class:`PermanentError`;
+  a processing error propagates, so the binder retries it (after a delay
+  for transient database errors) and, once its retries are spent,
+  dead-letters it. Dead letters are kept in ``task_result_dead_letter``
+  and fail their task's step, so the job still finishes.
+- Stops cleanly: :func:`stop_result_consumers` lets each consumer finish
+  the result in hand before the process exits.
 
 The actual bus iteration + ``bus.tasks.consumer`` calls + handle
 lifecycle live in the SDK — this module delegates via
@@ -28,7 +32,11 @@ both places causes a round-robin double-consume (see MB4.C in
 """
 from __future__ import annotations
 
+import json
 import logging
+import threading
+import uuid
+from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy.orm import sessionmaker
@@ -36,11 +44,8 @@ from sqlalchemy.orm import sessionmaker
 from config import app_settings
 from database import session_local as default_session_local
 from magellon_sdk.bus import ConsumerHandle, get_bus
+from magellon_sdk.bus.policy import TaskConsumerPolicy
 from magellon_sdk.bus.routes import TaskRoute
-from magellon_sdk.bus.services.result_consumer import (
-    result_consumer_engine as _sdk_result_consumer_engine,
-    start_result_consumers as _sdk_start_result_consumers,
-)
 from magellon_sdk.envelope import Envelope
 from magellon_sdk.errors import PermanentError
 from magellon_sdk.models import TaskResultMessage
@@ -94,13 +99,11 @@ def _make_handler(session_factory: sessionmaker):
         try:
             processor.process(task_result)
             # processor.process() closes the session in its finally block.
-        except Exception as exc:
-            # The processor already commits/rolls-back its own session.
-            # Re-raise so the binder DLQs this delivery via classify —
-            # a write that died mid-projection would just fail again on
-            # the same row, and the processor's best-effort path already
-            # marked the task FAILED before we get here.
-            raise PermanentError(f"processor failed: {exc}") from exc
+        except Exception:
+            # The processor rolled back, so nothing of this result was kept.
+            # Let the binder retry it (RetryableError waits first) and,
+            # after its retries, dead-letter it (see _dead_letter_hook).
+            raise
 
     return _on_envelope
 
@@ -112,6 +115,56 @@ def _routes_from_out_queues() -> List[TaskRoute]:
     if not out_queues:
         return []
     return [TaskRoute.named(q.name) for q in out_queues]
+
+
+# Consumers started by result_consumer_engine, for stop_result_consumers.
+_handles: List[ConsumerHandle] = []
+_threads: List[threading.Thread] = []
+
+
+def _dead_letter_hook(queue_name: str, session_factory: sessionmaker):
+    """Keep a result that failed all its retries, and fail its task's step so
+    the job finishes instead of waiting for it forever."""
+    def hook(envelope: Optional[Envelope], exc: BaseException) -> None:
+        data = getattr(envelope, "data", None)
+        task_id = job_id = step = None
+        try:
+            result = TaskResultMessage.model_validate(data)
+            task_id = str(result.task_id) if result.task_id else None
+            job_id = str(result.job_id) if result.job_id else None
+            step = result.type.name if result.type else None
+        except Exception:
+            pass
+        reason = f"Result could not be processed: {exc}"[:300]
+        logger.error("result_consumer: dead-lettered a result from %s (task %s): %s", queue_name, task_id, exc)
+        db = session_factory()
+        try:
+            from models.sqlalchemy_models import TaskResultDeadLetter
+            db.add(TaskResultDeadLetter(
+                id=str(uuid.uuid4()), queue=queue_name, task_id=task_id, job_id=job_id, step=step,
+                error=str(exc)[:4000], payload=json.loads(json.dumps(data, default=str)) if data else None,
+                created_at=datetime.utcnow()))
+            if job_id and task_id:
+                from services.job_manager import job_manager
+                try:
+                    job_manager.record_task_finished(job_id, task_id, failed=True, step=step or "Result",
+                                                     reason=reason, db=db)
+                except LookupError:
+                    pass
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.exception("result_consumer: could not record the dead letter")
+        finally:
+            db.close()
+        try:
+            from core.socketio_server import schedule_log
+            schedule_log("error", (step or "results").lower(),
+                         f"A {step or 'plugin'} result for task {task_id} could not be processed and was "
+                         f"set aside for an administrator: {exc}"[:500])
+        except Exception:
+            pass
+    return hook
 
 
 def start_result_consumers(
@@ -134,8 +187,15 @@ def start_result_consumers(
         )
         return []
 
-    handler = _make_handler(session_factory or default_session_local)
-    return _sdk_start_result_consumers(routes, handler, get_bus())
+    factory = session_factory or default_session_local
+    handler = _make_handler(factory)
+    bus = get_bus()
+    handles = []
+    for route in routes:
+        policy = TaskConsumerPolicy(on_dead_letter=_dead_letter_hook(route.subject, factory))
+        handles.append(bus.tasks.consumer(route, handler, policy=policy))
+        logger.info("result_consumer: subscribed to %s", route.subject)
+    return handles
 
 
 def result_consumer_engine(
@@ -143,23 +203,41 @@ def result_consumer_engine(
 ) -> None:
     """Blocking variant for ``threading.Thread(target=...)`` callers.
 
-    Registers consumers and blocks on the first handle's
-    ``run_until_shutdown`` until the bus closes or KeyboardInterrupt.
-    Returns immediately (dormant) when ``OUT_QUEUES`` is empty —
-    notably *without* touching the bus, so deployments that haven't
-    migrated off the out-of-tree result_processor plugin aren't
-    disturbed.
+    Starts one consumer loop per ``OUT_QUEUES`` entry, each on its own
+    thread, and blocks until they all stop (see
+    :func:`stop_result_consumers`). Returns immediately (dormant) when
+    ``OUT_QUEUES`` is empty — notably *without* touching the bus, so
+    deployments that haven't migrated off the out-of-tree
+    result_processor plugin aren't disturbed.
     """
-    routes = _routes_from_out_queues()
-    if not routes:
+    if not _routes_from_out_queues():
         logger.info(
             "result_consumer: OUT_QUEUES is empty — staying dormant. "
             "Add queues to rabbitmq_settings.OUT_QUEUES to enable."
         )
         return
+    for handle in start_result_consumers(session_factory):
+        thread = threading.Thread(target=handle.run_until_shutdown,
+                                  name=f"result-consumer-{len(_threads)}", daemon=True)
+        _handles.append(handle)
+        _threads.append(thread)
+        thread.start()
+    for thread in _threads:
+        thread.join()
 
-    handler = _make_handler(session_factory or default_session_local)
-    _sdk_result_consumer_engine(routes, handler, get_bus())
+
+def stop_result_consumers(timeout: float = 45.0) -> None:
+    """Stop the result consumers, letting each finish the result in hand,
+    so a shutdown never cuts a result off halfway (unfinished results stay
+    in their queue for the next start)."""
+    for handle in _handles:
+        try:
+            handle.close()
+        except Exception:
+            logger.debug("result_consumer: close failed", exc_info=True)
+    for thread in _threads:
+        thread.join(timeout)
+    logger.info("result_consumer: stopped (%d consumer(s))", len(_threads))
 
 
-__all__ = ["result_consumer_engine", "start_result_consumers"]
+__all__ = ["result_consumer_engine", "start_result_consumers", "stop_result_consumers"]
