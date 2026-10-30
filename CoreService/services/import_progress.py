@@ -57,10 +57,23 @@ def publish(job_id, data: dict) -> None:
         logger.debug("import progress publish failed", exc_info=True)
 
 
+def publish_log(level: str, source: str, message: str) -> None:
+    """Send one entry to the browsers' Logs panel, the same way as ``publish``."""
+    from core.socketio_server import get_asgi_loop, schedule_log
+
+    if get_asgi_loop() is not None:
+        schedule_log(level, source, message)
+        return
+    try:
+        _redis().publish(CHANNEL, json.dumps({"log": {"level": level, "source": source, "message": message}}))
+    except Exception:
+        logger.debug("log publish failed", exc_info=True)
+
+
 def start_relay() -> None:
     """Forward events published by import workers to Socket.IO (backend only)."""
     def run():
-        from core.socketio_server import schedule_import_progress
+        from core.socketio_server import schedule_import_progress, schedule_log
         while True:
             try:
                 # Own connection, no read timeout: a subscription sits idle
@@ -71,7 +84,10 @@ def start_relay() -> None:
                 for message in pubsub.listen():
                     try:
                         event = json.loads(message["data"])
-                        schedule_import_progress(event["job_id"], event["data"])
+                        if "log" in event:
+                            schedule_log(**event["log"])
+                        else:
+                            schedule_import_progress(event["job_id"], event["data"])
                     except Exception:
                         logger.debug("bad import progress message", exc_info=True)
             except Exception:

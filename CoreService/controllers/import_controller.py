@@ -360,6 +360,11 @@ def stop_import(job_id: str, user_id: UUID = Depends(get_current_user_id)):
         pass  # stopped before it created its job
     except Exception:
         logger.warning("[import-stop] job=%s: cancel message not sent", job_id, exc_info=True)
+    # With no other import queued or running, everything waiting for CTF /
+    # MotionCor is this import's: drop it now. (Otherwise the plugins skip
+    # this import's tasks as they reach them, by job id.)
+    if not any(import_queue.stats()[k] for k in ("running", "waiting")):
+        _purge_import_task_queues(job_id)
 
     deleted = None
     session = session_deletion.find_session(row.label) if row.label else None
@@ -451,6 +456,35 @@ def cancel_queued_import(
     import_runners.cleanup(job_id)
     logger.warning("[import-queue] job=%s cancelled by %s", job_id, user_id)
     return {"job_id": job_id, "status": "cancelled"}
+
+
+def _latest_step_counts(job_id) -> dict:
+    """The import's latest per-step counters (``step_counts`` / ``step_totals``)."""
+    from core.socketio_server import _step_progress_cache
+    data = _step_progress_cache.get(str(job_id)) or {}
+    return {key: data[key] for key in ("step_counts", "step_totals") if key in data}
+
+
+def _purge_import_task_queues(job_id) -> None:
+    """Empty the CTF and MotionCor task queues (only imports use them)."""
+    from config import app_settings
+    from magellon_sdk.bus.binders.rmq._client import RabbitmqClient
+
+    settings = app_settings.rabbitmq_settings
+    client = RabbitmqClient(settings)
+    try:
+        client.connect()
+        for queue in (settings.CTF_QUEUE_NAME or "ctf_tasks_queue",
+                      settings.MOTIONCOR_QUEUE_NAME or "motioncor_tasks_queue"):
+            removed = client.channel.queue_purge(queue=queue).method.message_count
+            logger.warning("[import-stop] job=%s: removed %d waiting task(s) from %s", job_id, removed, queue)
+    except Exception:
+        logger.warning("[import-stop] job=%s: could not empty the plugin queues", job_id, exc_info=True)
+    finally:
+        try:
+            client.close_connection()
+        except Exception:
+            pass
 
 
 @import_router.get("/job/{job_id}/summary")
@@ -569,6 +603,7 @@ def get_job_summary(
             "totals": totals,
             "by_category": by_category,
             "created_at": job.created_date.isoformat() if job.created_date else None,
+            **_latest_step_counts(job_id),
         }
 
     except HTTPException:

@@ -57,6 +57,9 @@ export type ImportSummary = {
     warning?: string | null;
     /** Failed tasks grouped by step and reason, most common first. */
     problems?: { step: string; reason: string; count: number }[];
+    /** Latest per-step counters, also sent live (the summary can't miss them). */
+    step_counts?: StepCounts;
+    step_totals?: StepCounts;
 };
 
 // Remaining-time estimate: completion rate over a sliding window, smoothed so
@@ -165,6 +168,8 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
             const response = await apiClient.get<ImportSummary>(`/export/job/${id}/summary`);
             const next = response.data;
             setSummary(next);
+            if (next.step_counts) setStepCounts(next.step_counts);
+            if (next.step_totals) setStepTotals(next.step_totals);
             setConnectionIssue(false);
             if (TERMINAL_STATUSES.has(next.derived_status)) {
                 setStatus(next.derived_status === "completed" ? "success" : "error");
@@ -226,6 +231,21 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
         return () => window.removeEventListener(DISMISS_EVENT, handler);
     }, [jobId]);
 
+    // Elapsed time from the job's start on the server, ticking while it runs.
+    // (The importer's own events start late and stop once every image is
+    // sent to the plugins, while their results keep arriving.)
+    const startedAt = summary?.created_at;
+    useEffect(() => {
+        if (!startedAt || status !== "running") return;
+        const iso = /[zZ]|[+-]\d\d:?\d\d$/.test(startedAt) ? startedAt : `${startedAt}Z`;
+        const start = Date.parse(iso);
+        if (Number.isNaN(start)) return;
+        const tick = () => setElapsedMs(Math.max(0, Date.now() - start));
+        tick();
+        const timer = setInterval(tick, 1000);
+        return () => clearInterval(timer);
+    }, [startedAt, status]);
+
     // Socket.IO: join the job room, listen for live progress events.
     // Depend on `socketConnected` so a reconnect re-runs the effect and
     // re-emits join_job_room — server-side room membership is dropped on
@@ -246,7 +266,6 @@ export function useImportJobProgress(jobNamePrefix = "Import:"): UseImportJobPro
                 fetchSummary(jobId);
                 if (data.step_counts) setStepCounts(data.step_counts);
                 if (data.step_totals) setStepTotals(data.step_totals);
-                if (data.elapsed_ms !== undefined) setElapsedMs(data.elapsed_ms);
             }
         });
         return () => {

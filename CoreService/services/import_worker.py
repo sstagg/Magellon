@@ -163,6 +163,14 @@ def _maintenance() -> None:
             stale_jobs.fail_stale_queued()
         except Exception:
             logger.warning("stale plugin-job check failed", exc_info=True)
+        try:
+            stale_jobs.repeat_recent_cancels()
+        except Exception:
+            logger.warning("repeating cancels of stopped imports failed", exc_info=True)
+        try:
+            stale_jobs.settle_stuck_import_tasks()
+        except Exception:
+            logger.warning("settling stuck import tasks failed", exc_info=True)
         # Nightly removal of finished scratch folders in the jobs directory.
         jobs_cleanup.run_if_due()
 
@@ -206,6 +214,12 @@ def main() -> None:
     logger.info("Import worker %s ready: %d slot(s); queue: %d waiting, %d running elsewhere",
                 name, import_queue.MAX_CONCURRENT_IMPORTS, stats["waiting"], stats["running"])
 
+    try:
+        # Maintenance repeats stopped imports' cancels to the plugins.
+        from core.dispatcher_registry import install_core_bus
+        install_core_bus()
+    except Exception:
+        logger.warning("message bus not available; cancels of stopped imports won't be repeated", exc_info=True)
     threading.Thread(target=_maintenance, name="maintenance", daemon=True).start()
     slots = [threading.Thread(target=_slot, args=(f"{name}/{i}",), name=f"slot-{i}", daemon=True)
              for i in range(import_queue.MAX_CONCURRENT_IMPORTS)]

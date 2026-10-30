@@ -466,11 +466,13 @@ class JobManager:
             job = self._get_or_404(db, job_id, lock=True)
             processed = dict(job.processed_json or {})
             completed = list(processed.get("completed_tasks") or [])
-            if task_id not in completed:
-                completed.append(task_id)
             failures = dict(processed.get("failed_tasks") or {})
             if failed:
                 failures[task_id] = {"step": step or "task", "reason": (reason or "task failed")[:500]}
+            # A task with several plugin steps (CTF and MotionCor) is
+            # finished only when all of them have reported.
+            if self._tick_task_step(db, task_id, step, task_failed=task_id in failures) and task_id not in completed:
+                completed.append(task_id)
             processed["completed_tasks"] = completed
             processed["failed_tasks"] = failures
             expected = self._expected_tasks(db, job, processed)
@@ -483,6 +485,55 @@ class JobManager:
             "completed": len(completed), "expected": expected, "failed": len(failures),
             "progress_pct": processed["progress"], "settled": settled,
         }
+
+    @staticmethod
+    def _tick_task_step(db: Session, task_id: str, step: Optional[str], *, task_failed: bool) -> bool:
+        """Tick ``step`` off the task's pending plugin steps; True once none
+        are left (or the task never listed any). The task row's status
+        follows: running while steps are pending, then completed or failed."""
+        try:
+            task = (db.query(ImageJobTask).filter(ImageJobTask.oid == uuid.UUID(str(task_id)))
+                    .with_for_update().first()) if task_id else None
+        except ValueError:
+            task = None
+        pending = ((task.processed_json or {}).get("pending_steps") if task is not None else None)
+        if pending is None:
+            return True
+        key = (step or "").lower()
+        # A report that doesn't name its step can't tick one off; the
+        # result processor's report for the same result does.
+        pending = [s for s in pending if s != key]
+        task.processed_json = {**(task.processed_json or {}), "pending_steps": pending}
+        task.status_id = STATUS_RUNNING if pending else (STATUS_FAILED if task_failed else STATUS_COMPLETED)
+        return not pending
+
+    def expect_task_steps(self, task_id: str, steps) -> None:
+        """Before an importer sends an image to its plugins: the steps whose
+        results its task waits for (e.g. ["ctf", "motioncor"])."""
+        with session_local() as db:
+            task = db.query(ImageJobTask).filter(ImageJobTask.oid == uuid.UUID(str(task_id))).first()
+            if task is not None:
+                task.processed_json = {**(task.processed_json or {}), "pending_steps": [s.lower() for s in steps]}
+                db.commit()
+
+    def skip_task_steps(self, job_id: str, task_id: str, steps) -> None:
+        """Steps that weren't sent after all (skipped, or couldn't start):
+        nothing will report them, so tick them off now."""
+        for step in steps:
+            self.record_task_finished(job_id, task_id, step=step)
+
+    def record_task_problem(self, job_id: str, task_id: str, *, step: str, reason: str) -> None:
+        """Keep a failed step's reason on the job for a task whose other steps
+        are still running (e.g. its movie wasn't found but CTF was sent); the
+        task finishes when they report back."""
+        with session_local() as db:
+            job = self._get_or_404(db, job_id, lock=True)
+            processed = dict(job.processed_json or {})
+            failures = dict(processed.get("failed_tasks") or {})
+            failures[task_id] = {"step": step, "reason": reason[:500]}
+            processed["failed_tasks"] = failures
+            job.processed_json = processed
+            db.commit()
 
     def settle_if_done(self, job_id: str) -> Optional[str]:
         """Settle a job whose tasks have all finished (used at startup for jobs

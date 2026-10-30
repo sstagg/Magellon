@@ -8,6 +8,7 @@ import logging
 from sqlalchemy import text
 
 from core.helper import dispatch_ctf_task, dispatch_motioncor_task, find_matching_file
+from services import import_task_problems
 from models.pydantic_models import ImportTaskDto
 from models.sqlalchemy_models import Msession, Image, Project, Atlas
 from services.atlas import create_atlas_images
@@ -228,12 +229,25 @@ class MagellonImporter(BaseImporter):
             self.compute_fft_png_task(task_dto.image_path, self.file_service.target_directory)
             self._step_counts["fft"] += 1
 
-            if self.compute_ctf_task(task_dto.image_path, task_dto):
+            # Steps that couldn't reach their plugin fail now (nothing would
+            # ever report them); an image with nothing sent is done now.
+            problems = []
+            ctf_sent = self.compute_ctf_task(task_dto.image_path, task_dto)
+            if ctf_sent:
                 self._step_counts["ctf"] += 1
+            elif task_dto.pixel_size and task_dto.pixel_size * 10 ** 10 <= 5:
+                problems.append(("CTF", "Could not send the image to the CTF plugin"))
 
-            if self.compute_motioncor_task(task_dto.image_path, task_dto):
+            motioncor_sent = self.compute_motioncor_task(task_dto.image_path, task_dto)
+            if motioncor_sent:
                 self._step_counts["motioncor"] += 1
+            elif getattr(self, "_motioncor_problem", None):
+                problems.append(("MotionCor", self._motioncor_problem))
 
+            import_task_problems.report(
+                task_dto, problems, sent=ctf_sent or motioncor_sent,
+                logged=self.__dict__.setdefault("_logged_problems", set()),
+                session=getattr(getattr(self, "db_msession", None), "name", None) or "?")
             self._emit_step_progress()
             return {'status': 'success', 'message': 'Task completed successfully.'}
 
@@ -321,8 +335,7 @@ class MagellonImporter(BaseImporter):
     def compute_ctf_task(self, abs_file_path: str, task_dto: ImportTaskDto) -> bool:
         try:
             if (task_dto.pixel_size * 10 ** 10) <= 5:
-                dispatch_ctf_task(task_dto.task_id, abs_file_path, task_dto)
-                return True
+                return bool(dispatch_ctf_task(task_dto.task_id, abs_file_path, task_dto))
         except Exception as e:
             logger.error("CTF dispatch failed for %s: %s", abs_file_path, e)
         return False
@@ -331,7 +344,10 @@ class MagellonImporter(BaseImporter):
         """Dispatch a MotionCor task for this image. Returns True iff the
         message was pushed to the queue (image has a frame_name AND a
         matching frame file exists AND dispatch succeeded)."""
+        self._motioncor_problem = None
         if not self._has_motioncor_input(task_dto):
+            if task_dto.frame_name:
+                self._motioncor_problem = f"Movie not found: {task_dto.frame_name}"
             return False
         try:
             settings = {
@@ -358,6 +374,7 @@ class MagellonImporter(BaseImporter):
 
             if not source_gains_file:
                 logger.warning("MotionCor skipped for %s: no gain reference found", abs_file_path)
+                self._motioncor_problem = "No gain reference found"
                 return False
 
             defects_path = None
@@ -368,7 +385,7 @@ class MagellonImporter(BaseImporter):
             if not defects_path:
                 defects_path = self._find_defects_reference()
 
-            return bool(dispatch_motioncor_task(
+            sent = bool(dispatch_motioncor_task(
                 task_id=task_dto.task_id,
                 gain_path=source_gains_file,
                 defects_path=defects_path,
@@ -376,8 +393,12 @@ class MagellonImporter(BaseImporter):
                 task_dto=task_dto,
                 motioncor_settings=settings,
             ))
+            if not sent:
+                self._motioncor_problem = "Could not send the movie to the MotionCor plugin"
+            return sent
         except Exception as e:
             logger.error("MotionCor dispatch failed for %s: %s", abs_file_path, e)
+            self._motioncor_problem = str(e)
             return False
 
     def create_magellon_atlas(self, db_session: Session ):

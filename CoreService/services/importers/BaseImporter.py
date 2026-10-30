@@ -37,6 +37,8 @@ from services.importers.post_import_steps import (
 from services.atlas import create_atlas_images as build_atlas_images
 from services.mrc_image_service import MrcImageService
 from services.file_service import copy_file, check_file_exists
+from services import import_task_problems
+from core.file_utils import find_matching_file
 logger = logging.getLogger(__name__)
 
 
@@ -56,6 +58,10 @@ class FileError(ImportError):
 class TaskFailedException(Exception):
     pass
 
+# Names of the recipe's plugin steps as they appear in problems and logs.
+_STEP_LABELS = {"ctf": "CTF", "motioncor": "MotionCor", "topaz_pick": "Topaz", "topaz_denoise": "Denoise"}
+
+
 def _sent_to_plugin(results: Dict[str, Any], steps) -> bool:
     """Whether any of these recipe steps dispatched work to a plugin."""
     for name in steps:
@@ -67,27 +73,6 @@ def _sent_to_plugin(results: Dict[str, Any], steps) -> bool:
             continue
         return True
     return False
-
-
-def _finish_local_task(task_dto: Any) -> None:
-    """Mark an import task done that has no plugin work to wait for."""
-    from database import session_local
-    from services.job_manager import job_manager
-
-    task_id, job_id = getattr(task_dto, "task_id", None), getattr(task_dto, "job_id", None)
-    if not task_id or not job_id:
-        return
-    db = session_local()
-    try:
-        db.query(ImageJobTask).filter(ImageJobTask.oid == task_id).update(
-            {ImageJobTask.status_id: 2}, synchronize_session=False)
-        db.commit()
-    finally:
-        db.close()
-    try:
-        job_manager.record_task_finished(str(job_id), str(task_id))
-    except LookupError:
-        pass
 
 
 class BaseImporter(ABC):
@@ -694,7 +679,8 @@ class BaseImporter(ABC):
 
             # Dispatch CTF task
             task_id = getattr(task_dto, 'task_id', uuid.uuid4())
-            dispatch_ctf_task(task_id, abs_file_path, task_dto)
+            if not dispatch_ctf_task(task_id, abs_file_path, task_dto):
+                return {"error": "Could not send the image to the CTF plugin"}
             return {"message": f"CTF computation dispatched for {abs_file_path}"}
 
         except Exception as e:
@@ -826,6 +812,12 @@ class BaseImporter(ABC):
                 motioncor_settings=settings
             )
             logger.info("[MOTIONCOR-7] dispatch_motioncor_task returned: %r", ok)
+            if not ok:
+                frame_path, frame_name = getattr(task_dto, 'frame_path', None), getattr(task_dto, 'frame_name', None)
+                if frame_name and not (frame_path and find_matching_file(os.path.dirname(frame_path), frame_name)):
+                    return {"error": f"Movie not found: {frame_name}"
+                                     + (f" (looked in {os.path.dirname(frame_path)})" if frame_path else "")}
+                return {"error": "Could not send the movie to the MotionCor plugin"}
 
             return {"message": f"Motion correction dispatched for {abs_file_path}"}
 
@@ -962,12 +954,17 @@ class BaseImporter(ABC):
         """Run a named activity recipe for a single imported image."""
         pipeline = ImportTaskPipeline(recipe)
         results = pipeline.run(self, task_dto, image_path=image_path).results
-        if not _sent_to_plugin(results, ("ctf", "motioncor", "topaz_pick", "topaz_denoise")):
-            # Nothing was sent to a plugin for this image (an atlas / grid /
-            # foil-hole overview: no movie, and CTF skipped for its pixel
-            # size), so nothing will ever report it; it's done once its
-            # pictures are. Otherwise its job never settles.
-            _finish_local_task(task_dto)
+        plugin_steps = ("ctf", "motioncor", "topaz_pick", "topaz_denoise")
+        # Steps that couldn't reach their plugin fail now: nothing would ever
+        # report them. With nothing sent at all (an atlas / grid / foil-hole
+        # overview, or every step failed to start) the image is done once
+        # its pictures are; otherwise its job never settles.
+        problems = [(_STEP_LABELS[name], str(results[name]["error"])) for name in plugin_steps
+                    if isinstance(results.get(name), dict) and "error" in results[name]]
+        import_task_problems.report(
+            task_dto, problems, sent=_sent_to_plugin(results, plugin_steps),
+            logged=self.__dict__.setdefault("_logged_problems", set()),
+            session=self.get_session_name() or "?")
         return results
 
     def run_tasks(self, task_list: List[Any] = None) -> None:

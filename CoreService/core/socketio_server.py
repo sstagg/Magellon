@@ -20,6 +20,9 @@ _asgi_loop: Optional[asyncio.AbstractEventLoop] = None
 
 # Latest import_progress payload per job_id — used to replay on reconnect.
 _import_progress_cache: dict[str, dict] = {}
+# Latest per-step counters of each import, for the progress summary (polled):
+# the live events can be missed, these can't.
+_step_progress_cache: dict[str, dict] = {}
 
 
 def set_asgi_loop(loop: asyncio.AbstractEventLoop) -> None:
@@ -497,6 +500,8 @@ def schedule_import_progress(job_id: str, data: dict) -> None:
     clients receive the most recent progress snapshot via ``join_job_room``.
     """
     _import_progress_cache[str(job_id)] = data
+    if data.get("event") == "step_progress":
+        _step_progress_cache[str(job_id)] = data
     if _asgi_loop is None:
         return
     coro = sio.emit("import_progress", data, room=_job_room(str(job_id)))

@@ -14,6 +14,8 @@ from config import FFT_SUB_URL, IMAGE_SUB_URL, MAGELLON_GPFS_DIR, MAGELLON_HOME_
     FFT_SUFFIX, FRAMES_SUFFIX, app_settings, ATLAS_SUB_URL, CTF_SUB_URL, FAO_SUB_URL, GAINS_SUB_URL, DEFECTS_SUB_URL
 
 from core.helper import dispatch_ctf_task, dispatch_motioncor_task
+from core.file_utils import find_matching_file
+from services import import_task_problems
 from models.pydantic_models import LeginonFrameTransferJobDto, LeginonFrameTransferTaskDto, ImportTaskDto
 from models.sqlalchemy_models import Image, Project, Msession, ImageJob, ImageJobTask, Atlas
 from services.atlas import create_atlas_images
@@ -173,6 +175,8 @@ class LeginonFrameTransferJobService:
         self._step_totals: dict = {}
         self._step_start_time = datetime.now()
         self._step_sent_at = 0.0
+        # Kinds of problem already shown in the Logs panel for this import.
+        self._logged_problems: set = set()
 
     def setup(self, input_json: str):
         input_data = json.loads(input_json)
@@ -585,7 +589,7 @@ class LeginonFrameTransferJobService:
             self._emit_step_progress(force=True)
             # Iterate over each task in the task list and run it synchronously
             for task in tasks:
-                self.run_task(task,magellon_session)
+                self.run_task(task, magellon_session)
             self._emit_step_progress(force=True)
             self.create_atlas_pics(self.params.session_name, db_session,magellon_session)
         except Exception as e:
@@ -595,46 +599,92 @@ class LeginonFrameTransferJobService:
 
 
 
-    def run_task(self, task_dto: LeginonFrameTransferTaskDto,magellon_session :Msession) -> Dict[str, str]:
+    def run_task(self, task_dto: LeginonFrameTransferTaskDto, magellon_session: Msession = None) -> Dict[str, str]:
+        """Process one image: its pictures, then its plugin steps."""
+        self._send_to_plugins(task_dto, self._make_pictures(task_dto))
+        return {'status': 'success', 'message': 'Task completed successfully.'}
+
+    def _make_pictures(self, task_dto: LeginonFrameTransferTaskDto) -> list:
+        """Picture, thumbnail and FFT of one image.
+        The movie is copied into the session only when the import asked
+        for it (to export the session); plugins read it where it is.
+        Returns the problems met."""
+        problems = []
         try:
-            # 1: the movie is copied into the session only when the import asked
-            # for it (to export the session); plugins read it where it is.
             if task_dto.job_dto.copy_frames:
-                self.transfer_frame(task_dto)
-            # 2
+                try:
+                    self.copy_frame(task_dto)
+                except Exception as e:
+                    problems.append(("Copy movie", str(e)))
             if task_dto.job_dto.copy_images:
                 target_image_path = task_dto.job_dto.target_directory + "/" + ORIGINAL_IMAGES_SUB_URL + task_dto.image_name
                 copy_file(task_dto.image_path, target_image_path)
                 task_dto.image_path = target_image_path
+            for step, make in (("png", self.convert_image_to_png_task), ("fft", self.compute_fft_png_task)):
+                result = make(task_dto.image_path, task_dto.job_dto.target_directory) or {}
+                if "error" in result:
+                    problems.append(("Pictures", result["error"]))
+                self._step_counts[step] += 1
+        except Exception as e:  # one bad image mustn't stop the import
+            problems.append(("Pictures", str(e)))
+        return problems
 
-            # Generate FFT using the REST API
-            self.convert_image_to_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
-            self._step_counts["png"] += 1
-            self.compute_fft_png_task(task_dto.image_path, task_dto.job_dto.target_directory)
-            self._step_counts["fft"] += 1
-            ctf = self.compute_ctf_task(task_dto.image_path, task_dto)
-            if "on the way" in (ctf or {}).get("message", ""):
+    def _send_to_plugins(self, task_dto: LeginonFrameTransferTaskDto, problems: list) -> None:
+        """Send one image's CTF and MotionCor to their plugins. Steps that
+        can't be sent fail now: nothing would ever report them, and the
+        import would never finish."""
+        from services.job_manager import job_manager
+        problems = list(problems)
+        ctf_sent = motioncor_sent = False
+        # The task waits for each step it sends; listed before sending, as a
+        # fast result could otherwise arrive first. Unsent ones are dropped below.
+        steps = ["ctf"] + (["motioncor"] if task_dto.frame_name else [])
+        try:
+            job_manager.expect_task_steps(str(task_dto.task_id), steps)
+        except Exception:
+            logger.debug("could not record the task's steps", exc_info=True)
+        try:
+            ctf = self.compute_ctf_task(task_dto.image_path, task_dto) or {}
+            ctf_sent = "on the way" in ctf.get("message", "")
+            if ctf_sent:
                 self._step_counts["ctf"] += 1
+            elif "error" in ctf:
+                problems.append(("CTF", ctf["error"]))
 
             if task_dto.frame_name:
-                motioncor = self.compute_motioncor_task(task_dto.image_path, task_dto)
-                if "on the way" in (motioncor or {}).get("message", ""):
+                motioncor = self.compute_motioncor_task(task_dto.image_path, task_dto) or {}
+                motioncor_sent = "on the way" in motioncor.get("message", "")
+                if motioncor_sent:
                     self._step_counts["motioncor"] += 1
-                self._emit_step_progress()
-            elif "on the way" not in (ctf or {}).get("message", ""):
-                # Nothing was sent to a plugin for this image (an atlas/grid
-                # overview: no movie, and CTF skipped for its pixel size), so
-                # nothing will ever report it; it's done once its pictures are.
-                self._finish_local_task(task_dto)
-                self._emit_step_progress()
-            else:
-                self._emit_step_progress()
-
-            return {'status': 'success', 'message': 'Task completed successfully.'}
-
+                else:
+                    problems.append(("MotionCor", motioncor.get("error") or "MotionCor was not started"))
         except Exception as e:
-            raise TaskFailedException(f"Task failed with error: {str(e)}")
-            # return {'status': 'failure', 'message': f'Task failed with error: {str(e)}'}
+            problems.append(("Import", str(e)))
+
+        unsent = [step for step, sent in (("ctf", ctf_sent), ("motioncor", motioncor_sent))
+                  if step in steps and not sent]
+        try:
+            job_manager.skip_task_steps(str(task_dto.job_id), str(task_dto.task_id), unsent)
+        except LookupError:
+            pass
+        # With nothing sent to a plugin (e.g. an atlas overview, or every
+        # step failed to start) nothing will ever report this image: it's
+        # done once its pictures are.
+        import_task_problems.report(
+            task_dto, problems, sent=ctf_sent or motioncor_sent, logged=self._logged_problems,
+            session=self.params.magellon_session_name or self.params.session_name)
+        self._emit_step_progress()
+
+    def copy_frame(self, task_dto) -> None:
+        """Copy the image's movie into the session's frames folder."""
+        if not task_dto.frame_name:
+            return
+        frame_dir = os.path.dirname(task_dto.frame_path) if task_dto.frame_path else self.params.camera_directory
+        frame_path = check_file_exists(frame_dir, task_dto.frame_name) if frame_dir else None
+        if frame_path:
+            _, file_extension = os.path.splitext(frame_path)
+            copy_file(frame_path, os.path.join(task_dto.job_dto.target_directory, FRAMES_SUB_URL,
+                                               task_dto.file_name + FRAMES_SUFFIX + file_extension))
 
     def _emit_step_progress(self, force: bool = False) -> None:
         """Send the per-step counters to the progress window (best effort,
@@ -656,37 +706,6 @@ class LeginonFrameTransferJobService:
             })
         except Exception:
             pass
-
-    def _finish_local_task(self, task_dto) -> None:
-        from database import session_local
-        from services.job_manager import job_manager
-        db = session_local()
-        try:
-            db.query(ImageJobTask).filter(ImageJobTask.oid == task_dto.task_id).update(
-                {ImageJobTask.status_id: 2}, synchronize_session=False)
-            db.commit()
-        finally:
-            db.close()
-        try:
-            job_manager.record_task_finished(str(task_dto.job_id), str(task_dto.task_id))
-        except LookupError:
-            pass
-
-    def transfer_frame(self, task_dto):
-        try:
-            # copy frame if exists
-            if task_dto.frame_name:
-                frame_dir = (os.path.dirname(task_dto.frame_path) if task_dto.frame_path
-                             else self.params.camera_directory)
-                frame_path = check_file_exists(frame_dir, task_dto.frame_name)
-
-                if frame_path:
-                    _, file_extension = os.path.splitext(frame_path)
-                    target_path = os.path.join(task_dto.job_dto.target_directory, FRAMES_SUB_URL,
-                                               task_dto.file_name + FRAMES_SUFFIX + file_extension)
-                    copy_file(frame_path, target_path)
-        except Exception as e:
-            print(f"An error occurred during frame transfer: {e}")
 
     def open_leginon_connection(self):
         if self.leginon_db_connection is None:
@@ -753,7 +772,8 @@ class LeginonFrameTransferJobService:
                 logger.warning(f"Skipping CTF: acceleration voltage {acceleration_voltage} is out of range (should be 100-400 kV)")
                 return {"message": f"Skipping CTF computation (invalid acceleration voltage {acceleration_voltage})"}
             
-            dispatch_ctf_task(task_dto.task_id, abs_file_path, task_dto)
+            if not dispatch_ctf_task(task_dto.task_id, abs_file_path, task_dto):
+                return {"error": "Could not send the image to the CTF plugin"}
             return {"message": "Converting to ctf on the way! " + abs_file_path}
 
         except Exception as e:
@@ -777,7 +797,14 @@ class LeginonFrameTransferJobService:
                 if not gain_path:
                     raise FileNotFoundError(f"Gains file not configured for session '{task_dto.job_dto.session_name}'. Ensure a gains file was uploaded or placed under GPFS for the session.")
 
-                dispatch_motioncor_task(
+                frame_dir = (os.path.dirname(task_dto.frame_path) if task_dto.frame_path
+                             else self.params.camera_directory)
+                if not frame_dir or not find_matching_file(frame_dir, task_dto.frame_name):
+                    searched = self.params.frames_directory or frame_dir
+                    return {"error": f"Movie not found: {task_dto.frame_name} (looked in {searched}"
+                                     + (" and its subfolders)" if self.params.frames_directory else ")")}
+
+                sent = dispatch_motioncor_task(
                     task_id=task_dto.task_id,
                     gain_path=gain_path,
                     full_image_path=abs_file_path,
@@ -785,6 +812,8 @@ class LeginonFrameTransferJobService:
                     defects_path=defects_path,
                     motioncor_settings=settings
                 )
+                if not sent:
+                    return {"error": "Could not send the movie to the MotionCor plugin"}
 
                 return {"message": f"Converting to motioncor on the way! {abs_file_path}"}
 

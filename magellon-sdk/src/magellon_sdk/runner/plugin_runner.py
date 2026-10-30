@@ -183,6 +183,22 @@ class PluginBrokerRunner:
         self._apply_pending_config()
 
         task = self._task_from_envelope(envelope)
+
+        # A task still queued when its job was cancelled (e.g. a stopped
+        # import) is skipped, not run: otherwise the plugin works through
+        # every queued task of the job before the next job's tasks get a turn.
+        from magellon_sdk.bus.services.cancel_registry import get_cancel_registry
+        if task.job_id is not None and get_cancel_registry().is_cancelled(task.job_id):
+            logger.info(
+                "PluginBrokerRunner[%s]: skipping task %s of cancelled job %s",
+                self.plugin.get_info().name, task.id, task.job_id,
+            )
+            result = self._build_cancelled_result(task, "job cancelled before this task started")
+            self._stamp_provenance(result)
+            self._stamp_subject(task, result)
+            self._publish_result(result)
+            return
+
         validated = self.plugin.input_schema().model_validate(task.data)
 
         token = set_active_task(task)
