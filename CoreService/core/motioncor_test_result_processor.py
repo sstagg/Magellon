@@ -3,19 +3,26 @@ Result processor for single-file test tasks (Run Processing Jobs page).
 
 Listens to the MotionCor and CTF test output queues and broadcasts each
 result to the WebSocket clients waiting on that task. Nothing is stored in
-the database: the outputs stay in the task's scratch folder under /jobs.
+the database: the outputs stay in the task's scratch folder under /jobs, except
+MotionCor's run log, which is kept in the home folder.
 """
 import asyncio
 import json
 import logging
+import os
 import threading
 from datetime import datetime
 
-from config import app_settings
+from config import MAGELLON_HOME_DIR, app_settings
 from magellon_sdk.bus.binders.rmq._client import RabbitmqClient
 from services.motioncor_test_service import broadcast_to_task_connections
+from services.task_output_processor import _move_file_to_directory
 
 logger = logging.getLogger(__name__)
+
+RUN_LOG_OUTPUT = "motioncorRunLog"
+RUN_LOG_SUFFIX = "_motioncor.log"
+TEST_SESSION_DIR = "testing"
 
 # The web server's event loop; the WebSockets belong to it, so results are
 # sent from there (set by result_consumer_engine at startup).
@@ -30,14 +37,32 @@ def _broadcast(task_id, message) -> None:
         asyncio.run(coro)
 
 
+def _keep_run_logs(output_files: list) -> None:
+    """Move each MotionCor run log to <home>/testing/fao/<image>/, laid out as
+    an import's logs are, since the task's scratch folder is cleaned nightly.
+    Always under "testing", so a test never lands in a real session's results."""
+    for output_file in output_files:
+        if not isinstance(output_file, dict) or output_file.get("name") != RUN_LOG_OUTPUT:
+            continue
+        path = output_file.get("path")
+        if not path:
+            continue
+        name = os.path.basename(path)
+        folder = os.path.join(MAGELLON_HOME_DIR, TEST_SESSION_DIR, "fao", name.removesuffix(RUN_LOG_SUFFIX))
+        if _move_file_to_directory(path, folder):
+            output_file["path"] = os.path.join(folder, name)
+
+
 def process_result_message(ch, method, properties, body):
-    """Broadcast one test result to the task's WebSocket clients, then ack."""
+    """Keep the result's run log, broadcast the result to the task's WebSocket
+    clients, then ack."""
     try:
         result_dict = json.loads(body.decode("utf-8"))
         # TaskResultMessage carries task_id; fall back to id.
         task_id = str(result_dict.get("task_id") or result_dict.get("id"))
-        output_files = result_dict.get("output_files", [])
+        output_files = result_dict.get("output_files") or []
         logger.info("Test result for task %s: %d output file(s)", task_id, len(output_files))
+        _keep_run_logs(output_files)
         _broadcast(task_id, {
             "type": "result",
             "task_id": task_id,

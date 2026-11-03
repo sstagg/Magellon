@@ -30,6 +30,45 @@ def motioncor_errors(*outputs: str) -> str:
                 found.append(message)
     return "; ".join(found)
 
+
+def add_to_run_log(log_path: str | None, text: str) -> None:
+    """Add to the movie's run log. A log that can't be written must never be
+    the reason a movie fails."""
+    if not log_path:
+        return
+    try:
+        with open(log_path, "a", errors="replace") as log:
+            log.write(text if text.endswith("\n") else text + "\n")
+    except OSError as e:
+        logger.warning("Could not write %s: %s", log_path, e)
+
+
+def run_and_log(command: str, log_path: str) -> tuple[int, str]:
+    """Run the command, writing each line it prints to the log as it appears,
+    so the log can be followed during the run and survives a crash. Returns
+    the exit code and the output. stdbuf stops the program holding its output
+    back until its buffer fills, which it does when not writing to a terminal."""
+    add_to_run_log(log_path, f"Command:\n{command}\n\nOutput:")
+    lines = []
+    with open(log_path, "a", buffering=1, errors="replace") as log:
+        process = subprocess.Popen(
+            f"stdbuf -oL -eL {command}",
+            cwd=os.getcwd(),
+            shell=True,
+            text=True,
+            errors="replace",
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        for line in process.stdout:
+            log.write(line)
+            lines.append(line)
+        return_code = process.wait()
+        log.write(f"\nExit code: {return_code}\nFinished: {datetime.now().isoformat(timespec='seconds')}\n")
+    return return_code, "".join(lines).strip()
+
+
 def _container_path(path: str | None) -> str | None:
     if not path:
         return path
@@ -43,13 +82,22 @@ def _container_path(path: str | None) -> str | None:
 
 
 async def do_motioncor(params: TaskMessage)->TaskResultMessage:
-    
+
+    log_path = None
     try:
-        
+
         d = DebugInfo()
         logger.info(f"Starting task {params.id} ")
         the_task_data = MotionCorInput.model_validate(params.data)
         print(the_task_data)
+        directory_path = os.path.join(AppSettingsSingleton.get_instance().JOBS_DIR, str(the_task_data.image_id))
+        os.makedirs(directory_path, exist_ok=True)
+        log_name = os.path.splitext(os.path.basename(the_task_data.image_name or str(the_task_data.image_id)))[0]
+        log_path = os.path.join(directory_path, f"{log_name}_motioncor.log")
+        with open(log_path, "w") as log:
+            log.write(f"Image: {the_task_data.image_name}\nTask: {params.id}\n"
+                      f"Movie: {the_task_data.inputFile}\nGain: {the_task_data.Gain}\n"
+                      f"Started: {datetime.now().isoformat(timespec='seconds')}\n\n")
         if not validateInput(the_task_data):
             raise Exception("Validation failed.")
         the_task_data.inputFile = _container_path(the_task_data.inputFile.strip())
@@ -85,9 +133,7 @@ async def do_motioncor(params: TaskMessage)->TaskResultMessage:
         d.line5 = the_task_data.inputFile
         d.line6 = the_task_data.image_path
         push_info_to_debug_queue(d)
-        directory_path = os.path.join(AppSettingsSingleton.get_instance().JOBS_DIR, str(the_task_data.image_id))
         print("directory path",directory_path)
-        os.makedirs(directory_path, exist_ok=True)
         host_file_path = os.path.join(
             AppSettingsSingleton.get_instance().HOST_JOBS_DIR,
             str(the_task_data.image_id),
@@ -103,34 +149,22 @@ async def do_motioncor(params: TaskMessage)->TaskResultMessage:
             save_gain_file(the_task_data.Gain,directory_path)
         command = build_motioncor3_command(the_task_data)
         logger.info("Command: %s", command)
-        process = subprocess.run(
-            os.path.join(os.getcwd(),command),
-            cwd=os.getcwd(),
-            shell=True,
-            text=True,
-            check=False,
-            executable="/bin/bash",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        output = process.stdout.strip()
-        error_output = process.stderr.strip()
-        return_code = process.returncode
-        mc_errors = motioncor_errors(output, error_output)
+        return_code, output = run_and_log(os.path.join(os.getcwd(),command), log_path)
+        mc_errors = motioncor_errors(output)
         print(output)
-        print(error_output)
+        run_log = OutputFile(name="motioncorRunLog", path=log_path, required=False)
         if return_code != 0:
-            logger.error(f"MotionCor3 error: {process.stderr.strip()}")
+            logger.error(f"MotionCor3 error: {output[-2000:]}")
             from magellon_sdk.models import TaskStatus, FAILED
             return TaskResultMessage(
                 worker_instance_id=params.worker_instance_id, task_id=params.id,
                 job_id=params.job_id, image_id=params.data["image_id"],
                 image_path=params.data["image_path"], session_name=params.session_name,
-                code=500, message="MotionCor3 execution failed", description=mc_errors or process.stderr.strip(),
+                code=500, message="MotionCor3 execution failed", description=mc_errors or output[-2000:],
                 status=FAILED, type=params.type, created_date=datetime.now(),
-                started_on=params.start_on, ended_on=datetime.now(), meta_data=[], output_files=[]
+                started_on=params.start_on, ended_on=datetime.now(), meta_data=[], output_files=[run_log]
             )
-        output_files=[]
+        output_files=[run_log]
         meta_data=[]
         output_data={}
         print(directory_path)
@@ -212,6 +246,7 @@ async def do_motioncor(params: TaskMessage)->TaskResultMessage:
             )
     except Exception as e:
         logger.error(f"An error occurred in Motioncor processing: {str(e)}")
+        add_to_run_log(log_path, f"\nFailed: {e}")
         from magellon_sdk.models import FAILED
         return TaskResultMessage(
             worker_instance_id=params.worker_instance_id,
@@ -229,5 +264,6 @@ async def do_motioncor(params: TaskMessage)->TaskResultMessage:
             started_on=params.start_on,
             ended_on=datetime.now(),
             meta_data=[],
-            output_files=[]
+            output_files=[OutputFile(name="motioncorRunLog", path=log_path, required=False)]
+            if log_path and os.path.exists(log_path) else []
         )

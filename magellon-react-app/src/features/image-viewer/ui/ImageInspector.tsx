@@ -43,7 +43,7 @@ import { useImageParticlePickings, useUpdateParticlePicking } from "../../../fea
 import type { ParticlePickingDto } from "../../../entities/particle-picking/types.ts";
 import { useFetchImageCtfInfo } from "../../../features/ctf-analysis/api/CtfRestService.ts";
 import MetadataExplorer from "./MetadataExplorer.tsx";
-import { useFetchImageMetaData } from "../api/ImageMetaDataRestService.ts";
+import { useFetchFaoCommand, useFetchImageMetaData } from "../api/ImageMetaDataRestService.ts";
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
 import {ParticlePickingTab} from "./ParticlePickingTab.tsx";
 import { useAuthenticatedImage } from '../../../shared/lib/useAuthenticatedImage.ts';
@@ -136,6 +136,7 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
         ? `${BASE_URL}/fao_image?image_type=two&name=${encodeURIComponent(selectedImage.name)}&sessionName=${sessionName}`
         : null;
     const { imageUrl: authenticatedFaoTwoUrl, isLoading: isFaoTwoLoading } = useAuthenticatedImage(faoImageTwoUrl);
+    const { data: faoCommand, isLoading: isFaoCommandLoading, isError: isFaoCommandError } = useFetchFaoCommand(selectedImage?.name, sessionName, isFaoTab);
 
     // Only fetch CTF data when CTF tab is active or has been visited
     const {
@@ -525,6 +526,9 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
                                 isFaoOneLoading={isFaoOneLoading}
                                 faoTwoUrl={authenticatedFaoTwoUrl}
                                 isFaoTwoLoading={isFaoTwoLoading}
+                                command={faoCommand ?? null}
+                                isCommandLoading={isFaoCommandLoading}
+                                isCommandError={isFaoCommandError}
                                 imageStyle={imageStyle}
                                 isMobile={isMobile}
                             />

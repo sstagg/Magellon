@@ -22,6 +22,20 @@ export async function fetchImageMetaData(imageId: string) {
     }
 }
 
+// The MotionCor command behind an image's frame alignment results
+export function useFetchFaoCommand(name: string | undefined, sessionName: string, enabled: boolean = false) {
+    return useQuery({
+        queryKey: ['fao_command', sessionName, name],
+        queryFn: async (): Promise<string | null> => {
+            const response = await apiClient.get(`${BASE_URL}/fao_command`, { params: { name, sessionName } });
+            return response.data.command ?? null;
+        },
+        enabled: !!name && !!sessionName && enabled,
+        staleTime: 60 * 1000,
+        retry: 1,
+    });
+}
+
 // Hook to use the fetchImageMetaData function with react-query
 export function useFetchImageMetaData(imageId: string | undefined, enabled: boolean = false) {
     return useQuery({
