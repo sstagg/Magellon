@@ -126,6 +126,14 @@ def find_movie(movies: dict, frame_name, image_name) -> tuple:
     return (image_name, folder) if folder else (frame_name, None)
 
 
+def recorded_parents(leginon_images) -> dict:
+    """Each image's parent as Leginon recorded it (the image its target was
+    picked on), by file name. Images with no parent in the list are left out."""
+    names = {image["image_id"]: image["filename"] for image in leginon_images}
+    return {image["filename"]: names[image["parent_image_id"]] for image in leginon_images
+            if names.get(image.get("parent_image_id"))}
+
+
 def update_levels(image_list: list[Image], parent_id=None, level=0):
     queue = deque([(image, level) for image in image_list if image.parent_id == parent_id])
 
@@ -252,7 +260,7 @@ class LeginonFrameTransferJobService:
             db_image_list, db_job_item_list, image_dict = self._build_image_records(
                 leginon_image_list, session_result, presets_pattern, job, magellon_session
             )
-            self._link_parent_images(db_image_list, image_dict)
+            self._link_parent_images(db_image_list, image_dict, recorded_parents(leginon_image_list))
             self._check_image_files(db_image_list)
 
             db_session.bulk_save_objects(db_image_list)
@@ -388,6 +396,7 @@ class LeginonFrameTransferJobService:
                 SQRT(ai.pixels) AS dimx,
                 t.`delta row` AS delta_row,
                 t.`delta column` AS delta_column,
+                t.`REF|AcquisitionImageData|image` AS parent_image_id,
                 sem.magnification AS mag,
                 sem.defocus,
                 sem.`SUBD|stage position|a` AS stage_alpha_tilt,
@@ -579,9 +588,12 @@ class LeginonFrameTransferJobService:
 
         return db_image_list, db_job_item_list, image_dict
 
-    def _link_parent_images(self, db_image_list, image_dict):
+    def _link_parent_images(self, db_image_list, image_dict, recorded=None):
+        """Link images to the parent Leginon recorded; without one, to the
+        parent their name implies (which tilt series names don't: "..._00002hl_v02_00002tom2_001"
+        belongs to "..._00002hl_v02")."""
         for db_image in db_image_list:
-            parent_name = db_image.derive_parent_name()
+            parent_name = (recorded or {}).get(db_image.name) or db_image.derive_parent_name()
             if parent_name in image_dict:
                 db_image.parent_id = image_dict[parent_name]
 
