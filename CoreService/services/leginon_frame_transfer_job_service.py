@@ -113,6 +113,19 @@ def index_movies(root: str) -> dict:
     return movies
 
 
+def find_movie(movies: dict, frame_name, image_name) -> tuple:
+    """An image's movie in ``movies`` (see index_movies): its name and folder.
+    Movies are normally named after Leginon's frame name; some sessions' files
+    were renamed after their image instead. The folder is None if not found."""
+    if not frame_name:
+        return None, None
+    folder = movies.get(frame_name) or movies.get(frame_name.split(".")[0])
+    if folder:
+        return frame_name, folder
+    folder = movies.get(image_name)
+    return (image_name, folder) if folder else (frame_name, None)
+
+
 def update_levels(image_list: list[Image], parent_id=None, level=0):
     queue = deque([(image, level) for image in image_list if image.parent_id == parent_id])
 
@@ -497,9 +510,9 @@ class LeginonFrameTransferJobService:
             db_image_list.append(db_image)
             image_dict[filename] = db_image.oid
 
-            frame_name = image.get("frame_names") if self.params.camera_directory else None
-            frame_folder = (self.frame_folders.get(frame_name) or self.frame_folders.get(frame_name.split(".")[0])
-                            if frame_name else None) or self.params.camera_directory
+            frame_name, frame_folder = find_movie(
+                self.frame_folders, image.get("frame_names") if self.params.camera_directory else None, filename)
+            frame_folder = frame_folder or self.params.camera_directory
             source_frame_path = os.path.join(frame_folder, frame_name) if frame_name else None
             if self.images_dir:
                 source_image_path = os.path.join(
@@ -680,7 +693,8 @@ class LeginonFrameTransferJobService:
         if not task_dto.frame_name:
             return
         frame_dir = os.path.dirname(task_dto.frame_path) if task_dto.frame_path else self.params.camera_directory
-        frame_path = check_file_exists(frame_dir, task_dto.frame_name) if frame_dir else None
+        # The movie itself: a file beside it can share its name (x.tif, x.txt).
+        frame_path = find_matching_file(frame_dir, task_dto.frame_name) if frame_dir else None
         if frame_path:
             _, file_extension = os.path.splitext(frame_path)
             copy_file(frame_path, os.path.join(task_dto.job_dto.target_directory, FRAMES_SUB_URL,
@@ -870,10 +884,7 @@ class LeginonFrameTransferJobService:
                 "delta_row": row['delta row'],
                 "delta_column": row['delta column']
             }
-            if label_match in label_objects:
-                label_objects[label_match].append(obj)
-            else:
-                label_objects[""] = [obj]
+            label_objects.setdefault(label_match or "", []).append(obj)
 
         # images = create_atlas_images(session_id, label_objects)
         # Leginon is queried by its session name; the pictures go to the

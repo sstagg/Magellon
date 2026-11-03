@@ -73,6 +73,10 @@ def find_matching_file(base_path, frame_name):
 
     log.info("[MOTIONCOR-9a] find_matching_file: base_path=%r frame_name=%r", base_path, frame_name)
     for ext in extensions_priority:
+        # The exact name first: "x_00002ex*" also matches "x_00002ex_v01".
+        exact = os.path.join(base_path, frame_name + ext)
+        if os.path.isfile(exact):
+            return exact
         pattern = os.path.join(base_path, frame_name + "*" + ext)
         files = glob.glob(pattern)
         log.info("[MOTIONCOR-9b] pattern=%r → matches=%r", pattern, files)
