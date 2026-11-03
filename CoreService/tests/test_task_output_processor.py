@@ -422,7 +422,8 @@ def _make_processor_for_full_process(db_task=None, out_queues=None):
     _get_destination_dir doesn't blow up."""
     db = MagicMock()
     db.query.return_value.filter.return_value.first.return_value = db_task
-    db.get.return_value = None  # no receipt yet: the result is new
+    # No receipt yet (the result is new); its job and task exist.
+    db.get.side_effect = lambda model, key: None if model.__name__ == 'TaskResultReceipt' else object()
     proc = TaskOutputProcessor.__new__(TaskOutputProcessor)
     proc.db = db
     proc.magellon_home_dir = "/tmp/magellon"

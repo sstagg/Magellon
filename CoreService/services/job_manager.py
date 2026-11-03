@@ -381,7 +381,7 @@ class JobManager:
         with session_local() as db:
             task = db.query(ImageJobTask).filter(
                 ImageJobTask.oid == uuid.UUID(task_id)
-            ).first()
+            ).with_for_update().populate_existing().first()
             if task is None or (task.status_id or 0) >= STATUS_RUNNING:
                 return False
             task.status_id = STATUS_RUNNING
@@ -389,14 +389,19 @@ class JobManager:
             return True
 
     def mark_task_completed(self, task_id: str, *, result: Any = None) -> bool:
-        """Flip a task row to COMPLETED and stash result in processed_json."""
+        """Flip a task row to COMPLETED and stash result in processed_json.
+
+        A task that tracks its plugin steps (``pending_steps``, import
+        tasks) keeps its status: it is finished only when every step has
+        reported (record_task_finished), not on one step's event."""
         with session_local() as db:
             task = db.query(ImageJobTask).filter(
                 ImageJobTask.oid == uuid.UUID(task_id)
-            ).first()
+            ).with_for_update().populate_existing().first()
             if task is None:
                 return False
-            task.status_id = STATUS_COMPLETED
+            if "pending_steps" not in (task.processed_json or {}):
+                task.status_id = STATUS_COMPLETED
             if result is not None:
                 processed = dict(task.processed_json or {})
                 processed["result"] = result
@@ -408,10 +413,11 @@ class JobManager:
         with session_local() as db:
             task = db.query(ImageJobTask).filter(
                 ImageJobTask.oid == uuid.UUID(task_id)
-            ).first()
+            ).with_for_update().populate_existing().first()
             if task is None:
                 return False
-            task.status_id = STATUS_FAILED
+            if "pending_steps" not in (task.processed_json or {}):  # see mark_task_completed
+                task.status_id = STATUS_FAILED
             processed = dict(task.processed_json or {})
             processed["error"] = error
             task.processed_json = processed
@@ -483,6 +489,9 @@ class JobManager:
         failures = dict(processed.get("failed_tasks") or {})
         if failed:
             failures[task_id] = {"step": step or "task", "reason": (reason or "task failed")[:500]}
+        elif step and str(failures.get(task_id, {}).get("reason", "")).startswith("No result came back from"):
+            # The step was given up on as lost, but its result came after all.
+            del failures[task_id]
         # A task with several plugin steps (CTF and MotionCor) is
         # finished only when all of them have reported.
         if self._tick_task_step(db, task_id, step, task_failed=task_id in failures) and task_id not in completed:
@@ -506,7 +515,7 @@ class JobManager:
         follows: running while steps are pending, then completed or failed."""
         try:
             task = (db.query(ImageJobTask).filter(ImageJobTask.oid == uuid.UUID(str(task_id)))
-                    .with_for_update().first()) if task_id else None
+                    .with_for_update().populate_existing().first()) if task_id else None
         except ValueError:
             task = None
         pending = ((task.processed_json or {}).get("pending_steps") if task is not None else None)
@@ -656,7 +665,9 @@ class JobManager:
         # lock=True holds the row until commit, so concurrent task reports
         # (import worker and backend) can't overwrite each other's counts.
         query = db.query(ImageJob).filter(ImageJob.oid == uuid.UUID(job_id))
-        job = (query.with_for_update() if lock else query).first()
+        # A locking read sees the latest committed row; populate_existing
+        # makes the session use it instead of an earlier (snapshot) copy.
+        job = (query.with_for_update().populate_existing() if lock else query).first()
         if job is None:
             raise LookupError(f"Job {job_id} not found")
         return job

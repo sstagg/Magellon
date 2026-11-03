@@ -384,14 +384,11 @@ export const ImportProgressDialog = ({
                                 <TableBody>
                                     {steps.map((s) => {
                                         const total = stepTotals?.[s.key] ?? (s.pluginCategory ? 0 : overallImages);
-                                        const cat = s.pluginCategory ? summary?.by_category?.[s.pluginCategory] : undefined;
-                                        // Failures recorded per task with their step; a task's
-                                        // status can be overwritten by its other step's result.
-                                        const stepFailures = s.pluginCategory
-                                            ? (summary?.problems ?? [])
-                                                .filter((p) => p.step?.toLowerCase() === s.pluginCategory)
-                                                .reduce((n, p) => n + p.count, 0)
-                                            : 0;
+                                        // Counted per step (results back, failures recorded), not
+                                        // by each task's last step.
+                                        const result = s.pluginCategory
+                                            ? summary?.step_results?.find((r) => r.step.toLowerCase() === s.pluginCategory)
+                                            : undefined;
                                         return (
                                             <StepRow
                                                 key={s.key}
@@ -403,8 +400,8 @@ export const ImportProgressDialog = ({
                                                 tooltip={s.pluginCategory
                                                     ? `Top bar: dispatched to ${s.label} plugin. Thin bar: results returned.`
                                                     : undefined}
-                                                completed={cat?.completed}
-                                                failed={Math.max(cat?.failed ?? 0, stepFailures) || undefined}
+                                                completed={result?.ok}
+                                                failed={result?.failed || undefined}
                                             />
                                         );
                                     })}

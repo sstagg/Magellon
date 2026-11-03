@@ -124,7 +124,8 @@ const ImportChip = ({ jobId, onDismiss }: { jobId: string; onDismiss: () => void
 type ActiveJobs = { job_id: string; jobs?: { job_id: string }[] };
 
 /**
- * Top-bar chips for the user's imports, on every page — one per import.
+ * Top-bar chips for the user's imports (administrators: everyone's), on every
+ * page — one per import.
  * Imports run in the background (the progress window can be closed); this
  * keeps their live progress in view and reopens the full window on click.
  * It finds the user's imports itself (/export/jobs/active), so it also picks
@@ -137,7 +138,7 @@ export const ActiveImportIndicator = () => {
     useEffect(() => {
         let cancelled = false;
         const discover = () => {
-            apiClient.get<ActiveJobs>('/export/jobs/active')
+            apiClient.get<ActiveJobs>('/export/jobs/active', { params: { all_users: true } })
                 .then(({ data }) => {
                     if (cancelled || !data?.job_id) return;
                     // Oldest first, so chips keep their places as new ones arrive.

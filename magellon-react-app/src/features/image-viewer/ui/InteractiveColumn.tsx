@@ -318,6 +318,8 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                     width={isHorizontalMode ? undefined : width}
                     height={isHorizontalMode ? (contentHeight as number) : undefined}
                     onImageClick={handleImageClick}
+                    onLoadMore={() => fetchNextPage()}
+                    isLoadingMore={isFetchingNextPage}
                 />
             );
         }

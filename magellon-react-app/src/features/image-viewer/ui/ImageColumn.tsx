@@ -24,6 +24,8 @@ interface ImagesStackProps {
     direction?: 'vertical' | 'horizontal';
     width?: number;
     height?: number;
+    onLoadMore?: () => void;
+    isLoadingMore?: boolean;
 }
 
 export const ImageColumn: React.FC<ImagesStackProps> = ({
@@ -33,16 +35,17 @@ export const ImageColumn: React.FC<ImagesStackProps> = ({
                                                             level,
                                                             direction = 'vertical',
                                                             width: _width,
-                                                            height
+                                                            height,
+                                                            onLoadMore,
+                                                            isLoadingMore: loadingMore = false
                                                         }) => {
     const [selectedImage, setSelectedImage] = useState<ImageInfoDto | null>(null);
-    const [loadingMore, setLoadingMore] = useState(false);
 
     const { currentImage } = useImageViewerStore();
     const theme = useTheme();
 
     const allImages = images?.pages?.flatMap(page => page.result) || [];
-    const hasNextPage = images?.pages?.[images.pages.length - 1]?.next_page != null;
+    const hasNextPage = !!onLoadMore && images?.pages?.[images.pages.length - 1]?.next_page != null;
 
     useEffect(() => {
         if (currentImage && currentImage.level === level) {
@@ -157,12 +160,7 @@ export const ImageColumn: React.FC<ImagesStackProps> = ({
                                 <Button
                                     variant="text"
                                     size="small"
-                                    onClick={() => {
-                                        if (images && !loadingMore) {
-                                            setLoadingMore(true);
-                                            setTimeout(() => setLoadingMore(false), 1000);
-                                        }
-                                    }}
+                                    onClick={onLoadMore}
                                     disabled={loadingMore}
                                     startIcon={loadingMore ? <CircularProgress size={14} /> : <ChevronRight size={14} />}
                                     sx={{
@@ -219,12 +217,7 @@ export const ImageColumn: React.FC<ImagesStackProps> = ({
                         <Button
                             variant="text"
                             size="small"
-                            onClick={() => {
-                                if (images && !loadingMore) {
-                                    setLoadingMore(true);
-                                    setTimeout(() => setLoadingMore(false), 1000);
-                                }
-                            }}
+                            onClick={onLoadMore}
                             disabled={loadingMore}
                             startIcon={loadingMore ? <CircularProgress size={14} /> : <ChevronDown size={14} />}
                             sx={{ fontSize: '0.75rem' }}

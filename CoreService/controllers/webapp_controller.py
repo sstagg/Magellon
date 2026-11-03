@@ -161,6 +161,7 @@ def get_images_route(
         OR i.parent_id = :parentId)
         AND i.session_id = :sessionId
         """ + filter_clause + """
+        ORDER BY i.name, i.oid
         LIMIT :limit OFFSET :offset;
         """)
     try:

@@ -54,6 +54,22 @@ def other_jobs(session_id, job_id) -> int:
         db.close()
 
 
+def _cancel_plugin_work(job_ids) -> None:
+    """Tell the plugins to skip the deleted session's queued tasks, and mark
+    its finished imports stopped so their late results are dropped."""
+    from services import import_queue
+    from services.job_manager import job_manager
+
+    for job_id in (str(j) for j in job_ids):
+        try:
+            row = import_queue.get(job_id)
+            if row is not None and row.status == import_queue.DONE:
+                import_queue.mark_stopped(job_id, "Its session was deleted.")
+            job_manager.request_cancel(job_id)
+        except Exception:
+            logger.warning("[session-delete] could not cancel the plugin work of job %s", job_id, exc_info=True)
+
+
 def delete_session(session_id) -> dict:
     """Remove one session's records and files; returns counts."""
     db = session_local()
@@ -105,6 +121,10 @@ def delete_session(session_id) -> dict:
         raise
     finally:
         db.close()
+
+    # Its jobs' work still waiting in the plugins (e.g. MotionCor movies of a
+    # finished import) is cancelled, and late results are dropped.
+    _cancel_plugin_work(job_ids)
 
     # Files, once the records are gone.
     removed_dirs = 0

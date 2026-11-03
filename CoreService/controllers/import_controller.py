@@ -3,7 +3,7 @@ import logging
 import uuid
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -238,6 +238,7 @@ def import_directory(
 
 @import_router.get("/jobs/active")
 def get_active_job(
+    all_users: bool = Query(False, description="Everyone's imports (administrators only)"),
     db_session: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
 ):
@@ -249,7 +250,7 @@ def get_active_job(
     # The user's own imports (it used to return anyone's, so a member opening
     # the import page could be shown someone else's progress). The top-level
     # fields are the newest; "jobs" lists all of them for the top-bar chips.
-    rows = import_queue.all_active_for_user(user_id)
+    rows = import_queue.all_active_for_user(None if all_users and _is_admin(user_id) else user_id)
     if not rows:
         raise HTTPException(status_code=404, detail="No active import job")
     jobs = [{"job_id": row.id, "name": import_queue.job_name(row.kind, row.label),
@@ -458,6 +459,16 @@ def cancel_queued_import(
     return {"job_id": job_id, "status": "cancelled"}
 
 
+def _step_results(db_session, job_id) -> list:
+    """Per plugin step: results back, failures and the commonest reason."""
+    try:
+        from plugins.controller_jobs import import_step_results
+        return import_step_results(db_session, job_id)
+    except Exception:
+        logger.debug("step results unavailable for %s", job_id, exc_info=True)
+        return []
+
+
 def _latest_step_counts(job_id) -> dict:
     """The import's latest per-step counters (``step_counts`` / ``step_totals``)."""
     from core.socketio_server import _step_progress_cache
@@ -604,6 +615,7 @@ def get_job_summary(
             "by_category": by_category,
             "created_at": job.created_date.isoformat() if job.created_date else None,
             **_latest_step_counts(job_id),
+            "step_results": _step_results(db_session, job_id),
         }
 
     except HTTPException:

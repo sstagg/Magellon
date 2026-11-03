@@ -60,6 +60,8 @@ export type ImportSummary = {
     /** Latest per-step counters, also sent live (the summary can't miss them). */
     step_counts?: StepCounts;
     step_totals?: StepCounts;
+    /** Per plugin step: results back (ok), failures and the commonest reason. */
+    step_results?: { step: string; total: number; ok: number; failed: number; reason?: string | null }[];
 };
 
 // Remaining-time estimate: completion rate over a sliding window, smoothed so

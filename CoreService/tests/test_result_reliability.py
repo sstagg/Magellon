@@ -37,7 +37,7 @@ def _result(*, type_name="CTF", type_code=2, failed=False, meta=None, output=Non
 
 def _processor(tmp_path, *, receipt=None):
     db = MagicMock()
-    db.get.return_value = receipt
+    db.get.side_effect = lambda model, key: receipt if model is TaskResultReceipt else object()
     db.query.return_value.filter.return_value.first.return_value = None
     proc = TaskOutputProcessor.__new__(TaskOutputProcessor)
     proc.db = db
@@ -97,6 +97,15 @@ def test_large_values_are_written_to_files(tmp_path):
     assert meta[1].value == "1"
     assert result.output_data["output_avrot"]["file"].endswith("img_0001_output_avrot.txt")
     assert result.output_data["n"] == 3
+
+
+def test_result_of_a_deleted_job_is_ignored(tmp_path):
+    proc, db = _processor(tmp_path)
+    db.get.side_effect = lambda model, key: None   # no receipt, no job, no task
+    out = proc.process(_result())
+    assert "deleted job" in out["message"]
+    db.add.assert_not_called()
+    db.commit.assert_not_called()
 
 
 def test_file_move_already_done_by_an_earlier_delivery(tmp_path):

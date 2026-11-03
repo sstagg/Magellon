@@ -22,6 +22,7 @@ number of workers, on any number of hosts, never run the same import twice.
 """
 import logging
 import os
+import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -160,13 +161,22 @@ def active_for_user(owner_id) -> Optional[ImportJobQueue]:
 
 
 def all_active_for_user(owner_id) -> List[ImportJobQueue]:
-    """All the user's queued or running imports, newest first."""
+    """All the user's imports (everyone's if ``owner_id`` is None) still in
+    progress, newest first: queued or running, or done sending their work
+    while their job still waits for plugin results (CTF, MotionCor)."""
     db = session_local()
     try:
-        rows = (db.query(ImportJobQueue)
-                .filter(ImportJobQueue.owner_id == str(owner_id), ImportJobQueue.status.in_(ACTIVE))
-                .order_by(ImportJobQueue.created_at.desc())
-                .all())
+        query = db.query(ImportJobQueue)
+        if owner_id is not None:
+            query = query.filter(ImportJobQueue.owner_id == str(owner_id))
+        rows = query.filter(ImportJobQueue.status.in_(ACTIVE)).all()
+        done = query.filter(ImportJobQueue.status == DONE,
+                            ImportJobQueue.finished_at >= _now() - timedelta(days=7)).all()
+        if done:
+            waiting = {str(oid) for (oid,) in db.query(ImageJob.oid).filter(
+                ImageJob.oid.in_([uuid.UUID(row.id) for row in done]), ImageJob.status_id.in_((0, 1)))}
+            rows += [row for row in done if row.id in waiting]
+        rows.sort(key=lambda row: row.created_at, reverse=True)
         for row in rows:
             db.expunge(row)
         return rows

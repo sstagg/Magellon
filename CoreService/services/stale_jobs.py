@@ -75,43 +75,25 @@ def repeat_recent_cancels(now: Optional[datetime] = None) -> int:
     return len(ids)
 
 
-# An import's plugin steps still waiting this long after its worker finished,
-# with nothing left in the plugin queues, will never get their result.
-STUCK_IMPORT_MINUTES = int(os.environ.get("MAGELLON_STUCK_IMPORT_MINUTES", "10"))
+# An import whose plugin steps have shown no activity (no result, no step
+# event) for this long, after its worker finished, will never get them.
+# Activity, not queue length: plugins hold many delivered tasks at once,
+# which a queue's ready count doesn't show.
+STUCK_IMPORT_MINUTES = int(os.environ.get("MAGELLON_STUCK_IMPORT_MINUTES", "30"))
 # Each step an import task waits for, its label and the metadata its result saves.
+# A late real result replaces this failure (JobManager.record_task_finished).
+NO_RESULT_REASON = "No result came back from"
 _STEP_RESULTS = {"ctf": ("CTF", "CTF Data"), "motioncor": ("MotionCor", "MotionCor Meta Data")}
-
-
-def _plugin_queues_empty() -> bool:
-    """Whether the CTF and MotionCor task queues hold nothing (False if unknown)."""
-    from config import app_settings
-    from magellon_sdk.bus.binders.rmq._client import RabbitmqClient
-
-    settings = app_settings.rabbitmq_settings
-    client = RabbitmqClient(settings)
-    try:
-        client.connect()
-        return all(
-            client.channel.queue_declare(queue=queue, passive=True).method.message_count == 0
-            for queue in (settings.CTF_QUEUE_NAME or "ctf_tasks_queue",
-                          settings.MOTIONCOR_QUEUE_NAME or "motioncor_tasks_queue"))
-    except Exception:
-        logger.debug("could not read the plugin queues", exc_info=True)
-        return False
-    finally:
-        try:
-            client.close_connection()
-        except Exception:
-            pass
 
 
 def settle_stuck_import_tasks(now: Optional[datetime] = None) -> int:
     """Finish import tasks whose step results were lost (e.g. a backend
     restart while a result was being processed), so the import completes.
 
-    For imports whose worker finished over STUCK_IMPORT_MINUTES ago: a
-    pending step whose result is saved is ticked off; with the plugin queues
-    empty, a pending step without a result fails ("no result came back").
+    For imports whose worker has finished and whose plugin steps have shown
+    no activity (results, step events) for STUCK_IMPORT_MINUTES: a pending
+    step whose result is saved is ticked off, and one without a result fails
+    ("no result came back"; a result arriving later still replaces that).
     Returns the number of steps settled.
     """
     import json
@@ -120,11 +102,14 @@ def settle_stuck_import_tasks(now: Optional[datetime] = None) -> int:
     from sqlalchemy import text
 
     now = now or datetime.utcnow()
+    cutoff = now - timedelta(minutes=STUCK_IMPORT_MINUTES)
     with session_local() as db:
         jobs = [row[0] for row in db.execute(text(
             "SELECT q.id FROM import_job_queue q JOIN image_job j ON j.oid = UNHEX(REPLACE(q.id, '-', ''))"
-            " WHERE q.status = 'done' AND q.finished_at < :cutoff AND j.status_id = 1"),
-            {"cutoff": now - timedelta(minutes=STUCK_IMPORT_MINUTES)}).all()]
+            " WHERE q.status = 'done' AND q.finished_at < :cutoff AND j.status_id = 1"
+            " AND NOT EXISTS (SELECT 1 FROM task_result_receipt r WHERE r.job_id = q.id AND r.processed_at >= :cutoff)"
+            " AND NOT EXISTS (SELECT 1 FROM job_event e WHERE e.job_id = j.oid AND e.ts >= :cutoff)"),
+            {"cutoff": cutoff}).all()]
         stuck = {}
         for job_id in jobs:
             rows = db.execute(text(
@@ -141,7 +126,6 @@ def settle_stuck_import_tasks(now: Optional[datetime] = None) -> int:
                          set((saved or "").split(","))))
     if not stuck:
         return 0
-    queues_empty = _plugin_queues_empty()
     settled = 0
     for job_id, tasks in stuck.items():
         for task_id, pending, saved in tasks:
@@ -149,11 +133,9 @@ def settle_stuck_import_tasks(now: Optional[datetime] = None) -> int:
                 label, result_name = _STEP_RESULTS.get(step, (step, None))
                 if result_name in saved:
                     job_manager.record_task_finished(job_id, task_id, step=label)
-                elif queues_empty:
-                    job_manager.record_task_finished(job_id, task_id, step=label, failed=True,
-                                                     reason=f"No result came back from {label}")
                 else:
-                    continue
+                    job_manager.record_task_finished(job_id, task_id, step=label, failed=True,
+                                                     reason=f"{NO_RESULT_REASON} {label}")
                 settled += 1
     if settled:
         logger.warning("settled %d stuck import step(s) in %d import(s)", settled, len(stuck))

@@ -719,6 +719,11 @@ class TaskOutputProcessor:
         ):
             db_task.subject_id = task_result.subject_id
 
+    def _job_gone(self, job_id: str, task_id: str) -> bool:
+        """Whether the result's job and task no longer exist (session deleted)."""
+        return (self.db.get(ImageJob, uuid.UUID(job_id)) is None
+                and self.db.get(ImageJobTask, uuid.UUID(task_id)) is None)
+
     def _already_processed(self, task_id, step: str) -> bool:
         return self.db.get(TaskResultReceipt, (str(task_id), step)) is not None
 
@@ -766,6 +771,12 @@ class TaskOutputProcessor:
                 logger.info("TaskOutputProcessor: %s result for task %s already applied — skipped",
                             type_name, task_id)
                 return {"message": f"{type_name} result already processed"}
+
+            if job_id and task_id and self._job_gone(job_id, task_id):
+                # Its session was deleted: nothing left to attach it to.
+                logger.info("TaskOutputProcessor: %s result for task %s of deleted job %s ignored",
+                            type_name, task_id, job_id)
+                return {"message": f"{type_name} result of a deleted job ignored"}
 
             self._use_task_session_name(task_result)
             destination_dir = self._get_destination_dir(task_result)
@@ -818,9 +829,15 @@ class TaskOutputProcessor:
             )
             failed = final_status == STATUS_FAILED
             if job_id and task_id:
-                # Lock the job before its task, the order every job update
-                # uses, so concurrent updates can't deadlock.
-                self.db.query(ImageJob).filter(ImageJob.oid == uuid.UUID(job_id)).with_for_update().first()
+                # Lock the job, then its task (the order every job update
+                # uses, so concurrent updates can't deadlock), reading their
+                # latest committed rows: populate_existing replaces copies
+                # this session read earlier from its snapshot, which could
+                # otherwise overwrite a concurrent update.
+                self.db.query(ImageJob).filter(ImageJob.oid == uuid.UUID(job_id)) \
+                    .with_for_update().populate_existing().first()
+                self.db.query(ImageJobTask).filter(ImageJobTask.oid == uuid.UUID(task_id)) \
+                    .with_for_update().populate_existing().first()
             self._advance_task_state(task_result, status_id=final_status)
 
             if task_id:
