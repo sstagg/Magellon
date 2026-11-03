@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     ImageList,
     Box,
@@ -26,7 +26,13 @@ interface ImagesStackProps {
     height?: number;
     onLoadMore?: () => void;
     isLoadingMore?: boolean;
+    /** The column's selection when it can come from outside (an atlas tile). */
+    selected?: ImageInfoDto | null;
 }
+
+/** The list with the selected image first if its page isn't loaded yet. */
+export const withSelected = (images: ImageInfoDto[], selected?: ImageInfoDto | null): ImageInfoDto[] =>
+    selected && !images.some((image) => image.oid === selected.oid) ? [selected, ...images] : images;
 
 export const ImageColumn: React.FC<ImagesStackProps> = ({
                                                             caption: _caption,
@@ -37,21 +43,33 @@ export const ImageColumn: React.FC<ImagesStackProps> = ({
                                                             width: _width,
                                                             height,
                                                             onLoadMore,
-                                                            isLoadingMore: loadingMore = false
+                                                            isLoadingMore: loadingMore = false,
+                                                            selected
                                                         }) => {
     const [selectedImage, setSelectedImage] = useState<ImageInfoDto | null>(null);
+    const listRef = useRef<HTMLDivElement>(null);
 
     const { currentImage } = useImageViewerStore();
     const theme = useTheme();
 
-    const allImages = images?.pages?.flatMap(page => page.result) || [];
+    const allImages = withSelected(images?.pages?.flatMap(page => page.result) || [], selected);
     const hasNextPage = !!onLoadMore && images?.pages?.[images.pages.length - 1]?.next_page != null;
 
     useEffect(() => {
-        if (currentImage && currentImage.level === level) {
+        if (selected !== undefined) {
+            setSelectedImage(selected);
+        } else if (currentImage && currentImage.level === level) {
             setSelectedImage(currentImage);
         }
-    }, [currentImage, level]);
+    }, [selected, currentImage, level]);
+
+    // Bring the selection into view, however it was made.
+    useEffect(() => {
+        if (selected?.oid) {
+            listRef.current?.querySelector(`[data-image-oid="${selected.oid}"]`)
+                ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
+    }, [selected?.oid]);
 
     const handleImageClick = useCallback((image: ImageInfoDto) => {
         if (image !== null && image.oid !== selectedImage?.oid) {
@@ -73,6 +91,7 @@ export const ImageColumn: React.FC<ImagesStackProps> = ({
 
     return (
         <Paper
+            ref={listRef}
             elevation={0}
             sx={{
                 width: containerWidth,
@@ -127,6 +146,7 @@ export const ImageColumn: React.FC<ImagesStackProps> = ({
                         {allImages.map((img, index) => (
                             <Box
                                 key={`${level}-${img.oid || index}`}
+                                data-image-oid={img.oid}
                                 sx={{
                                     flexShrink: 0,
                                     display: 'flex',
@@ -186,15 +206,16 @@ export const ImageColumn: React.FC<ImagesStackProps> = ({
                         }}
                     >
                         {allImages.map((img, index) => (
-                            <ImageThumbnail
-                                key={`${level}-${img.oid || index}`}
-                                image={img}
-                                isSelected={selectedImage?.oid === img.oid}
-                                onImageClick={handleImageClick}
-                                level={level}
-                                fixedHeight={true}
-                                size="medium"
-                            />
+                            <div key={`${level}-${img.oid || index}`} data-image-oid={img.oid}>
+                                <ImageThumbnail
+                                    image={img}
+                                    isSelected={selectedImage?.oid === img.oid}
+                                    onImageClick={handleImageClick}
+                                    level={level}
+                                    fixedHeight={true}
+                                    size="medium"
+                                />
+                            </div>
                         ))}
                     </ImageList>
                 )}

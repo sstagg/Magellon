@@ -34,7 +34,7 @@ import {
     AlertTriangle,
 } from "lucide-react";
 import type ImageInfoDto from "../../../entities/image/types.ts";
-import { ImageColumn } from "./ImageColumn.tsx";
+import { ImageColumn, withSelected } from "./ImageColumn.tsx";
 import { ImageThumbnail } from "./ImageThumbnail.tsx";
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
 import { useImageListQuery } from "../api/usePagedImagesHook.ts";
@@ -87,7 +87,9 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
     const [showSearch, setShowSearch] = useState(false);
     const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
-    const { currentImage } = useImageViewerStore();
+    const { imageColumns } = useImageViewerStore();
+    // What is selected in this column, also from outside it (an atlas tile).
+    const columnSelection = imageColumns[level]?.selectedImage ?? null;
 
     const shouldLoad = useMemo(() => {
         if (level === 0) return sessionName !== '';
@@ -122,17 +124,15 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
     });
 
     const allImages = useMemo(
-        () => data?.pages?.flatMap(page => page.result) || [],
-        [data]
+        () => withSelected(data?.pages?.flatMap(page => page.result) || [], columnSelection),
+        [data, columnSelection]
     );
 
     const { filter, setFilter, resetFilter, sortConfig, setSortConfig, filteredImages } = useColumnFilter(allImages);
 
     useEffect(() => {
-        if (currentImage && currentImage.level === level) {
-            setSelectedImageId(currentImage.oid || null);
-        }
-    }, [currentImage, level]);
+        setSelectedImageId(columnSelection?.oid || null);
+    }, [columnSelection]);
 
     const handleImageClick = useCallback((image: ImageInfoDto) => {
         setSelectedImageId(image.oid || null);
@@ -318,6 +318,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                     width={isHorizontalMode ? undefined : width}
                     height={isHorizontalMode ? (contentHeight as number) : undefined}
                     onImageClick={handleImageClick}
+                    selected={columnSelection}
                     onLoadMore={() => fetchNextPage()}
                     isLoadingMore={isFetchingNextPage}
                 />

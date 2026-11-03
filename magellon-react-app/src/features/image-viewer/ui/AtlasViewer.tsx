@@ -87,19 +87,22 @@ export default function AtlasViewer({ name: _name, finalWidth, finalHeight, back
         }
     };
 
+    // Atlas coordinates are for a 1600 x 1600 square: fit the whole square.
+    const side = Math.min(finalWidth, finalHeight);
+
     const renderRectangles = () => {
         return imageMap?.areas.map((area, index) => {
             const [x1, y1, width, height] = area.coords
                 .split(' ')
-                .map((coord) => (Number(coord) / 1600) * finalWidth) as [
+                .map((coord) => (Number(coord) / 1600) * side) as [
                 number,
                 number,
                 number,
                 number
             ];
 
-            const circleRadius = (60 / 1600) * finalWidth;
-            const textFontSize = (80 / 1600) * finalWidth;
+            const circleRadius = (60 / 1600) * side;
+            const textFontSize = (80 / 1600) * side;
 
             return (
                 <g
@@ -153,7 +156,7 @@ export default function AtlasViewer({ name: _name, finalWidth, finalHeight, back
     };
 
     return (
-        <svg width={finalWidth} height={finalHeight} xmlns="http://www.w3.org/2000/svg">
+        <svg width={side} height={side} xmlns="http://www.w3.org/2000/svg">
             <rect width="100%" height="100%" fill={backgroundColor} />
             {renderRectangles()}
         </svg>

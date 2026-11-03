@@ -49,8 +49,13 @@ def create_atlas_picture(session_name, image_info, final_width, final_height, ba
             max_x = max(max_x, obj['delta_row'])
             min_y = min(min_y, obj['delta_column'])
             max_y = max(max_y, obj['delta_column'])
-        canvas_width = int(max_x - min_x + (2 * image_info[0]["dimx"]))
-        canvas_height = int(max_y - min_y + (2 * image_info[0]["dimy"]))
+        # delta_column runs across the picture, delta_row down it.
+        canvas_width = int(max_y - min_y + image_info[0]["dimx"])
+        canvas_height = int(max_x - min_x + image_info[0]["dimy"])
+        # Same scale both ways, centred, so tiles keep their shape.
+        scale = min(final_width / canvas_width, final_height / canvas_height)
+        offset_x = int((final_width - canvas_width * scale) / 2)
+        offset_y = int((final_height - canvas_height * scale) / 2)
         big_picture = Image.new('RGB', (canvas_width, canvas_height), background_color)
 
         current_directory = f"{app_settings.directory_settings.MAGELLON_HOME_DIR}/{session_name.lower()}"
@@ -69,14 +74,12 @@ def create_atlas_picture(session_name, image_info, final_width, final_height, ba
             big_picture.paste(small_image, (x, y))
 
 
-            width_ratio = final_width / canvas_width
-            height_ratio = final_height / canvas_height
-            x_coord = int((delta_column - min_y) * height_ratio)
-            y_coord = int((delta_row - min_x) * width_ratio)
-            dimx_coord = int(obj['dimy'] * height_ratio)
-            dimy_coord = int(obj['dimx'] * width_ratio)
+            x_coord = int((delta_column - min_y) * scale) + offset_x
+            y_coord = int((delta_row - min_x) * scale) + offset_y
+            dimx_coord = int(obj['dimx'] * scale)
+            dimy_coord = int(obj['dimy'] * scale)
 
-            coords = f"{x_coord} {y_coord} {dimy_coord} {dimx_coord}"
+            coords = f"{x_coord} {y_coord} {dimx_coord} {dimy_coord}"
 
             json_area = {
                 "shape": "rect",
@@ -96,8 +99,10 @@ def create_atlas_picture(session_name, image_info, final_width, final_height, ba
             # html_code += "}"
 
 
-        big_picture = big_picture.resize((final_width, final_height), Image.LANCZOS)
-        big_picture.save(save_path)
+        big_picture = big_picture.resize((int(canvas_width * scale), int(canvas_height * scale)), Image.LANCZOS)
+        final_picture = Image.new('RGB', (final_width, final_height), background_color)
+        final_picture.paste(big_picture, (offset_x, offset_y))
+        final_picture.save(save_path)
         html_code += ']}'
         return html_code,save_path
     except Exception as e:
