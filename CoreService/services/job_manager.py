@@ -297,7 +297,7 @@ class JobManager:
         start time and progress) or finished (that reopened completed imports,
         which a later restart then failed as orphans)."""
         with session_local() as db:
-            job = self._get_or_404(db, job_id)
+            job = self._get_or_404(db, job_id, lock=True)
             if job.status_id not in (None, STATUS_QUEUED):
                 return _envelope(job)
             job.status_id = STATUS_RUNNING
@@ -313,7 +313,7 @@ class JobManager:
     def update_progress(self, job_id: str, *, progress: int,
                         num_items: Optional[int] = None) -> Dict[str, Any]:
         with session_local() as db:
-            job = self._get_or_404(db, job_id)
+            job = self._get_or_404(db, job_id, lock=True)
             processed = dict(job.processed_json or {})
             processed["progress"] = progress
             if num_items is not None:
@@ -326,7 +326,7 @@ class JobManager:
     def complete_job(self, job_id: str, *, result: Any,
                      num_items: int = 0) -> Dict[str, Any]:
         with session_local() as db:
-            job = self._get_or_404(db, job_id)
+            job = self._get_or_404(db, job_id, lock=True)
             processed = dict(job.processed_json or {})
             # Importers call this once they have dispatched everything, while
             # CTF / MotionCor tasks are still running. Keep the result, leave
@@ -361,7 +361,7 @@ class JobManager:
 
     def fail_job(self, job_id: str, *, error: str) -> Dict[str, Any]:
         with session_local() as db:
-            job = self._get_or_404(db, job_id)
+            job = self._get_or_404(db, job_id, lock=True)
             job.status_id = STATUS_FAILED
             job.end_date = datetime.utcnow()
             processed = dict(job.processed_json or {})
@@ -621,7 +621,7 @@ class JobManager:
     def cancel_job(self, job_id: str, *, reason: str = "Cancelled by user") -> Dict[str, Any]:
         """Mark a job cancelled in the DB. Call after a cooperative stop."""
         with session_local() as db:
-            job = self._get_or_404(db, job_id)
+            job = self._get_or_404(db, job_id, lock=True)
             job.status_id = STATUS_CANCELLED
             job.end_date = datetime.utcnow()
             processed = dict(job.processed_json or {})
