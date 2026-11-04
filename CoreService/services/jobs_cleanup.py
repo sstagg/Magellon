@@ -16,6 +16,9 @@ Once a night (``MAGELLON_JOBS_CLEANUP_HOUR_UTC``, default 06:00 UTC =
 
 If the database can't be read, that night's clean-up is skipped: without
 knowing what is active nothing is deleted.
+
+The same run removes the logs of Jobs tab tests from <home>/testing, which
+aren't kept: see clean_test_logs.
 """
 import logging
 import os
@@ -28,6 +31,9 @@ logger = logging.getLogger(__name__)
 
 CLEANUP_HOUR_UTC = int(os.environ.get("MAGELLON_JOBS_CLEANUP_HOUR_UTC", "6")) % 24
 QUIET_HOURS = 2
+# Where Jobs tab tests keep their run logs (core/motioncor_test_result_processor.py).
+TEST_LOGS_DIR = "testing"
+TEST_LOGS = (("fao", "_motioncor.log"), ("ctf", "_ctffind.log"))
 
 _last_run_date: Optional[str] = None
 
@@ -109,6 +115,52 @@ def clean(now: Optional[float] = None) -> dict:
     return summary
 
 
+def _testing_is_a_session() -> bool:
+    from database import session_local
+    from models.sqlalchemy_models import Msession
+
+    db = session_local()
+    try:
+        return db.query(Msession.oid).filter(Msession.name == TEST_LOGS_DIR).first() is not None
+    finally:
+        db.close()
+
+
+def clean_test_logs(now: Optional[float] = None) -> dict:
+    """Remove Jobs tab test logs from <home>/testing/<fao or ctf>/<image>/.
+
+    Only run logs and the folders they leave empty go, and nothing if a real
+    session has been named "testing": its results would live in the same folder."""
+    from config import MAGELLON_HOME_DIR
+
+    if _testing_is_a_session():      # raises if the DB is unreachable → nothing deleted
+        logger.warning("[jobs-cleanup] a session is named '%s': its folder was left alone", TEST_LOGS_DIR)
+        return {"removed": 0, "kept_recent": 0}
+    cutoff = (now or time.time()) - QUIET_HOURS * 3600
+    removed = kept_recent = 0
+    for sub_dir, suffix in TEST_LOGS:
+        parent = os.path.join(MAGELLON_HOME_DIR, TEST_LOGS_DIR, sub_dir)
+        if not os.path.isdir(parent):
+            continue
+        for entry in os.scandir(parent):
+            try:
+                if not entry.is_dir(follow_symlinks=False):
+                    continue
+                if _newest_change(entry.path) >= cutoff:
+                    kept_recent += 1
+                    continue
+                for name in os.listdir(entry.path):
+                    if name.endswith(suffix):
+                        os.remove(os.path.join(entry.path, name))
+                        removed += 1
+                if not os.listdir(entry.path):
+                    os.rmdir(entry.path)
+            except OSError:
+                logger.warning("test log clean-up: could not remove %s", entry.path, exc_info=True)
+    logger.warning("[jobs-cleanup] test logs: removed %d, kept %d recently changed", removed, kept_recent)
+    return {"removed": removed, "kept_recent": kept_recent}
+
+
 def run_if_due() -> Optional[dict]:
     """Call often (every minute); cleans once per night at CLEANUP_HOUR_UTC."""
     global _last_run_date
@@ -117,6 +169,10 @@ def run_if_due() -> Optional[dict]:
     if now.hour != CLEANUP_HOUR_UTC or _last_run_date == today:
         return None
     _last_run_date = today
+    try:
+        clean_test_logs()
+    except Exception:
+        logger.warning("[jobs-cleanup] test logs skipped tonight", exc_info=True)
     try:
         return clean()
     except Exception:
