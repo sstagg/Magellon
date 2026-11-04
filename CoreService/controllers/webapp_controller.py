@@ -1,4 +1,3 @@
-import itertools
 import math
 from datetime import datetime
 import json
@@ -18,6 +17,7 @@ from config import FFT_SUB_URL, IMAGE_SUB_URL, THUMBNAILS_SUB_URL, app_settings,
 from database import get_db
 from lib.image_not_found import get_image_not_found
 from models.pydantic_models import SessionDto, ImageDto
+from core.run_log import read_run_log_command
 from models.sqlalchemy_models import Image, Msession, ImageMetaData, ImageMetaDataCategory
 from repositories.image_repository import ImageRepository
 from repositories.session_repository import SessionRepository
@@ -611,17 +611,19 @@ def get_fao_image_route(
         return get_image_not_found()
 
 
-def read_run_log_command(log_path: str) -> Optional[str]:
-    """The command recorded in a MotionCor run log, or None if there is none.
-    It follows a "Command:" line in the log's header."""
-    try:
-        with open(log_path, errors="replace") as log:
-            for line in itertools.islice(log, 30):
-                if line.strip() == "Command:":
-                    return next(log, "").strip() or None
-    except OSError:
-        pass
-    return None
+def _run_log_command(name: str, sessionName: str, sub_url: str, log_suffix: str, db: Session, user_id: UUID) -> dict:
+    session_name = sessionName.lower()
+    if not name or os.path.basename(name) != name or name in (".", ".."):
+        raise HTTPException(status_code=400, detail="Invalid image name")
+    msession = db.query(Msession).filter(Msession.name == session_name).first()
+    if not msession:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if not check_session_access(user_id, msession.oid, action="read"):
+        logger.warning(f"SECURITY: User {user_id} denied run command access for session: {session_name}")
+        raise HTTPException(status_code=403, detail="Access denied to this session")
+    log_path = os.path.join(app_settings.directory_settings.MAGELLON_HOME_DIR, session_name, sub_url,
+                            name, f"{name}{log_suffix}")
+    return {"command": read_run_log_command(log_path)}
 
 
 @webapp_router.get('/fao_command')
@@ -638,18 +640,24 @@ def get_fao_command_route(
     **Requires:** Authentication
     **Security:** User must have access to the session
     """
-    session_name = sessionName.lower()
-    if not name or os.path.basename(name) != name or name in (".", ".."):
-        raise HTTPException(status_code=400, detail="Invalid image name")
-    msession = db.query(Msession).filter(Msession.name == session_name).first()
-    if not msession:
-        raise HTTPException(status_code=404, detail="Session not found")
-    if not check_session_access(user_id, msession.oid, action="read"):
-        logger.warning(f"SECURITY: User {user_id} denied FAO command access for session: {session_name}")
-        raise HTTPException(status_code=403, detail="Access denied to this session")
-    log_path = os.path.join(app_settings.directory_settings.MAGELLON_HOME_DIR, session_name, FAO_SUB_URL,
-                            name, f"{name}_motioncor.log")
-    return {"command": read_run_log_command(log_path)}
+    return _run_log_command(name, sessionName, FAO_SUB_URL, "_motioncor.log", db, user_id)
+
+
+@webapp_router.get('/ctf_command')
+def get_ctf_command_route(
+    name: str,
+    sessionName: str,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id)
+):
+    """
+    The CTFFIND command that produced an image's CTF results.
+    ``command`` is null for images processed before run logs were kept.
+
+    **Requires:** Authentication
+    **Security:** User must have access to the session
+    """
+    return _run_log_command(name, sessionName, CTF_SUB_URL, "_ctffind.log", db, user_id)
 
 
 @webapp_router.get('/image_info')

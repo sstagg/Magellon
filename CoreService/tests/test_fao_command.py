@@ -1,4 +1,4 @@
-"""Reading the MotionCor command for the Frame Alignment tab from the run log."""
+"""Reading the command for the Frame Alignment and CTF tabs from the run log."""
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -70,3 +70,19 @@ def test_unknown_session_is_not_found(home):
     with pytest.raises(HTTPException) as e:
         _get(session=None)
     assert e.value.status_code == 404
+
+
+def test_ctf_command_keeps_all_its_lines_and_stops_at_the_blank_line(home):
+    folder = home / "s1" / web.CTF_SUB_URL / "m1"
+    folder.mkdir(parents=True)
+    (folder / "m1_ctffind.log").write_text(
+        'Image: m1\n\nCommand:\necho -e "a.mrc\n0.8\nno" | /app/ctffind\n\nOutput:\nresults\n')
+
+    result = web.get_ctf_command_route(name="m1", sessionName="S1", db=_db(SimpleNamespace(oid=uuid4())), user_id=uuid4())
+
+    assert result == {"command": 'echo -e "a.mrc\n0.8\nno" | /app/ctffind'}
+
+
+def test_image_without_a_ctf_log_has_no_ctf_command(home):
+    result = web.get_ctf_command_route(name="m1", sessionName="S1", db=_db(SimpleNamespace(oid=uuid4())), user_id=uuid4())
+    assert result == {"command": None}

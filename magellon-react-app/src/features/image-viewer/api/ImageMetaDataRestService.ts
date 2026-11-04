@@ -22,12 +22,17 @@ export async function fetchImageMetaData(imageId: string) {
     }
 }
 
-// The MotionCor command behind an image's frame alignment results
-export function useFetchFaoCommand(name: string | undefined, sessionName: string, enabled: boolean = false) {
+// The command behind an image's results, read from its run log
+export function useFetchRunCommand(
+    kind: 'fao' | 'ctf',
+    name: string | undefined,
+    sessionName: string,
+    enabled: boolean = false,
+) {
     return useQuery({
-        queryKey: ['fao_command', sessionName, name],
+        queryKey: ['run_command', kind, sessionName, name],
         queryFn: async (): Promise<string | null> => {
-            const response = await apiClient.get(`${BASE_URL}/fao_command`, { params: { name, sessionName } });
+            const response = await apiClient.get(`${BASE_URL}/${kind}_command`, { params: { name, sessionName } });
             return response.data.command ?? null;
         },
         enabled: !!name && !!sessionName && enabled,

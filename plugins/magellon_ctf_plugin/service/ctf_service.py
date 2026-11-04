@@ -5,7 +5,7 @@ import subprocess
 from datetime import datetime
 
 from core.helper import push_info_to_debug_queue
-from magellon_sdk.models import CtfInput, OutputFile, TaskMessage, TaskResultMessage, ImageMetaData, DebugInfo
+from magellon_sdk.models import CtfInput, FAILED, OutputFile, TaskMessage, TaskResultMessage, ImageMetaData, DebugInfo
 from core.settings import AppSettingsSingleton
 from service.ctfeval import run_ctf_evaluation
 from utils import buildCtfCommand, readLastLine, getFileContents
@@ -64,11 +64,69 @@ def validateInput(params):
 
     return True
 
+
+def ctffind_values(row: list) -> dict:
+    """CTFFIND's own estimate from its results line (angstroms, degrees), in the
+    units the CTF evaluation reports (metres, radians). Kept when the evaluation
+    fails, so the image still has its defocus."""
+    return {
+        "defocus1": float(row[1]) * 1e-10,
+        "defocus2": float(row[2]) * 1e-10,
+        "angle_astigmatism": math.radians(float(row[3])),
+    }
+
+
+def add_to_run_log(log_path: str | None, text: str) -> None:
+    """Add to the image's run log. A log that can't be written must never be
+    the reason an image fails."""
+    if not log_path:
+        return
+    try:
+        with open(log_path, "a", errors="replace") as log:
+            log.write(text if text.endswith("\n") else text + "\n")
+    except OSError as e:
+        logger.warning("Could not write %s: %s", log_path, e)
+
+
+def run_and_log(command: str, log_path: str) -> tuple[int, str]:
+    """Run the command, writing each line it prints to the log as it arrives.
+    Returns the exit code and the output. A blank line ends the command in the
+    log, which is how the viewer finds where a multi-line command stops."""
+    add_to_run_log(log_path, f"Command:\n{command}\n\nOutput:")
+    lines = []
+    with open(log_path, "a", buffering=1, errors="replace") as log:
+        process = subprocess.Popen(
+            command,
+            cwd=os.getcwd(),
+            shell=True,
+            text=True,
+            errors="replace",
+            executable="/bin/bash",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        for line in process.stdout:
+            log.write(line)
+            lines.append(line)
+        return_code = process.wait()
+        log.write(f"\nExit code: {return_code}\nFinished: {datetime.now().isoformat(timespec='seconds')}\n")
+    return return_code, "".join(lines).strip()
+
+
 async def do_ctf(the_task: TaskMessage) -> TaskResultMessage:
+    log_path = None
     try:
         d = DebugInfo()
         logger.info(f"Starting task {the_task.id} ")
         the_task_data = CtfInput.model_validate(the_task.data)
+        directory_path = os.path.join(AppSettingsSingleton.get_instance().JOBS_DIR, str(the_task.id))
+        os.makedirs(directory_path, exist_ok=True)
+        log_name = os.path.splitext(os.path.basename(the_task.data["image_path"]))[0]
+        log_path = os.path.join(directory_path, f"{log_name}_ctffind.log")
+        with open(log_path, "w") as log:
+            log.write(f"Image: {the_task_data.image_name}\nTask: {the_task.id}\n"
+                      f"Input: {the_task_data.inputFile}\n"
+                      f"Started: {datetime.now().isoformat(timespec='seconds')}\n\n")
         # validate the input
         try:
             if not validateInput(the_task_data):
@@ -93,36 +151,21 @@ async def do_ctf(the_task: TaskMessage) -> TaskResultMessage:
         d.line6 = the_task_data.image_path
         push_info_to_debug_queue(d)
 
-        directory_path = os.path.join(AppSettingsSingleton.get_instance().JOBS_DIR, str(the_task.id))
-        os.makedirs(directory_path, exist_ok=True)
         host_file_path = os.path.join(AppSettingsSingleton.get_instance().HOST_JOBS_DIR, str(the_task.id), the_task.data["outputFile"])
         the_task_data.outputFile = os.path.join(directory_path, the_task.data["outputFile"])
 
         input_string = buildCtfCommand(the_task_data)
         logger.info("Input String: %s", input_string)
-        process = subprocess.run(
-            input_string,
-            cwd=os.getcwd(),
-            shell=True,
-            text=True,
-            check=False,
-            executable="/bin/bash",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-        output = process.stdout.strip()
-        error_output = process.stderr.strip()
-        return_code = process.returncode
+        return_code, output = run_and_log(input_string, log_path)
 
         if return_code != 0:
-            raise Exception(f"Command failed with return code {process.returncode}: {output} {error_output}")
+            raise Exception(f"Command failed with return code {return_code}: {output}")
         outputFileName = the_task_data.outputFile.rsplit(".", 1)[0]
         CTFestimationValues = await readLastLine(f'{outputFileName}.txt')
 
         # Initialize metadata list
         metaDataList = []
-        output_files=[]
+        output_files=[OutputFile(name="ctfRunLog", path=log_path, required=False)]
         files_to_check = [
                 ("ctfevalplots", f"{outputFileName}.mrc-plots.png"),
                 ("ctfevalpowerspec", f"{outputFileName}.mrc-powerspec.jpg"),
@@ -166,7 +209,12 @@ async def do_ctf(the_task: TaskMessage) -> TaskResultMessage:
             )
 
         except Exception as eval_error:
+            # CTFFIND worked; only the evaluation and its plots are missing.
             logger.warning(f"CTF evaluation failed: {str(eval_error)}")
+            add_to_run_log(log_path, f"\nCTF evaluation failed, so there are no plots: {eval_error}")
+            for name, path in files_to_check:
+                if os.path.exists(path):
+                    output_files.append(OutputFile(name=name, path=path, required=True))
             return TaskResultMessage(
                 worker_instance_id=the_task.worker_instance_id,
                 task_id=the_task.id,
@@ -176,7 +224,7 @@ async def do_ctf(the_task: TaskMessage) -> TaskResultMessage:
                 session_name=the_task.session_name,
                 code=200,
                 message="CTF executed successfully but evaluation failed",
-                description="Output for CTF estimation and evaluation for an input file",
+                description=f"The CTF evaluation failed, so there are no plots: {eval_error}",
                 status=the_task.status,
                 type=the_task.type,
                 created_date=datetime.now(),
@@ -186,12 +234,13 @@ async def do_ctf(the_task: TaskMessage) -> TaskResultMessage:
                     "output_txt": await getFileContents(f"{outputFileName}.txt"),
                     "output_avrot": await getFileContents(f"{outputFileName}_avrot.txt")
                 },
-                meta_data=[ImageMetaData(key="CTF", value=json.dumps(result), image_id=f"{outputFileName}.mrc")],
+                meta_data=[ImageMetaData(key="CTF", value=json.dumps(ctffind_values(CTFestimationValues)), image_id=f"{outputFileName}.mrc")],
                 output_files=output_files
             )
 
     except Exception as e:
         logger.error(f"An error occurred: {str(e)}")
+        add_to_run_log(log_path, f"\nFailed: {e}")
         return TaskResultMessage(
             worker_instance_id=the_task.worker_instance_id,
             task_id=the_task.id,
@@ -202,12 +251,13 @@ async def do_ctf(the_task: TaskMessage) -> TaskResultMessage:
             code=500,
             message="CTF execution was unsuccessful",
             description=f"An error occurred: {str(e)}",
-            status=the_task.status,
+            status=FAILED,
             type=the_task.type,
             created_date=datetime.now(),
             started_on=the_task.start_on,
             ended_on=datetime.now(),
             output_data={},
             meta_data=[],
-            output_files=[]
+            output_files=[OutputFile(name="ctfRunLog", path=log_path, required=False)]
+            if log_path and os.path.exists(log_path) else []
         )

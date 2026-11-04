@@ -36,24 +36,30 @@ import {
     AlertCircle,
 } from "lucide-react";
 import { Timeline } from "@mui/icons-material";
+import { RunCommand } from "./RunCommand.tsx";
 
 /** Per-image CTF estimation results rendered by this panel. */
 export interface CtfData {
     defocus1: number;
     defocus2: number;
     angleAstigmatism: number;
-    resolution: number;
+    /** Missing when only CTFFIND's own estimate is available. */
+    resolution: number | null;
 }
 
 export interface CTFAnalysisPanelProps {
     ctfData: CtfData | null;
     isLoading: boolean;
     error: unknown;
-    onRefresh: () => void;
+    /** Without it (a test's fixed result) there is no Refresh or Export. */
+    onRefresh?: () => void;
     powerspecUrl: string | null;
     isPowerspecLoading: boolean;
     plotsUrl: string | null;
     isPlotsLoading: boolean;
+    command: string | null;
+    isCommandLoading: boolean;
+    isCommandError: boolean;
     isMobile: boolean;
 }
 
@@ -66,6 +72,9 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
     isPowerspecLoading,
     plotsUrl,
     isPlotsLoading,
+    command,
+    isCommandLoading,
+    isCommandError,
     isMobile,
 }) => {
     const theme = useTheme();
@@ -86,6 +95,12 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
     return (
         <>
         <Stack spacing={4}>
+            <RunCommand
+                title="CTFFIND command"
+                command={command}
+                isLoading={isCommandLoading}
+                isError={isCommandError}
+            />
             {isLoading ? (
                 <Stack spacing={3}>
                     {/* Loading skeleton for metrics */}
@@ -190,7 +205,7 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                                 </Box>
                             </Box>
 
-                            {!isMobile && (
+                            {!isMobile && onRefresh && (
                                 <ButtonGroup variant="outlined" size="small">
                                     <Button startIcon={<RefreshIcon />} onClick={onRefresh}>
                                         Refresh
@@ -521,7 +536,7 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                                         >
                                             <BarChart3 size={20} />
                                         </Box>
-                                        {ImageCtfData.resolution <= 3.5 && (
+                                        {ImageCtfData.resolution != null && ImageCtfData.resolution <= 3.5 && (
                                             <CheckCircleIcon sx={{ color: 'success.main', fontSize: 20 }} />
                                         )}
                                     </Box>
@@ -535,7 +550,7 @@ export const CTFAnalysisPanel: React.FC<CTFAnalysisPanelProps> = ({
                                             fontFamily: 'monospace',
                                         }}
                                     >
-                                        {ImageCtfData.resolution?.toFixed(2)}
+                                        {ImageCtfData.resolution?.toFixed(2) ?? '—'}
                                         <Typography
                                             component="span"
                                             variant="body1"
