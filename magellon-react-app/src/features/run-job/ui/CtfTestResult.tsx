@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
-import { Alert, Box, Grid, Paper, Table, TableBody, TableCell, TableRow, Typography } from "@mui/material";
+import { useEffect, useRef } from "react";
+import { Alert, Box } from "@mui/material";
 import { settings } from "../../../shared/config/settings.ts";
-import getAxiosClient from '../../../shared/api/AxiosClient.ts';
-
-const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
+import { useAuthenticatedImage } from "../../../shared/lib/useAuthenticatedImage.ts";
+import { CTFAnalysisPanel } from "../../image-viewer/ui/CTFAnalysisPanel.tsx";
+import type { CtfData } from "../../image-viewer/ui/CTFAnalysisPanel.tsx";
+import { RunCommand } from "../../image-viewer/ui/RunCommand.tsx";
 
 /** The CTF plugin's TaskResultMessage, as relayed over the test WebSocket. */
 export interface CtfTestData {
@@ -11,69 +12,64 @@ export interface CtfTestData {
     message?: string;
     output_files?: Array<{ name?: string; path: string }>;
     meta_data?: Array<{ key: string; value: string }>;
+    run_command?: string | null;
 }
 
-const PICTURES = /\.(png|jpe?g)$/i;
-
-/** One output picture, fetched with the login token from /web/test-output. */
-const OutputPicture = ({ taskId, path, label }: { taskId: string; path: string; label: string }) => {
-    const [src, setSrc] = useState<string | null>(null);
-    const [failed, setFailed] = useState(false);
-    useEffect(() => {
-        let url: string | null = null;
-        const name = path.split('/').pop() as string;
-        apiClient.get(`/web/test-output/${taskId}/${encodeURIComponent(name)}`, { responseType: 'blob' })
-            .then((res) => { url = URL.createObjectURL(res.data); setSrc(url); })
-            .catch(() => setFailed(true));
-        return () => { if (url) URL.revokeObjectURL(url); };
-    }, [taskId, path]);
-    return (
-        <Paper variant="outlined" sx={{ p: 1 }}>
-            <Typography variant="caption" color="textSecondary">{label}</Typography>
-            {src && <Box component="img" src={src} alt={label} sx={{ width: '100%', display: 'block', mt: 0.5 }} />}
-            {failed && <Typography variant="body2" color="error">Could not load this picture.</Typography>}
-        </Paper>
-    );
+const pictureUrl = (taskId: string, files: CtfTestData["output_files"], suffix: string): string | null => {
+    const name = files?.find((f) => f.path?.endsWith(suffix))?.path.split("/").pop();
+    return name ? `${settings.ConfigData.SERVER_API_URL}/web/test-output/${taskId}/${encodeURIComponent(name)}` : null;
 };
 
-/** Values and pictures of a single-file CTF test. */
+/** The plugin's values, in the units the CTF tab shows (as /web/ctf-info converts them). */
+const ctfValues = (data: CtfTestData): CtfData | null => {
+    try {
+        const ctf = data.meta_data?.find((m) => m.key === "CTF");
+        if (!ctf) return null;
+        const v = JSON.parse(ctf.value);
+        return {
+            defocus1: Number(v.defocus1) * 1e6,
+            defocus2: Number(v.defocus2) * 1e6,
+            angleAstigmatism: (Number(v.angle_astigmatism) * 180) / Math.PI,
+            resolution: v.resolution_50_percent != null ? Number(v.resolution_50_percent) : null,
+        };
+    } catch {
+        return null;
+    }
+};
+
+/** A single-file CTF test's results, laid out as the CTF tab. */
 export const CtfTestResult = ({ taskId, data }: { taskId: string; data: CtfTestData }) => {
     const failed = (data.code ?? 200) >= 400;
-    let values: Record<string, unknown> = {};
-    try {
-        const ctf = data.meta_data?.find((m) => m.key === 'CTF');
-        values = ctf ? JSON.parse(ctf.value) : {};
-    } catch { /* no values */ }
-    const rows = Object.entries(values).filter(([, v]) => typeof v === 'number' || typeof v === 'string');
-    const pictures = (data.output_files ?? []).filter((f) => PICTURES.test(f.path));
+    const values = ctfValues(data);
+    const powerspec = useAuthenticatedImage(pictureUrl(taskId, data.output_files, "-powerspec.jpg"));
+    const plots = useAuthenticatedImage(pictureUrl(taskId, data.output_files, "-plots.png"));
+    const top = useRef<HTMLDivElement>(null);
+
+    // The results are below a long form: bring them into view.
+    useEffect(() => {
+        top.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, [taskId]);
 
     return (
-        <Box sx={{ mb: 3 }}>
-            <Alert severity={failed ? 'error' : 'success'} sx={{ mb: 2 }}>{data.message || (failed ? 'CTF failed' : 'CTF done')}</Alert>
-            <Grid container spacing={2}>
-                {rows.length > 0 && (
-                    <Grid size={{ xs: 12, md: 4 }}>
-                        <Paper variant="outlined">
-                            <Table size="small">
-                                <TableBody>
-                                    {rows.map(([key, value]) => (
-                                        <TableRow key={key}>
-                                            <TableCell sx={{ fontWeight: 500 }}>{key}</TableCell>
-                                            <TableCell>{typeof value === 'number' ? Number(value.toPrecision(5)) : value as string}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </Paper>
-                    </Grid>
-                )}
-                {pictures.map((f) => (
-                    <Grid key={f.path} size={{ xs: 12, md: rows.length ? 4 : 6 }}>
-                        <OutputPicture taskId={taskId} path={f.path}
-                            label={/powerspec/.test(f.path) ? 'Power spectrum' : /plots/.test(f.path) ? 'CTF fit plots' : (f.name || f.path)} />
-                    </Grid>
-                ))}
-            </Grid>
+        <Box ref={top} sx={{ mt: 3 }} data-testid="ctf-test-result">
+            {failed && <Alert severity="error" sx={{ mb: 2 }}>{data.message || "CTF failed"}</Alert>}
+            {values ? (
+                <CTFAnalysisPanel
+                    ctfData={values}
+                    isLoading={false}
+                    error={null}
+                    powerspecUrl={powerspec.imageUrl}
+                    isPowerspecLoading={powerspec.isLoading}
+                    plotsUrl={plots.imageUrl}
+                    isPlotsLoading={plots.isLoading}
+                    command={data.run_command ?? null}
+                    isCommandLoading={false}
+                    isCommandError={false}
+                    isMobile={false}
+                />
+            ) : data.run_command ? (
+                <RunCommand title="CTFFIND command" command={data.run_command} isLoading={false} isError={false} />
+            ) : null}
         </Box>
     );
 };

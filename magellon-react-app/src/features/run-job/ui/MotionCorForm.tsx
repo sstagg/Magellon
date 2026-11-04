@@ -21,6 +21,8 @@ import { settings } from "../../../shared/config/settings.ts";
 import getAxiosClient from '../../../shared/api/AxiosClient.ts';
 import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 import { MrcViewer } from "../../mrc-viewer/ui/MrcViewer.tsx";
+import { MotionCorTestResult } from "./MotionCorTestResult.tsx";
+import type { MotionCorTestData } from "./MotionCorTestResult.tsx";
 
 const apiClient = getAxiosClient(settings.ConfigData.SERVER_API_URL);
 
@@ -92,7 +94,7 @@ interface ProcessingState {
     statusMessage: string;
     isConnected: boolean;
     wsError: string | null;
-    resultData?: { output_files?: Array<{ path: string }> }; // Store the full result data from the server
+    resultData?: MotionCorTestData; // Store the full result data from the server
 }
 
 export const MotionCorForm: React.FC<MotionCorFormProps> = ({
@@ -966,6 +968,9 @@ export const MotionCorForm: React.FC<MotionCorFormProps> = ({
                     {jobStatus === 'processing' ? 'Submitting...' : 'Run Motion Correction'}
                 </Button>
             </Box>
+            {processingState.taskId && processingState.resultData && (
+                <MotionCorTestResult taskId={processingState.taskId} data={processingState.resultData} />
+            )}
         </>
     );
 

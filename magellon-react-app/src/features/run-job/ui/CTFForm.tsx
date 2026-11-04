@@ -264,7 +264,6 @@ export const CTFForm: React.FC<CTFFormProps> = ({
                     {successMessage}
                 </Alert>
             )}
-            {ctfResult && <CtfTestResult taskId={ctfResult.taskId} data={ctfResult.data} />}
 
             <Grid container spacing={3}>
                 <Grid size={12}>
@@ -543,6 +542,7 @@ export const CTFForm: React.FC<CTFFormProps> = ({
                     {jobStatus === 'processing' ? 'Running…' : 'Run CTF Estimation'}
                 </Button>
             </Box>
+            {ctfResult && <CtfTestResult taskId={ctfResult.taskId} data={ctfResult.data} />}
         </>
     );
 
