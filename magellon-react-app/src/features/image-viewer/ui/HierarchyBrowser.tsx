@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Box,
     Typography,
@@ -9,344 +9,128 @@ import {
     Chip,
     Stack
 } from '@mui/material';
-import {
-    Folder,
-    Image as ImageIcon,
-    Search
-} from '@mui/icons-material';
+import { Folder, Image as ImageIcon, Search } from '@mui/icons-material';
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
-import type { PagedImageResponse } from '../../../entities/image/types.ts';
 import type ImageInfoDto from '../../../entities/image/types.ts';
-import type { InfiniteData } from '@tanstack/react-query';
+import { useAllSessionImages } from '../api/usePagedImagesHook';
+import { imagePath, openImagePath } from '../lib/imagePath';
+import { makeImageMatcher } from '../lib/imageFilter';
 import { useImageViewerStore } from '../model/imageViewerStore';
 
 interface TreeViewerProps {
-    images: InfiniteData<PagedImageResponse> | null;
+    sessionName: string;
     onImageClick: (imageInfo: ImageInfoDto, column: number) => void;
     title?: string;
 }
 
-// Simplified tree node structure
 interface TreeNode {
-    id: string;
-    name: string;
-    level: number;
+    image: ImageInfoDto;
+    label: string;
     children: TreeNode[];
-    isImage: boolean;
-    imageData?: ImageInfoDto;
-    childrenCount?: number;
 }
 
+/** The tree the images' parent links make. The list's order is kept, so related images come first. */
+const buildTree = (images: ImageInfoDto[]): TreeNode[] => {
+    const nodes = new Map(images.map((image) => [image.oid, { image, label: image.name ?? 'Unnamed Image', children: [] as TreeNode[] }]));
+    const roots: TreeNode[] = [];
+    nodes.forEach((node) => {
+        const parent = node.image.parent_id ? nodes.get(node.image.parent_id) : undefined;
+        if (parent) {
+            // Child names repeat the parent's: show the part that differs.
+            const prefix = `${parent.image.name}_`;
+            if (node.label.startsWith(prefix)) node.label = node.label.slice(prefix.length);
+            parent.children.push(node);
+        } else {
+            roots.push(node);
+        }
+    });
+    return roots;
+};
+
+/** The images that pass, and the ones above them. */
+const pruneTree = (nodes: TreeNode[], keep: (image: ImageInfoDto) => boolean): TreeNode[] =>
+    nodes.flatMap((node) => {
+        const children = pruneTree(node.children, keep);
+        return keep(node.image) || children.length > 0 ? [{ ...node, children }] : [];
+    });
+
+const allIds = (nodes: TreeNode[]): string[] =>
+    nodes.flatMap((node) => (node.children.length > 0 ? [node.image.oid, ...allIds(node.children)] : []));
+
 /**
- * TreeViewer displays images in a hierarchical tree structure using Material UI TreeView.
+ * The session's images by their real parent and child links.
  */
-export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
-                                                          images,
-                                                          onImageClick,
-                                                          title = 'Image Tree'
-                                                      }) => {
+export const HierarchyBrowser: React.FC<TreeViewerProps> = ({ sessionName, onImageClick, title = 'Image Tree' }) => {
     const [expandedItems, setExpandedItems] = useState<string[]>([]);
-    const [selectedItems, setSelectedItems] = useState<string | null>(null);
     const [searchText, setSearchText] = useState('');
+    const { currentImage, imageColumns, imageFilter } = useImageViewerStore();
+    const { images, isLoading, isLoadingMore } = useAllSessionImages(sessionName);
 
-    const { currentImage } = useImageViewerStore();
+    const tree = useMemo(() => buildTree(images), [images]);
+    const search = searchText.trim().toLowerCase();
+    const matcher = useMemo(() => makeImageMatcher(imageFilter), [imageFilter]);
+    const shownTree = useMemo(() => (search || matcher
+        ? pruneTree(tree, (image) => (!matcher || matcher(image)) && (!search || !!image.name?.toLowerCase().includes(search)))
+        : tree), [tree, search, matcher]);
+    const relatedRoots = useMemo(() => tree.filter((node) => node.children.length > 0).length, [tree]);
 
-    // Extract all images from the paginated data
-    const allImages = useMemo(() => images?.pages?.flatMap(page => page.result) || [], [images?.pages]);
-
-    // Build tree hierarchy from flat data
-    const treeData = useMemo(() => {
-        if (!allImages || allImages.length === 0) {
-            return [] as TreeNode[];
+    // Open the top level once, and whatever a search finds.
+    const expandedOnce = useRef(false);
+    useEffect(() => {
+        if (!expandedOnce.current && tree.length > 0) {
+            expandedOnce.current = true;
+            setExpandedItems(tree.filter((node) => node.children.length > 0).map((node) => node.image.oid));
         }
+    }, [tree]);
+    useEffect(() => {
+        if (search || matcher) setExpandedItems(allIds(shownTree));
+    }, [search, matcher, shownTree]);
 
-        // Group images by the first part of their name (before the first underscore)
-        const groupedImages: Record<string, ImageInfoDto[]> = {};
-
-        allImages.forEach(image => {
-            if (!image.name) return;
-
-            // Extract group name (e.g., "24jun28a" from "24jun28a_Valle001-01_00009gr")
-            const parts = image.name.split('_');
-            const groupName = parts[0] || 'Unknown';
-
-            if (!groupedImages[groupName]) {
-                groupedImages[groupName] = [];
-            }
-
-            groupedImages[groupName].push(image);
-        });
-
-        // Convert grouped images to tree structure
-        const treeNodes: TreeNode[] = Object.entries(groupedImages).map(([groupName, groupImages]) => {
-            // Further group by the second part (e.g., "Valle001-01")
-            const subGroups: Record<string, ImageInfoDto[]> = {};
-
-            groupImages.forEach(image => {
-                if (!image.name) return;
-
-                const parts = image.name.split('_');
-                const subGroupName = parts.length >= 2 ? parts[1] : 'Unknown';
-
-                if (!subGroups[subGroupName]) {
-                    subGroups[subGroupName] = [];
-                }
-
-                subGroups[subGroupName].push(image);
-            });
-
-            // Create children for each subgroup
-            const children: TreeNode[] = Object.entries(subGroups).map(([subGroupName, subGroupImages]) => {
-                // Create leaf nodes for each image
-                const imageNodes: TreeNode[] = subGroupImages.map(image => ({
-                    id: image.oid || `image-${image.name}`,
-                    name: image.name?.split('_')[2] || image.name || 'Unknown Image',
-                    level: 2,
-                    children: [] as TreeNode[],
-                    isImage: true,
-                    imageData: image
-                }));
-
-                return {
-                    id: `${groupName}_${subGroupName}`,
-                    name: subGroupName,
-                    level: 1,
-                    children: imageNodes,
-                    isImage: false,
-                    childrenCount: imageNodes.length
-                };
-            });
-
-            return {
-                id: groupName,
-                name: groupName,
-                level: 0,
-                children,
-                isImage: false,
-                childrenCount: groupImages.length
-            };
-        });
-
-        return treeNodes;
-    }, [allImages]);
-
-    // Filter tree data based on search text
-    const filteredTreeData = useMemo(() => {
-        if (!searchText.trim()) {
-            return treeData;
+    // The way down to an image opened elsewhere.
+    useEffect(() => {
+        if (currentImage) {
+            const parents = imagePath(currentImage, images).slice(0, -1).map((image) => image.oid);
+            if (parents.length > 0) setExpandedItems((prev) => Array.from(new Set([...prev, ...parents])));
         }
+    }, [currentImage?.oid, images]); // eslint-disable-line react-hooks/exhaustive-deps
 
-        const searchLower = searchText.toLowerCase();
-
-        // Helper function to filter nodes recursively
-        const filterNodes = (nodes: TreeNode[]): TreeNode[] => {
-            return nodes
-                .map(node => {
-                    // Check if this node matches
-                    const nodeMatches = node.name.toLowerCase().includes(searchLower);
-
-                    // Filter children
-                    const filteredChildren = filterNodes(node.children);
-
-                    // Keep this node if it matches or has matching children
-                    if (nodeMatches || filteredChildren.length > 0) {
-                        return {
-                            ...node,
-                            children: filteredChildren
-                        };
-                    }
-
-                    return null;
-                })
-                .filter(node => node !== null) as TreeNode[];
-        };
-
-        return filterNodes(treeData);
-    }, [treeData, searchText]);
-
-    // Handle item expansion
-    const handleExpandedItemsChange = (_event: React.SyntheticEvent | null, itemIds: string[]) => {
-        setExpandedItems(itemIds);
-    };
-
-    // Handle item selection - This is the key change to match ThumbImage behavior
-    const handleSelectedItemsChange = (_event: React.SyntheticEvent | null, itemId: string | null) => {
-        setSelectedItems(itemId);
-
-        // Find the selected node and trigger image click if it's an image
-        const findNode = (nodes: TreeNode[], id: string): TreeNode | null => {
-            for (const node of nodes) {
-                if (node.id === id) return node;
-                const found = findNode(node.children, id);
-                if (found) return found;
-            }
-            return null;
-        };
-
-        if (itemId) {
-            const selectedNode = findNode(filteredTreeData, itemId);
-            if (selectedNode && selectedNode.isImage && selectedNode.imageData) {
-                // Only trigger image click if this is a different image than currently selected
-                // This matches the logic in ThumbImage component
-                if (!currentImage || currentImage.oid !== selectedNode.imageData.oid) {
-                    // Create a copy of the image with level set, exactly like ThumbImage does
-                    const imageWithLevel = { ...selectedNode.imageData, level: selectedNode.level };
-
-                    // Call onImageClick with the same parameters as ThumbImage
-                    // ThumbImage calls: onImageClick(imageWithLevel, level);
-                    // We'll use level 0 for tree view since it's not hierarchical columns
-                    onImageClick(imageWithLevel, 0);
-                }
-            }
+    const handleSelected = (_event: React.SyntheticEvent | null, itemId: string | null) => {
+        const image = images.find((item) => item.oid === itemId);
+        if (image && image.oid !== currentImage?.oid) {
+            openImagePath(image, images, imageColumns.length, onImageClick);
         }
     };
 
-    // Handle direct image click (when user clicks on tree item content)
-    const handleImageClick = (node: TreeNode) => {
-        if (node.isImage && node.imageData) {
-            // Create a copy of the image with level set, exactly like ThumbImage does
-            const imageWithLevel = { ...node.imageData, level: node.level };
-
-            // Update local selection state
-            setSelectedItems(node.id);
-
-            // Call the parent callback with level 0 (tree view doesn't use column hierarchy)
-            onImageClick(imageWithLevel, 0);
-        }
-    };
-
-    // Recursively render tree items
-    const renderTreeItems = (nodes: TreeNode[]): React.ReactNode => {
-        return nodes.map((node) => (
+    const renderTreeItems = (nodes: TreeNode[]): React.ReactNode =>
+        nodes.map((node) => (
             <TreeItem
-                key={node.id}
-                itemId={node.id}
+                key={node.image.oid}
+                itemId={node.image.oid}
                 label={
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            py: 0.5,
-                            gap: 1,
-                            cursor: node.isImage ? 'pointer' : 'default'
-                        }}
-                        onClick={(e) => {
-                            // Handle image click when clicking on the label content
-                            if (node.isImage) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleImageClick(node);
-                            }
-                        }}
-                    >
-                        {node.isImage ? (
-                            <ImageIcon sx={{ fontSize: 16, color: 'primary.main' }} />
-                        ) : (
-                            <Folder sx={{ fontSize: 16, color: 'warning.main' }} />
-                        )}
-                        <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                            {node.name}
+                    <Box sx={{ display: 'flex', alignItems: 'center', py: 0.5, gap: 1 }}>
+                        {node.children.length > 0
+                            ? <Folder sx={{ fontSize: 16, color: 'warning.main' }} />
+                            : <ImageIcon sx={{ fontSize: 16, color: 'primary.main' }} />}
+                        <Typography variant="body2" noWrap sx={{ flexGrow: 1 }} title={node.image.name}>
+                            {node.label}
                         </Typography>
-                        {!node.isImage && node.childrenCount && (
-                            <Chip
-                                label={node.childrenCount}
-                                size="small"
-                                variant="outlined"
-                                sx={{ height: 20, fontSize: '0.6rem' }}
-                            />
+                        {node.image.resolution != null && (
+                            <Typography variant="caption" sx={{ color: 'text.secondary', flexShrink: 0 }}>
+                                {node.image.resolution.toFixed(1)} Å
+                            </Typography>
                         )}
-                        {/* Add visual indicator for selected image */}
-                        {node.isImage && currentImage && currentImage.oid === node.imageData?.oid && (
-                            <Box
-                                sx={{
-                                    width: 8,
-                                    height: 8,
-                                    borderRadius: '50%',
-                                    backgroundColor: 'primary.main',
-                                    ml: 1
-                                }}
-                            />
+                        {node.children.length > 0 && (
+                            <Chip label={node.children.length} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.6rem' }} />
                         )}
                     </Box>
                 }
-                sx={{
-                    '& .MuiTreeItem-content': {
-                        borderRadius: 1,
-                        '&:hover': {
-                            backgroundColor: 'action.hover',
-                        },
-                        '&.Mui-selected': {
-                            backgroundColor: node.isImage && currentImage && currentImage.oid === node.imageData?.oid
-                                ? 'primary.light'
-                                : 'action.selected',
-                            '&:hover': {
-                                backgroundColor: node.isImage && currentImage && currentImage.oid === node.imageData?.oid
-                                    ? 'primary.light'
-                                    : 'action.selected',
-                            }
-                        }
-                    },
-                    '& .MuiTreeItem-label': {
-                        fontSize: '0.875rem',
-                    }
-                }}
             >
-                {node.children.length > 0 && renderTreeItems(node.children)}
+                {renderTreeItems(node.children)}
             </TreeItem>
         ));
-    };
 
-    // Auto-expand first level when data loads
-    useEffect(() => {
-        if (filteredTreeData.length > 0 && expandedItems.length === 0) {
-            // Auto-expand the first group to show subgroups
-            const firstLevelIds = filteredTreeData.map(node => node.id);
-            setExpandedItems(firstLevelIds);
-        }
-    }, [filteredTreeData, expandedItems.length]);
-
-    // Update selection when current image changes (from store)
-    useEffect(() => {
-        if (currentImage) {
-            const imageId = currentImage.oid || `image-${currentImage.name}`;
-
-            // Only update if the current selection is different
-            if (selectedItems !== imageId) {
-                setSelectedItems(imageId);
-
-                // Auto-expand parent nodes to make the selected image visible
-                const findParentPath = (nodes: TreeNode[], targetId: string, path: string[] = []): string[] | null => {
-                    for (const node of nodes) {
-                        const currentPath = [...path, node.id];
-
-                        if (node.id === targetId) {
-                            return currentPath.slice(0, -1); // Return parent path, not including the target
-                        }
-
-                        if (node.children.length > 0) {
-                            const found = findParentPath(node.children, targetId, currentPath);
-                            if (found) return found;
-                        }
-                    }
-                    return null;
-                };
-
-                const parentPath = findParentPath(filteredTreeData, imageId);
-                if (parentPath && parentPath.length > 0) {
-                    setExpandedItems(prev => {
-                        const newExpanded = new Set([...prev, ...parentPath]);
-                        return Array.from(newExpanded);
-                    });
-                }
-            }
-        } else {
-            // Clear selection if no image is selected
-            setSelectedItems(null);
-        }
-    }, [currentImage, filteredTreeData]); // eslint-disable-line react-hooks/exhaustive-deps -- selectedItems omitted to prevent infinite loops
-
-    if (!images) {
+    if (isLoading) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
                 <CircularProgress />
@@ -354,24 +138,18 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
         );
     }
 
-    if (allImages.length === 0) {
+    if (images.length === 0) {
         return (
             <Paper elevation={1} sx={{ p: 3, textAlign: 'center' }}>
                 <Typography variant="h6" gutterBottom>{title}</Typography>
-                <Typography sx={{
-                    color: "text.secondary"
-                }}>No images available</Typography>
+                <Typography sx={{ color: "text.secondary" }}>No images available</Typography>
             </Paper>
         );
     }
 
     return (
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h6" gutterBottom sx={{ px: 2, pt: 2 }}>
-                {title}
-            </Typography>
-            {/* Search field */}
-            <Box sx={{ px: 2, pb: 2 }}>
+        <Box sx={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', pt: 1 }} data-testid="image-tree">
+            <Box sx={{ px: 2, pb: 1, flexShrink: 0 }}>
                 <TextField
                     fullWidth
                     size="small"
@@ -388,62 +166,21 @@ export const HierarchyBrowser: React.FC<TreeViewerProps> = ({
                         }
                     }}
                 />
-            </Box>
-            {/* Statistics */}
-            <Box sx={{ px: 2, pb: 2 }}>
-                <Stack direction="row" spacing={1}>
-                    <Chip
-                        label={`${treeData.length} Groups`}
-                        size="small"
-                        variant="outlined"
-                        color="primary"
-                    />
-                    <Chip
-                        label={`${allImages.length} Images`}
-                        size="small"
-                        variant="outlined"
-                        color="secondary"
-                    />
-                    {searchText && (
-                        <Chip
-                            label={`${filteredTreeData.length} Filtered`}
-                            size="small"
-                            variant="filled"
-                            color="info"
-                        />
-                    )}
+                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                    <Chip label={`${relatedRoots} with children`} size="small" variant="outlined" color="primary" />
+                    <Chip label={`${images.length} images${isLoadingMore ? '...' : ''}`} size="small" variant="outlined" color="secondary" />
                 </Stack>
             </Box>
-            {/* Tree view */}
-            <Paper
-                elevation={1}
-                sx={{
-                    flex: 1,
-                    mx: 2,
-                    mb: 2,
-                    overflow: 'auto',
-                    borderRadius: 2
-                }}
-            >
+            <Paper elevation={1} sx={{ flex: 1, minHeight: 0, mx: 2, mb: 2, overflow: 'auto', borderRadius: 2 }}>
                 <SimpleTreeView
                     expandedItems={expandedItems}
-                    onExpandedItemsChange={handleExpandedItemsChange}
-                    selectedItems={selectedItems}
-                    onSelectedItemsChange={handleSelectedItemsChange}
+                    onExpandedItemsChange={(_event, itemIds) => setExpandedItems(itemIds)}
+                    selectedItems={currentImage?.oid ?? null}
+                    onSelectedItemsChange={handleSelected}
                     multiSelect={false}
-                    sx={{
-                        p: 1,
-                        minHeight: 400,
-                        '& .MuiTreeItem-root': {
-                            '& .MuiTreeItem-content': {
-                                borderRadius: 1,
-                                marginBottom: 0.5,
-                                padding: '4px 8px',
-                            }
-                        }
-                    }}
+                    sx={{ p: 1, pb: 7 }}
                 >
-                    {renderTreeItems(filteredTreeData)}
+                    {renderTreeItems(shownTree)}
                 </SimpleTreeView>
             </Paper>
         </Box>

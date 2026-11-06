@@ -1,12 +1,9 @@
 import { useMemo, useState } from 'react';
 import type ImageInfoDto from '../../../entities/image/types.ts';
 
+/** The column's own name search; the image filter comes as the ids it leaves visible. */
 export interface ColumnFilter {
     search?: string;
-    defocusMin?: number;
-    defocusMax?: number;
-    hasChildren?: boolean;
-    magnification?: number;
 }
 
 export type SortField = 'name' | 'defocus' | 'children_count' | 'mag' | 'pixelSize';
@@ -30,29 +27,6 @@ function getSortValue(image: ImageInfoDto, field: SortField): SortableValue {
     }
 }
 
-function matchesFilter(image: ImageInfoDto, filter: ColumnFilter): boolean {
-    if (filter.search && image.name &&
-        !image.name.toLowerCase().includes(filter.search.toLowerCase())) {
-        return false;
-    }
-    if (filter.defocusMin !== undefined &&
-        (image.defocus === undefined || image.defocus < filter.defocusMin)) {
-        return false;
-    }
-    if (filter.defocusMax !== undefined &&
-        (image.defocus === undefined || image.defocus > filter.defocusMax)) {
-        return false;
-    }
-    if (filter.hasChildren !== undefined &&
-        ((image.children_count || 0) > 0) !== filter.hasChildren) {
-        return false;
-    }
-    if (filter.magnification !== undefined && image.mag !== filter.magnification) {
-        return false;
-    }
-    return true;
-}
-
 function compareValues(a: SortableValue, b: SortableValue, direction: SortDirection): number {
     if (a === undefined && b === undefined) return 0;
     if (a === undefined) return 1;
@@ -65,21 +39,25 @@ function compareValues(a: SortableValue, b: SortableValue, direction: SortDirect
     return direction === 'desc' ? -comparison : comparison;
 }
 
-export function useColumnFilter(allImages: ImageInfoDto[]) {
+export function useColumnFilter(allImages: ImageInfoDto[], visibleIds?: Set<string> | null) {
     const [filter, setFilter] = useState<ColumnFilter>({});
     const [sortConfig, setSortConfig] = useState<SortConfig>({ field: 'name', direction: 'asc' });
 
     const { filteredImages, totalCount } = useMemo(() => {
+        // Images with children stay first, whichever way the rest is sorted.
         const filtered = allImages
-            .filter(image => matchesFilter(image, filter))
-            .sort((a, b) => compareValues(
-                getSortValue(a, sortConfig.field),
-                getSortValue(b, sortConfig.field),
-                sortConfig.direction
-            ));
+            .filter(image => (!visibleIds || visibleIds.has(image.oid)) &&
+                (!filter.search || !!image.name?.toLowerCase().includes(filter.search.toLowerCase())))
+            .sort((a, b) =>
+                Number((b.children_count || 0) > 0) - Number((a.children_count || 0) > 0) ||
+                compareValues(
+                    getSortValue(a, sortConfig.field),
+                    getSortValue(b, sortConfig.field),
+                    sortConfig.direction
+                ));
 
         return { filteredImages: filtered, totalCount: allImages.length };
-    }, [allImages, filter, sortConfig]);
+    }, [allImages, filter, sortConfig, visibleIds]);
 
     const resetFilter = () => setFilter({});
 

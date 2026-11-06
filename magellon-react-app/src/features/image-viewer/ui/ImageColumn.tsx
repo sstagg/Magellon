@@ -28,6 +28,8 @@ interface ImagesStackProps {
     isLoadingMore?: boolean;
     /** The column's selection when it can come from outside (an atlas tile). */
     selected?: ImageInfoDto | null;
+    /** The images to show when the caller has filtered or sorted them. */
+    visibleImages?: ImageInfoDto[];
 }
 
 /** The list with the selected image first if its page isn't loaded yet. */
@@ -44,7 +46,8 @@ export const ImageColumn: React.FC<ImagesStackProps> = ({
                                                             height,
                                                             onLoadMore,
                                                             isLoadingMore: loadingMore = false,
-                                                            selected
+                                                            selected,
+                                                            visibleImages
                                                         }) => {
     const [selectedImage, setSelectedImage] = useState<ImageInfoDto | null>(null);
     const listRef = useRef<HTMLDivElement>(null);
@@ -52,7 +55,7 @@ export const ImageColumn: React.FC<ImagesStackProps> = ({
     const { currentImage } = useImageViewerStore();
     const theme = useTheme();
 
-    const allImages = withSelected(images?.pages?.flatMap(page => page.result) || [], selected);
+    const allImages = visibleImages ?? withSelected(images?.pages?.flatMap(page => page.result) || [], selected);
     const hasNextPage = !!onLoadMore && images?.pages?.[images.pages.length - 1]?.next_page != null;
 
     useEffect(() => {
@@ -83,7 +86,7 @@ export const ImageColumn: React.FC<ImagesStackProps> = ({
 
     const containerWidth = isHorizontal ? '100%' : 180;
     const containerHeight = isHorizontal ? (height || 200) : '100%';
-    const maxHeight = isHorizontal ? (height || 200) : 700;
+    const maxHeight = isHorizontal ? (height || 200) : '100%';
 
     if (!hasImages) {
         return null;

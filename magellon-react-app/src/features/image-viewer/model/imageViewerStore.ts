@@ -1,3 +1,4 @@
+import { EMPTY_FILTER, type ImageFilter } from '../lib/imageFilter.ts';
 import { create } from 'zustand';
 import type { SessionDto, AtlasImageDto, PagedImageResponse } from '../../../entities/image/types.ts';
 import type ImageInfoDto from '../../../entities/image/types.ts';
@@ -56,6 +57,9 @@ interface ImageViewerState {
     updateImageColumn: (columnIndex: number, columnData: Partial<ImageColumn>) => void;
     resetImageColumns: () => void;
     selectImageInColumn: (image: ImageInfoDto | null, columnIndex: number) => void;
+    /** One filter for all the session's images, in every layout. */
+    imageFilter: ImageFilter;
+    setImageFilter: (filter: ImageFilter) => void;
     setAtlasImages: (atlasImages: AtlasImageDto[] | null) => void;
     setActiveTab: (tabId: string) => void;
     toggleAtlasVisibility: () => void;
@@ -108,6 +112,7 @@ export const useImageViewerStore = create<ImageViewerState>()((set) => ({
     currentSession: null,
     currentImage: null,
     imageColumns: [...initialImageColumns],
+    imageFilter: EMPTY_FILTER,
     activeTab: '1', // Default to first tab
     isAtlasVisible: true,
     currentAtlas: null,
@@ -126,7 +131,10 @@ export const useImageViewerStore = create<ImageViewerState>()((set) => ({
         currentSession: session,
         currentImage: null,
         imageColumns: [...initialImageColumns],
+        imageFilter: EMPTY_FILTER,
     }),
+
+    setImageFilter: (filter) => set({ imageFilter: filter }),
 
     setCurrentImage: (image) => set({ currentImage: image }),
 

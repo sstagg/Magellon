@@ -1,9 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type {
     SelectChangeEvent} from "@mui/material";
 import {
+    Badge,
     Box,
+    Chip,
     Fab,
+    IconButton,
     FormControl,
     Select,
     MenuItem,
@@ -18,6 +21,7 @@ import {
     ViewColumn,
     AccountTreeRounded,
     GridOnRounded,
+    FilterList,
 } from "@mui/icons-material";
 import { TableProperties } from "lucide-react";
 import type { AtlasImageDto, SessionDto } from "../../../entities/image/types.ts";
@@ -28,8 +32,12 @@ import type { ImageColumn as ImageColumnState } from "../model/imageViewerStore.
 import GridGallery from "./GridGallery.tsx";
 import HierarchyBrowser from "./HierarchyBrowser.tsx";
 import ColumnBrowser from "./ColumnBrowser.tsx";
+import ImageTable from "./ImageTable.tsx";
 import { AtlasSection } from './AtlasSection.tsx';
 import { DeleteSessionButton } from './DeleteSessionButton.tsx';
+import ImageFilterDialog from './ImageFilterDialog.tsx';
+import { useAllSessionImages } from '../api/usePagedImagesHook.ts';
+import { EMPTY_FILTER, countActiveFilters, describeFilter } from '../lib/imageFilter.ts';
 
 interface ImageNavigatorProps {
     onImageClick: (imageInfo: ImageInfoDto, column: number) => void,
@@ -60,9 +68,17 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
         toggleAtlasVisibility,
         setViewMode,
         setCurrentAtlas,
+        imageFilter,
+        setImageFilter,
     } = useImageViewerStore();
 
     const sessionName = currentSession?.name || selectedSession?.name || '';
+
+    // One filter for the whole session, whichever layout shows it.
+    const [filterOpen, setFilterOpen] = useState(false);
+    const filterCount = countActiveFilters(imageFilter);
+    const filterText = useMemo(() => describeFilter(imageFilter), [imageFilter]);
+    const { images: sessionImages } = useAllSessionImages(sessionName, filterOpen || filterCount > 0);
 
     // The selected session was deleted elsewhere (another tab or user, or its
     // import was stopped): once the refreshed list no longer has it, let it go.
@@ -95,7 +111,8 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
             case 'tree':
                 return (
                     <HierarchyBrowser
-                        images={ImageColumns[0].images}
+                        key={sessionName}
+                        sessionName={sessionName}
                         onImageClick={onImageClick}
                         title="Image Hierarchy"
                     />
@@ -103,11 +120,14 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
             case 'flat':
                 return (
                     <GridGallery
-                        images={ImageColumns[0].images}
+                        key={sessionName}
+                        sessionName={sessionName}
                         onImageClick={onImageClick}
                         title="All Images"
                     />
                 );
+            case 'table':
+                return <ImageTable key={sessionName} sessionName={sessionName} onImageClick={onImageClick} />;
             default:
                 return null;
         }
@@ -159,6 +179,22 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
                     onDeleted={() => OnSessionSelected({ target: { value: '' } } as SelectChangeEvent)}
                 />
 
+                <Tooltip title="Filter the session's images">
+                    <span>
+                        <IconButton
+                            size="small"
+                            aria-label="Filter images"
+                            disabled={!sessionName}
+                            onClick={() => setFilterOpen(true)}
+                            color={filterCount > 0 ? 'primary' : 'default'}
+                        >
+                            <Badge badgeContent={filterCount} color="primary">
+                                <FilterList fontSize="small" />
+                            </Badge>
+                        </IconButton>
+                    </span>
+                </Tooltip>
+
                 {/* View mode toggle (center) */}
                 <ToggleButtonGroup
                     size="small"
@@ -189,6 +225,31 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
                     </ToggleButton>
                 </ToggleButtonGroup>
             </Box>
+
+            {filterCount > 0 && (
+                <Box sx={{ px: 1, py: 0.5, borderBottom: `1px solid ${theme.palette.divider}`, flexShrink: 0 }}>
+                    <Chip
+                        data-testid="active-filter"
+                        icon={<FilterList fontSize="small" />}
+                        label={filterText}
+                        title={filterText}
+                        color="primary"
+                        variant="outlined"
+                        size="small"
+                        onClick={() => setFilterOpen(true)}
+                        onDelete={() => setImageFilter(EMPTY_FILTER)}
+                        sx={{ maxWidth: '100%' }}
+                    />
+                </Box>
+            )}
+
+            <ImageFilterDialog
+                open={filterOpen}
+                onClose={() => setFilterOpen(false)}
+                onApplyFilter={setImageFilter}
+                currentFilter={imageFilter}
+                images={sessionImages}
+            />
 
             {/* ─── Atlas section ─── */}
             <AtlasSection

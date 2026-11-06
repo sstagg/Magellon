@@ -39,6 +39,7 @@ import { ImageThumbnail } from "./ImageThumbnail.tsx";
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
 import { useImageListQuery } from "../api/usePagedImagesHook.ts";
 import { useColumnFilter, type ColumnFilter } from '../lib/useColumnFilter.ts';
+import { EMPTY_FILTER } from '../lib/imageFilter.ts';
 import { DEFAULT_PAGE_SIZE, TILE_WIDTH, COLUMN_HEIGHT_THRESHOLD } from '../constants';
 
 type DisplayMode = 'stack' | 'grid' | 'list';
@@ -56,6 +57,10 @@ interface SlickImageColumnProps {
     collapsible?: boolean;
     initialCollapsed?: boolean;
     sx?: object;
+    /** The images the session's filter leaves (with their ancestors); null when there is no filter. */
+    visibleIds?: Set<string> | null;
+    /** The filter is set but the session's images are still loading. */
+    filterPending?: boolean;
 }
 
 export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
@@ -70,7 +75,9 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                                                                        initialDisplayMode = 'stack',
                                                                        collapsible = false,
                                                                        initialCollapsed = false,
-                                                                       sx = {}
+                                                                       sx = {},
+                                                                       visibleIds = null,
+                                                                       filterPending = false
                                                                    }) => {
     const theme = useTheme();
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -87,7 +94,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
     const [showSearch, setShowSearch] = useState(false);
     const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
-    const { imageColumns } = useImageViewerStore();
+    const { imageColumns, setImageFilter } = useImageViewerStore();
     // What is selected in this column, also from outside it (an atlas tile).
     const columnSelection = imageColumns[level]?.selectedImage ?? null;
 
@@ -128,11 +135,20 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         [data, columnSelection]
     );
 
-    const { filter, setFilter, resetFilter, sortConfig, setSortConfig, filteredImages } = useColumnFilter(allImages);
+    const { filter, setFilter, resetFilter, sortConfig, setSortConfig, filteredImages } = useColumnFilter(allImages, visibleIds);
 
     useEffect(() => {
         setSelectedImageId(columnSelection?.oid || null);
     }, [columnSelection]);
+
+    const activeFilterCount = filter.search ? 1 : 0;
+
+    // Filtering or reversing the order only means something over the whole column.
+    useEffect(() => {
+        if ((visibleIds || filter.search || sortConfig.direction === 'desc') && hasNextPage && !isFetchingNextPage && !isError) {
+            fetchNextPage();
+        }
+    }, [visibleIds, filter.search, sortConfig.direction, hasNextPage, isFetchingNextPage, isError, fetchNextPage]);
 
     const handleImageClick = useCallback((image: ImageInfoDto) => {
         setSelectedImageId(image.oid || null);
@@ -149,7 +165,8 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
 
     const handleClearFilters = useCallback(() => {
         setFilter({});
-    }, [setFilter]);
+        setImageFilter(EMPTY_FILTER);
+    }, [setFilter, setImageFilter]);
 
     const handleMenuClose = useCallback(() => {
         setMenuAnchor(null);
@@ -160,10 +177,6 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
             scrollRef.current.scrollTop = 0;
         }
     }, [filter, sortConfig]);
-
-    const activeFilterCount = Object.values(filter).filter(val =>
-        val !== undefined && val !== '' && val !== null
-    ).length;
 
     const getContentHeight = useCallback(() => {
         if (!isHorizontalMode) return '100%';
@@ -306,6 +319,17 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
     const renderImages = () => {
         if (isCollapsed) return null;
 
+        if (allImages.length > 0 && filteredImages.length === 0) {
+            return (
+                <Box sx={{ p: 2, textAlign: 'center' }} data-testid="column-no-match">
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1 }}>
+                        {filterPending || hasNextPage ? 'Loading...' : `None of these ${allImages.length} images match the filter`}
+                    </Typography>
+                    <Button size="small" onClick={handleClearFilters}>Clear Filters</Button>
+                </Box>
+            );
+        }
+
         if (displayMode === 'stack') {
             const contentHeight = getContentHeight();
 
@@ -319,6 +343,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                     height={isHorizontalMode ? (contentHeight as number) : undefined}
                     onImageClick={handleImageClick}
                     selected={columnSelection}
+                    visibleImages={filteredImages}
                     onLoadMore={() => fetchNextPage()}
                     isLoadingMore={isFetchingNextPage}
                 />

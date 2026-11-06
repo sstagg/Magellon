@@ -29,7 +29,6 @@ import {
     Sort,
     MoreVert,
     Refresh,
-    Settings,
     ExpandMore,
 } from '@mui/icons-material';
 import { Eye, Grid3X3, Maximize2, Minimize2 } from 'lucide-react';
@@ -129,17 +128,6 @@ export const ImageGridControls: React.FC<ImageGridControlsProps> = ({
         return "1-2 columns";
     };
 
-    const getViewIcon = () => {
-        switch (viewMode) {
-            case 'list':
-                return <ViewList fontSize="small" />;
-            case 'compact':
-                return <ViewComfy fontSize="small" />;
-            default:
-                return <ViewModule fontSize="small" />;
-        }
-    };
-
     const sortOptions = [
         { key: 'name', label: 'Name' },
         { key: 'date', label: 'Date Created' },
@@ -202,7 +190,7 @@ export const ImageGridControls: React.FC<ImageGridControlsProps> = ({
 
                 {/* Right side - Action buttons */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {!isMobile && (
+                    {!isMobile && onViewModeChange && (
                         <>
                             {/* View mode toggles */}
                             <ButtonGroup size="small" variant="outlined">
@@ -273,22 +261,6 @@ export const ImageGridControls: React.FC<ImageGridControlsProps> = ({
                     gap: 2,
                     pt: 1
                 }}>
-                    {/* View Mode Indicator */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 'auto' }}>
-                        <Typography variant="body2" sx={{ mr: 1, fontWeight: 500 }}>
-                            View:
-                        </Typography>
-                        <Chip
-                            icon={getViewIcon()}
-                            label={viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}
-                            size="small"
-                            variant="outlined"
-                            color="primary"
-                        />
-                    </Box>
-
-                    <Divider orientation="vertical" flexItem />
-
                     {/* Zoom Controls */}
                     <Box sx={{
                         display: 'flex',
@@ -423,38 +395,36 @@ export const ImageGridControls: React.FC<ImageGridControlsProps> = ({
                         )}
 
                         {/* More Options Menu */}
-                        <Tooltip title="More options">
-                            <IconButton onClick={handleMoreMenuOpen} size="small">
-                                <MoreVert />
-                            </IconButton>
-                        </Tooltip>
+                        {onMetadataToggle && (
+                            <>
+                                <Tooltip title="More options">
+                                    <IconButton onClick={handleMoreMenuOpen} size="small">
+                                        <MoreVert />
+                                    </IconButton>
+                                </Tooltip>
 
-                        <Menu
-                            anchorEl={moreMenuAnchor}
-                            open={Boolean(moreMenuAnchor)}
-                            onClose={handleMoreMenuClose}
-                            transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-                            anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-                        >
-                            {onMetadataToggle && (
-                                <MenuItem>
-                                    <FormControlLabel
-                                        control={
-                                            <Switch
-                                                checked={showMetadata}
-                                                onChange={(e) => onMetadataToggle(e.target.checked)}
-                                                size="small"
-                                            />
-                                        }
-                                        label="Show Metadata"
-                                    />
-                                </MenuItem>
-                            )}
-                            <MenuItem onClick={handleMoreMenuClose}>
-                                <Settings fontSize="small" sx={{ mr: 1 }} />
-                                Settings
-                            </MenuItem>
-                        </Menu>
+                                <Menu
+                                    anchorEl={moreMenuAnchor}
+                                    open={Boolean(moreMenuAnchor)}
+                                    onClose={handleMoreMenuClose}
+                                    transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                                    anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                                >
+                                    <MenuItem>
+                                        <FormControlLabel
+                                            control={
+                                                <Switch
+                                                    checked={showMetadata}
+                                                    onChange={(e) => onMetadataToggle(e.target.checked)}
+                                                    size="small"
+                                                />
+                                            }
+                                            label="Show Metadata"
+                                        />
+                                    </MenuItem>
+                                </Menu>
+                            </>
+                        )}
                     </Box>
                 </Box>
             </Collapse>

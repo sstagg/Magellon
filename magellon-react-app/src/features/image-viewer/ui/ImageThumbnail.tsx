@@ -37,7 +37,11 @@ export const ImageThumbnail = ({
     const childrenCount = image.children_count || 0;
     const hasChildren = childrenCount > 0;
     const imageName = image.name || 'Unnamed Image';
-    const imageDefocus = image.defocus !== undefined ? `${image.defocus?.toFixed(2)}μm` : 'N/A';
+    const imageDefocus = image.defocus != null ? `${image.defocus.toFixed(2)}μm` : 'N/A';
+    const details = [
+        imageDefocus !== 'N/A' ? `Def: ${imageDefocus}` : null,
+        image.resolution != null ? `Res: ${image.resolution.toFixed(1)}Å` : null,
+    ].filter(Boolean).join(' · ');
 
     const dimensions = useMemo(() => {
         const mapping: Record<string, { width: number; height: number }> = {
@@ -64,7 +68,8 @@ export const ImageThumbnail = ({
     const tooltipContent = (
         <Box sx={{ p: 1, maxWidth: 220 }}>
             <strong>Name:</strong> {imageName}<br />
-            {image.defocus !== undefined && <><strong>Defocus:</strong> {imageDefocus}<br /></>}
+            {image.defocus != null && <><strong>Defocus:</strong> {imageDefocus}<br /></>}
+            {image.resolution != null && <><strong>CTF Resolution:</strong> {image.resolution.toFixed(2)} &Aring;<br /></>}
             {image.mag && <><strong>Magnification:</strong> {image.mag}&times;<br /></>}
             {image.pixelSize && <><strong>Pixel Size:</strong> {image.pixelSize?.toFixed(2)} &Aring;/pix<br /></>}
             {hasChildren && <><strong>Child Images:</strong> {childrenCount}</>}
@@ -235,7 +240,7 @@ export const ImageThumbnail = ({
                         >
                             {imageName}
                         </Box>
-                        {imageDefocus !== 'N/A' && (
+                        {details && (
                             <Box
                                 component="span"
                                 sx={{
@@ -246,7 +251,7 @@ export const ImageThumbnail = ({
                                     whiteSpace: 'nowrap',
                                 }}
                             >
-                                Def: {imageDefocus}
+                                {details}
                             </Box>
                         )}
                     </Box>

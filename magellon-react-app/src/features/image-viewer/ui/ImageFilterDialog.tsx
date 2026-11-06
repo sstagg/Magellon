@@ -1,34 +1,31 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Button,
-    TextField,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    Slider,
-    Typography,
+    Alert,
     Box,
+    Button,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
     Divider,
-    Chip,
-    Stack
+    FormControlLabel,
+    IconButton,
+    MenuItem,
+    Stack,
+    Switch,
+    TextField,
+    ToggleButton,
+    ToggleButtonGroup,
+    Typography,
 } from '@mui/material';
-import { Close, FilterList } from '@mui/icons-material';
+import { Add, Close, DeleteOutlined, FilterList } from '@mui/icons-material';
 import type ImageInfoDto from '../../../entities/image/types.ts';
+import {
+    FILTER_FIELDS, OPERATORS, describeFilter, makeImageMatcher, newGroup, newRule, operatorsFor,
+    type FilterField, type FilterGroup, type FilterRule, type ImageFilter,
+} from '../lib/imageFilter.ts';
 
-export interface ImageFilter {
-    name?: string;
-    defocusMin?: number;
-    defocusMax?: number;
-    magnification?: number;
-    pixelSizeMin?: number;
-    pixelSizeMax?: number;
-    hasChildren?: boolean;
-}
+export type { ImageFilter };
 
 interface ImageFilterDialogProps {
     open: boolean;
@@ -38,257 +35,180 @@ interface ImageFilterDialogProps {
     images: ImageInfoDto[] | null;
 }
 
-export const ImageFilterDialog: React.FC<ImageFilterDialogProps> = ({
-                                                                        open,
-                                                                        onClose,
-                                                                        onApplyFilter,
-                                                                        currentFilter,
-                                                                        images = []
-                                                                    }) => {
-    const [filter, setFilter] = useState<ImageFilter>(currentFilter || {});
+type Hints = Partial<Record<FilterField, string>>;
 
-    // Calculate ranges for all numeric fields
-    const ranges = images?.reduce((acc, image) => {
-        // Update defocus range
-        if (image.defocus !== undefined) {
-            acc.defocusMin = Math.min(acc.defocusMin, image.defocus);
-            acc.defocusMax = Math.max(acc.defocusMax, image.defocus);
+/** What the session's values look like, under each value box. */
+const valueHints = (images: ImageInfoDto[]): Hints => {
+    const hints: Hints = {};
+    (Object.keys(FILTER_FIELDS) as FilterField[]).forEach((field) => {
+        const { numeric, unit, value } = FILTER_FIELDS[field];
+        if (!numeric) return;
+        const values = images.map(value).filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+        if (values.length === 0) {
+            hints[field] = 'No image in this session has it';
+            return;
         }
-
-        // Update mag range
-        if (image.mag !== undefined) {
-            acc.magMin = Math.min(acc.magMin, image.mag);
-            acc.magMax = Math.max(acc.magMax, image.mag);
-        }
-
-        // Update pixelSize range
-        if (image.pixelSize !== undefined) {
-            acc.pixelSizeMin = Math.min(acc.pixelSizeMin, image.pixelSize);
-            acc.pixelSizeMax = Math.max(acc.pixelSizeMax, image.pixelSize);
-        }
-
-        return acc;
-    }, {
-        defocusMin: Infinity,
-        defocusMax: -Infinity,
-        magMin: Infinity,
-        magMax: -Infinity,
-        pixelSizeMin: Infinity,
-        pixelSizeMax: -Infinity
+        const distinct = Array.from(new Set(values)).sort((a, b) => a - b);
+        hints[field] = distinct.length <= 6
+            ? `Values: ${distinct.join(', ')}`
+            : `${Math.min(...values)} to ${Math.max(...values)} ${unit} (${values.length} images)`;
     });
+    return hints;
+};
 
-    // Handler for input changes
-    const handleInputChange = (field: keyof ImageFilter, value: ImageFilter[keyof ImageFilter]) => {
-        setFilter(prev => ({
-            ...prev,
-            [field]: value
-        }));
+const RuleEditor: React.FC<{
+    rule: FilterRule;
+    hints: Hints;
+    onChange: (rule: FilterRule) => void;
+    onRemove: () => void;
+}> = ({ rule, hints, onChange, onRemove }) => {
+    const field = FILTER_FIELDS[rule.field];
+    const changeField = (next: FilterField) => {
+        const operator = operatorsFor(next).includes(rule.operator) ? rule.operator : newRule(next).operator;
+        onChange({ ...rule, field: next, operator, value: FILTER_FIELDS[next].numeric === field.numeric ? rule.value : '' });
     };
+    return (
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }} data-testid="filter-rule">
+            <TextField select size="small" label="Field" value={rule.field} onChange={(e) => changeField(e.target.value as FilterField)} sx={{ width: 160, flexShrink: 0 }}>
+                {(Object.keys(FILTER_FIELDS) as FilterField[]).map((key) => (
+                    <MenuItem key={key} value={key}>{FILTER_FIELDS[key].label}</MenuItem>
+                ))}
+            </TextField>
+            <TextField select size="small" label="Is" value={rule.operator} onChange={(e) => onChange({ ...rule, operator: e.target.value as FilterRule['operator'] })} sx={{ width: 150, flexShrink: 0 }}>
+                {operatorsFor(rule.field).map((operator) => (
+                    <MenuItem key={operator} value={operator}>{OPERATORS[operator].label}</MenuItem>
+                ))}
+            </TextField>
+            {OPERATORS[rule.operator].needsValue && (
+                <TextField
+                    size="small"
+                    label={field.unit ? `Value (${field.unit})` : 'Value'}
+                    type={field.numeric ? 'number' : 'text'}
+                    value={rule.value}
+                    onChange={(e) => onChange({ ...rule, value: e.target.value })}
+                    helperText={hints[rule.field]}
+                    slotProps={{ htmlInput: { step: 'any' } }}
+                    sx={{ flex: 1, minWidth: 120 }}
+                />
+            )}
+            <Box sx={{ flex: OPERATORS[rule.operator].needsValue ? 0 : 1 }} />
+            <IconButton aria-label="Remove condition" onClick={onRemove} size="small" sx={{ mt: 0.5 }}>
+                <DeleteOutlined fontSize="small" />
+            </IconButton>
+        </Stack>
+    );
+};
 
-    // Handler for range changes
-    const handleRangeChange = (field: string, newValue: number | number[]) => {
-        const [min, max] = newValue as number[];
-        setFilter(prev => ({
-            ...prev,
-            [`${field}Min`]: min,
-            [`${field}Max`]: max
-        }));
-    };
+const GroupEditor: React.FC<{
+    group: FilterGroup;
+    hints: Hints;
+    depth: number;
+    onChange: (group: FilterGroup) => void;
+    onRemove?: () => void;
+}> = ({ group, hints, depth, onChange, onRemove }) => {
+    const replace = (index: number, node: FilterRule | FilterGroup) =>
+        onChange({ ...group, rules: group.rules.map((current, i) => (i === index ? node : current)) });
+    const remove = (index: number) => onChange({ ...group, rules: group.rules.filter((_, i) => i !== index) });
+    const meaning = group.not
+        ? (group.combinator === 'and' ? 'Not all of these' : 'None of these')
+        : (group.combinator === 'and' ? 'All of these' : 'Any of these');
+    return (
+        <Box
+            data-testid="filter-group"
+            sx={depth > 0 ? { border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 } : undefined}
+        >
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1.5 }}>
+                <ToggleButtonGroup
+                    size="small"
+                    exclusive
+                    value={group.combinator}
+                    onChange={(_, value) => value && onChange({ ...group, combinator: value })}
+                >
+                    <ToggleButton value="and" sx={{ px: 1.5, py: 0.25 }}>AND</ToggleButton>
+                    <ToggleButton value="or" sx={{ px: 1.5, py: 0.25 }}>OR</ToggleButton>
+                </ToggleButtonGroup>
+                <FormControlLabel
+                    control={<Switch size="small" checked={group.not} onChange={(e) => onChange({ ...group, not: e.target.checked })} />}
+                    label="NOT"
+                    sx={{ mr: 0 }}
+                />
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>{meaning} must match</Typography>
+                <Box sx={{ flex: 1 }} />
+                {onRemove && (
+                    <IconButton aria-label="Remove group" onClick={onRemove} size="small">
+                        <DeleteOutlined fontSize="small" />
+                    </IconButton>
+                )}
+            </Stack>
+            <Stack spacing={1.5}>
+                {group.rules.map((node, index) =>
+                    node.kind === 'rule' ? (
+                        <RuleEditor key={node.id} rule={node} hints={hints} onChange={(next) => replace(index, next)} onRemove={() => remove(index)} />
+                    ) : (
+                        <GroupEditor key={node.id} group={node} hints={hints} depth={depth + 1} onChange={(next) => replace(index, next)} onRemove={() => remove(index)} />
+                    )
+                )}
+            </Stack>
+            <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                <Button size="small" startIcon={<Add />} onClick={() => onChange({ ...group, rules: [...group.rules, newRule()] })}>
+                    Condition
+                </Button>
+                {depth < 2 && (
+                    <Button size="small" startIcon={<Add />} onClick={() => onChange({ ...group, rules: [...group.rules, newGroup([newRule(), newRule('mag')])] })}>
+                        Group
+                    </Button>
+                )}
+            </Stack>
+        </Box>
+    );
+};
 
-    // Apply filter
-    const applyFilter = () => {
-        onApplyFilter(filter);
-        onClose();
-    };
+/** One filter for all the session's images, built from conditions joined by AND, OR and NOT. */
+export const ImageFilterDialog: React.FC<ImageFilterDialogProps> = ({ open, onClose, onApplyFilter, currentFilter, images }) => {
+    const [draft, setDraft] = useState<FilterGroup>(() => newGroup());
+    const list = useMemo(() => images ?? [], [images]);
+    const hints = useMemo(() => valueHints(list), [list]);
 
-    // Reset filter
-    const resetFilter = () => {
-        setFilter({});
-    };
+    useEffect(() => {
+        if (open) setDraft(currentFilter.rules.length > 0 ? currentFilter : newGroup());
+    }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const matcher = useMemo(() => makeImageMatcher(draft), [draft]);
+    const matching = matcher ? list.filter(matcher).length : list.length;
+    const summary = describeFilter(draft);
 
     return (
-        <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-            <DialogTitle>
-                <Box
-                    sx={{
-                        display: "flex",
-                        alignItems: "center"
-                    }}>
-                    <FilterList sx={{ mr: 1 }} />
-                    Filter Images
-                    <Box sx={{ ml: 'auto' }}>
-                        <Button
-                            onClick={onClose}
-                            size="small"
-                            color="inherit"
-                            startIcon={<Close />}
-                        >
-                            Close
-                        </Button>
-                    </Box>
-                </Box>
+        <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+            <DialogTitle sx={{ display: 'flex', alignItems: 'center' }}>
+                <FilterList sx={{ mr: 1 }} />
+                Filter Images
+                <Button onClick={onClose} size="small" color="inherit" startIcon={<Close />} sx={{ ml: 'auto' }}>
+                    Close
+                </Button>
             </DialogTitle>
             <Divider />
             <DialogContent>
-                <Stack spacing={3}>
-                    {/* Name filter */}
-                    <TextField
-                        label="Name contains"
-                        fullWidth
-                        value={filter.name || ''}
-                        onChange={(e) => handleInputChange('name', e.target.value)}
-                        placeholder="Enter part of image name"
-                    />
-
-                    {/* Defocus range filter */}
-                    {ranges && !isNaN(ranges.defocusMin) && !isNaN(ranges.defocusMax) && (
-                        <Box>
-                            <Typography gutterBottom>Defocus Range (μm)</Typography>
-                            <Slider
-                                value={[
-                                    filter.defocusMin !== undefined ? filter.defocusMin : ranges.defocusMin,
-                                    filter.defocusMax !== undefined ? filter.defocusMax : ranges.defocusMax
-                                ]}
-                                onChange={(_, newValue) => handleRangeChange('defocus', newValue)}
-                                valueLabelDisplay="auto"
-                                min={ranges.defocusMin}
-                                max={ranges.defocusMax}
-                                step={(ranges.defocusMax - ranges.defocusMin) / 100}
-                            />
-                            <Box
-                                sx={{
-                                    display: "flex",
-                                    justifyContent: "space-between"
-                                }}>
-                                <Typography variant="caption">{ranges.defocusMin?.toFixed(2)}</Typography>
-                                <Typography variant="caption">{ranges.defocusMax?.toFixed(2)}</Typography>
-                            </Box>
-                        </Box>
-                    )}
-
-                    {/* Magnification filter */}
-                    {ranges && !isNaN(ranges.magMin) && !isNaN(ranges.magMax) && (
-                        <FormControl fullWidth>
-                            <InputLabel>Magnification</InputLabel>
-                            <Select
-                                value={filter.magnification || ''}
-                                onChange={(e) => handleInputChange('magnification', e.target.value)}
-                                label="Magnification"
-                            >
-                                <MenuItem value="">Any</MenuItem>
-                                {/* Create unique list of magnifications */}
-                                {Array.from(new Set(images?.map(img => img.mag).filter(Boolean)))
-                                    .sort((a, b) => a - b)
-                                    .map(mag => (
-                                        <MenuItem key={mag} value={mag}>{mag}x</MenuItem>
-                                    ))
-                                }
-                            </Select>
-                        </FormControl>
-                    )}
-
-                    {/* Pixel size range filter */}
-                    {ranges && !isNaN(ranges.pixelSizeMin) && !isNaN(ranges.pixelSizeMax) && (
-                        <Box>
-                            <Typography gutterBottom>Pixel Size Range (Å/pixel)</Typography>
-                            <Slider
-                                value={[
-                                    filter.pixelSizeMin !== undefined ? filter.pixelSizeMin : ranges.pixelSizeMin,
-                                    filter.pixelSizeMax !== undefined ? filter.pixelSizeMax : ranges.pixelSizeMax
-                                ]}
-                                onChange={(_, newValue) => handleRangeChange('pixelSize', newValue)}
-                                valueLabelDisplay="auto"
-                                min={ranges.pixelSizeMin}
-                                max={ranges.pixelSizeMax}
-                                step={(ranges.pixelSizeMax - ranges.pixelSizeMin) / 100}
-                            />
-                            <Box
-                                sx={{
-                                    display: "flex",
-                                    justifyContent: "space-between"
-                                }}>
-                                <Typography variant="caption">{ranges.pixelSizeMin?.toFixed(2)}</Typography>
-                                <Typography variant="caption">{ranges.pixelSizeMax?.toFixed(2)}</Typography>
-                            </Box>
-                        </Box>
-                    )}
-
-                    {/* Has children filter */}
-                    <FormControl fullWidth>
-                        <InputLabel>Has children</InputLabel>
-                        <Select
-                            value={filter.hasChildren === undefined ? '' : String(filter.hasChildren)}
-                            onChange={(e) => {
-                                const v = e.target.value;
-                                handleInputChange('hasChildren', v === '' ? undefined : v === 'true');
-                            }}
-                            label="Has children"
-                        >
-                            <MenuItem value="">Any</MenuItem>
-                            <MenuItem value="true">Yes</MenuItem>
-                            <MenuItem value="false">No</MenuItem>
-                        </Select>
-                    </FormControl>
-                </Stack>
-
-                {/* Active filters display */}
-                {Object.keys(filter).length > 0 && (
-                    <Box sx={{ mt: 3 }}>
-                        <Typography variant="subtitle2" gutterBottom>Active Filters:</Typography>
-                        <Stack direction="row" spacing={1} useFlexGap sx={{
-                            flexWrap: "wrap"
-                        }}>
-                            {filter.name && (
-                                <Chip
-                                    label={`Name: ${filter.name}`}
-                                    onDelete={() => handleInputChange('name', undefined)}
-                                    size="small"
-                                />
-                            )}
-                            {(filter.defocusMin !== undefined || filter.defocusMax !== undefined) && (
-                                <Chip
-                                    label={`Defocus: ${filter.defocusMin?.toFixed(2) || 'min'} - ${filter.defocusMax?.toFixed(2) || 'max'} μm`}
-                                    onDelete={() => {
-                                        handleInputChange('defocusMin', undefined);
-                                        handleInputChange('defocusMax', undefined);
-                                    }}
-                                    size="small"
-                                />
-                            )}
-                            {filter.magnification && (
-                                <Chip
-                                    label={`Mag: ${filter.magnification}x`}
-                                    onDelete={() => handleInputChange('magnification', undefined)}
-                                    size="small"
-                                />
-                            )}
-                            {(filter.pixelSizeMin !== undefined || filter.pixelSizeMax !== undefined) && (
-                                <Chip
-                                    label={`Pixel Size: ${filter.pixelSizeMin?.toFixed(2) || 'min'} - ${filter.pixelSizeMax?.toFixed(2) || 'max'} Å`}
-                                    onDelete={() => {
-                                        handleInputChange('pixelSizeMin', undefined);
-                                        handleInputChange('pixelSizeMax', undefined);
-                                    }}
-                                    size="small"
-                                />
-                            )}
-                            {filter.hasChildren !== undefined && (
-                                <Chip
-                                    label={`Has Children: ${filter.hasChildren ? 'Yes' : 'No'}`}
-                                    onDelete={() => handleInputChange('hasChildren', undefined)}
-                                    size="small"
-                                />
-                            )}
-                        </Stack>
-                    </Box>
-                )}
+                <GroupEditor group={draft} hints={hints} depth={0} onChange={setDraft} />
+                <Alert severity={matcher && matching === 0 ? 'warning' : 'info'} icon={false} sx={{ mt: 2 }} data-testid="filter-preview">
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {matching} of {list.length} images match
+                    </Typography>
+                    {summary && <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>{summary}</Typography>}
+                    <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
+                        The columns and tree also keep the grids, squares and holes above a matching image.
+                    </Typography>
+                </Alert>
             </DialogContent>
             <Divider />
             <DialogActions>
-                <Button onClick={resetFilter} color="inherit">
-                    Reset All
-                </Button>
-                <Button onClick={applyFilter} variant="contained" color="primary">
+                <Button onClick={() => setDraft(newGroup())} color="inherit">Reset All</Button>
+                <Button
+                    onClick={() => {
+                        onApplyFilter(draft);
+                        onClose();
+                    }}
+                    variant="contained"
+                >
                     Apply Filters
                 </Button>
             </DialogActions>
