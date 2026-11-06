@@ -10,6 +10,8 @@ interface ImageInfoDto {
     parent_id?: string;
     session_id?: string;
     children_count?: number;
+    /** CTF 50% resolution in Å; null without a CTF result. */
+    resolution?: number | null;
     selected?: boolean;
     level?: number;
     //ctf?: ImageCtfInfo;

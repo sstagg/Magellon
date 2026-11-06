@@ -7,7 +7,7 @@ from typing import List, Optional, Dict
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 from starlette.responses import FileResponse, JSONResponse
@@ -93,6 +93,32 @@ def get_session_mags(
         raise DatabaseError("session magnifications query failed") from e
 
 
+def ctf_resolution(data_json) -> Optional[float]:
+    """The 50% resolution (Å) in a "CTF Meta Data" row, or None if it has none.
+
+    The row is [{"key": "CTF", "value": {...}}, ...], the value often as a JSON
+    string, and an image whose CTF evaluation failed has no resolution."""
+    try:
+        entries = json.loads(data_json) if isinstance(data_json, (str, bytes)) else data_json
+        value = next(entry["value"] for entry in entries if entry.get("key") == "CTF")
+        ctf = json.loads(value) if isinstance(value, str) else value
+        resolution = float(ctf["resolution_50_percent"])
+    except (AttributeError, KeyError, StopIteration, TypeError, ValueError):
+        return None
+    return round(resolution, 2) if math.isfinite(resolution) else None
+
+
+def _ctf_resolutions(db_session: Session, image_oids: list) -> dict:
+    if not image_oids:
+        return {}
+    query = text("""
+        SELECT m.image_id, m.data_json FROM image_meta_data m
+        WHERE m.name = 'CTF Meta Data' AND m.image_id IN :oids
+        """).bindparams(bindparam("oids", expanding=True))
+    return {row.image_id: ctf_resolution(row.data_json)
+            for row in db_session.execute(query, {"oids": image_oids}).fetchall()}
+
+
 @webapp_router.get('/images')
 def get_images_route(
         db_session: Session = Depends(get_db),
@@ -100,7 +126,8 @@ def get_images_route(
         session_name: Optional[str] = Query(None),
         parentId: Optional[UUID] = Query(None),
         page: int = Query(1, alias="page", description="Page number", ge=1),
-        pageSize: int = Query(10, alias="pageSize", description="Number of results per page", le=1000)
+        pageSize: int = Query(10, alias="pageSize", description="Number of results per page", le=1000),
+        all_levels: bool = Query(False, description="Every image of the session, not one level of it"),
 ):
     # Get the Msession based on the session name
     msession = db_session.query(Msession).filter(Msession.name == session_name).first()
@@ -133,7 +160,8 @@ def get_images_route(
 
     count_query = text("""
          SELECT COUNT(*) FROM image i
-            WHERE (:parentId IS NULL
+            WHERE (:allLevels = 1
+            OR :parentId IS NULL
             AND i.parent_id IS NULL
             OR i.parent_id = :parentId)
             AND i.session_id = :sessionId
@@ -157,12 +185,16 @@ def get_images_route(
               AND c.session_id = i.session_id
           ) AS children_count
         FROM image i
-        WHERE (:parentId IS NULL
+        WHERE (:allLevels = 1
+        OR :parentId IS NULL
         AND i.parent_id IS NULL
         OR i.parent_id = :parentId)
         AND i.session_id = :sessionId
         """ + filter_clause + """
-        ORDER BY i.name, i.oid
+        ORDER BY (
+            EXISTS (SELECT 1 FROM image c WHERE c.parent_id = i.oid AND c.session_id = i.session_id)
+            OR (:allLevels = 1 AND i.parent_id IS NOT NULL)
+          ) DESC, i.name, i.oid
         LIMIT :limit OFFSET :offset;
         """)
     try:
@@ -170,12 +202,14 @@ def get_images_route(
         params = {
             "parentId": parent_id_binary,
             "sessionId": session_id_binary,
+            "allLevels": int(all_levels),
             "limit": limit,
             "offset": offset,
             **filter_params
         }
         result = db_session.execute(query, params)
         rows = result.fetchall()
+        resolutions = _ctf_resolutions(db_session, [row.oid for row in rows])
         images_as_dict = []
         for row in rows:
             image = ImageDto(
@@ -187,14 +221,16 @@ def get_images_route(
     pixelSize=round(float(row.pixelSize) * row.binning_x * 1.e10, 3)
         if row.pixelSize is not None and row.binning_x is not None else None,    parent_id=row.parent_id,
     session_id=row.session_id,
-    children_count=row.children_count
+    children_count=row.children_count,
+    resolution=resolutions.get(row.oid),
 )
             images_as_dict.append(image.dict())
 
         # total_count = images_as_dict[0]["total_count"] if images_as_dict else 0
         # return {"total_count": total_count, "result": images_as_dict}
         # RLS: Use merged params for count query too
-        count_params = {"parentId": parent_id_binary, "sessionId": session_id_binary, **filter_params}
+        count_params = {"parentId": parent_id_binary, "sessionId": session_id_binary,
+                        "allLevels": int(all_levels), **filter_params}
         count_result = db_session.execute(count_query, count_params)
         total_count = count_result.scalar()
         next_page = page + 1 if total_count > page * pageSize else None

@@ -11,7 +11,8 @@ export const fetchImagesPage = async (
     sessionName: string,
     parentId: string | null,
     page: number,
-    pageSize: number
+    pageSize: number,
+    allLevels = false
 ) => {
     try {
         const response = await apiClient.get(BASE_URL, {
@@ -20,6 +21,7 @@ export const fetchImagesPage = async (
                 parentId,
                 page,
                 pageSize,
+                ...(allLevels ? { all_levels: true } : {}),
             },
         });
 

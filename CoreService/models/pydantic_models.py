@@ -320,6 +320,7 @@ class ImageDto(BaseModel):
     parent_id: Optional[uuid.UUID] = None
     session_id: Optional[uuid.UUID] = None
     children_count: Optional[int] = None
+    resolution: Optional[float] = None
 
 
 class ImageMetaDataDto(BaseModel):
