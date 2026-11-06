@@ -1,25 +1,23 @@
 import type ImageInfoDto from '../../../entities/image/types.ts';
+import { fetchImagePath } from '../api/imagesApiReactQuery.tsx';
 
-/** The image and its ancestors, top level first, from a list of a session's images. */
-export const imagePath = (image: ImageInfoDto, images: ImageInfoDto[]): ImageInfoDto[] => {
-    const byId = new Map(images.map((item) => [item.oid, item]));
-    const path = [image];
-    let parent = image.parent_id ? byId.get(image.parent_id) : undefined;
-    while (parent && !path.includes(parent)) {
-        path.unshift(parent);
-        parent = parent.parent_id ? byId.get(parent.parent_id) : undefined;
-    }
-    return path;
+type OnImageClick = (image: ImageInfoDto, column: number) => void;
+
+/** Open an image whose ancestors are known, top level first, selecting them in the columns. */
+export const openPath = (path: ImageInfoDto[], columnCount: number, onImageClick: OnImageClick) => {
+    path.forEach((item, level) => onImageClick({ ...item, level }, Math.min(level, columnCount - 1)));
 };
 
-/** Open an image found in a whole-session layout, selecting its path in the columns too. */
-export const openImagePath = (
-    image: ImageInfoDto,
-    images: ImageInfoDto[],
-    columnCount: number,
-    onImageClick: (image: ImageInfoDto, column: number) => void,
-) => {
-    imagePath(image, images).forEach((item, level) => {
-        onImageClick({ ...item, level }, Math.min(level, columnCount - 1));
-    });
+/** Open an image from a whole-session layout; its ancestors come from the server. */
+export const openImageWithAncestors = async (image: ImageInfoDto, columnCount: number, onImageClick: OnImageClick) => {
+    if (!image.parent_id) {
+        openPath([image], columnCount, onImageClick);
+        return;
+    }
+    try {
+        const path = await fetchImagePath(image.oid);
+        openPath(path.length > 0 ? path : [image], columnCount, onImageClick);
+    } catch {
+        openPath([image], columnCount, onImageClick);
+    }
 };

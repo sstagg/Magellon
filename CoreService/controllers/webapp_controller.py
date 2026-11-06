@@ -3,11 +3,11 @@ from datetime import datetime
 import json
 import os
 import uuid
-from typing import List, Optional, Dict
+from typing import List, Literal, Optional, Dict
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import bindparam, text
+from sqlalchemy import text
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 from starlette.responses import FileResponse, JSONResponse
@@ -18,6 +18,8 @@ from database import get_db
 from lib.image_not_found import get_image_not_found
 from models.pydantic_models import SessionDto, ImageDto
 from core.run_log import read_run_log_command
+from services.image_filter import FilterError, SortField, parse_filter
+from services.image_query import filter_summary, image_path, list_images
 from models.sqlalchemy_models import Image, Msession, ImageMetaData, ImageMetaDataCategory
 from repositories.image_repository import ImageRepository
 from repositories.session_repository import SessionRepository
@@ -93,30 +95,20 @@ def get_session_mags(
         raise DatabaseError("session magnifications query failed") from e
 
 
-def ctf_resolution(data_json) -> Optional[float]:
-    """The 50% resolution (Å) in a "CTF Meta Data" row, or None if it has none.
+def _session_for(db_session: Session, user_id: UUID, session_name: Optional[str]) -> Msession:
+    msession = db_session.query(Msession).filter(Msession.name == session_name).first()
+    if msession is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if not check_session_access(user_id, msession.oid, action="read"):
+        raise HTTPException(status_code=403, detail=f"Access denied to session '{session_name}'")
+    return msession
 
-    The row is [{"key": "CTF", "value": {...}}, ...], the value often as a JSON
-    string, and an image whose CTF evaluation failed has no resolution."""
+
+def _filter_from(filter_json: Optional[str]):
     try:
-        entries = json.loads(data_json) if isinstance(data_json, (str, bytes)) else data_json
-        value = next(entry["value"] for entry in entries if entry.get("key") == "CTF")
-        ctf = json.loads(value) if isinstance(value, str) else value
-        resolution = float(ctf["resolution_50_percent"])
-    except (AttributeError, KeyError, StopIteration, TypeError, ValueError):
-        return None
-    return round(resolution, 2) if math.isfinite(resolution) else None
-
-
-def _ctf_resolutions(db_session: Session, image_oids: list) -> dict:
-    if not image_oids:
-        return {}
-    query = text("""
-        SELECT m.image_id, m.data_json FROM image_meta_data m
-        WHERE m.name = 'CTF Meta Data' AND m.image_id IN :oids
-        """).bindparams(bindparam("oids", expanding=True))
-    return {row.image_id: ctf_resolution(row.data_json)
-            for row in db_session.execute(query, {"oids": image_oids}).fetchall()}
+        return parse_filter(filter_json)
+    except FilterError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
 
 @webapp_router.get('/images')
@@ -126,126 +118,62 @@ def get_images_route(
         session_name: Optional[str] = Query(None),
         parentId: Optional[UUID] = Query(None),
         page: int = Query(1, alias="page", description="Page number", ge=1),
-        pageSize: int = Query(10, alias="pageSize", description="Number of results per page", le=1000),
+        pageSize: int = Query(10, alias="pageSize", description="Number of results per page", ge=1, le=1000),
         all_levels: bool = Query(False, description="Every image of the session, not one level of it"),
+        filter: Optional[str] = Query(None, max_length=20000,
+                                      description="Composite filter as JSON (services/image_filter.py)"),
+        include_ancestors: bool = Query(False, description="With a filter, also the images above each match"),
+        search: Optional[str] = Query(None, max_length=200, description="Name contains (ignoring case)"),
+        sort: SortField = Query("related", description="related = images with a parent or children first"),
+        order: Literal["asc", "desc"] = Query("asc"),
 ):
-    # Get the Msession based on the session name
-    msession = db_session.query(Msession).filter(Msession.name == session_name).first()
-    if msession is None:
-        return {"error": "Session not found"}
-
-    # RLS: Check if user has access to this session
-    if not check_session_access(user_id, msession.oid, action="read"):
-        raise HTTPException(
-            status_code=403,
-            detail=f"Access denied to session '{session_name}'"
-        )
-
+    """A session's images, one level (parentId) or all, filtered, sorted and paged in the database."""
+    msession = _session_for(db_session, user_id, session_name)
+    image_filter = _filter_from(filter)
+    access_clause, access_params = get_session_filter_clause(user_id)
     try:
-        session_id_binary = msession.oid.bytes
-    except AttributeError:
-        return {"error": "Invalid session ID"}
-
-    # Calculate offset and limit based on page and pageSize
-    offset = (page - 1) * pageSize
-    limit = pageSize
-
-    try:
-        parent_id_binary = parentId.bytes
-    except AttributeError:
-        parent_id_binary = None
-
-    # RLS: Get filter clause for session-level security
-    filter_clause, filter_params = get_session_filter_clause(user_id)
-
-    count_query = text("""
-         SELECT COUNT(*) FROM image i
-            WHERE (:allLevels = 1
-            OR :parentId IS NULL
-            AND i.parent_id IS NULL
-            OR i.parent_id = :parentId)
-            AND i.session_id = :sessionId
-            """ + filter_clause + ";\n        """)
-
-    query = text("""
-        SELECT
-          i.oid,
-          i.name ,
-          i.defocus,
-          i.dose,
-          i.magnification AS mag,
-          i.pixel_size AS pixelSize,
-          i.parent_id,
-          i.binning_x,
-          i.session_id,
-           (
-            SELECT COUNT(*)
-            FROM image c
-            WHERE c.parent_id = i.oid
-              AND c.session_id = i.session_id
-          ) AS children_count
-        FROM image i
-        WHERE (:allLevels = 1
-        OR :parentId IS NULL
-        AND i.parent_id IS NULL
-        OR i.parent_id = :parentId)
-        AND i.session_id = :sessionId
-        """ + filter_clause + """
-        ORDER BY (
-            EXISTS (SELECT 1 FROM image c WHERE c.parent_id = i.oid AND c.session_id = i.session_id)
-            OR (:allLevels = 1 AND i.parent_id IS NOT NULL)
-          ) DESC, i.name, i.oid
-        LIMIT :limit OFFSET :offset;
-        """)
-    try:
-        # RLS: Merge filter parameters
-        params = {
-            "parentId": parent_id_binary,
-            "sessionId": session_id_binary,
-            "allLevels": int(all_levels),
-            "limit": limit,
-            "offset": offset,
-            **filter_params
-        }
-        result = db_session.execute(query, params)
-        rows = result.fetchall()
-        resolutions = _ctf_resolutions(db_session, [row.oid for row in rows])
-        images_as_dict = []
-        for row in rows:
-            image = ImageDto(
-    oid=row.oid,
-    name=row.name,
-    defocus=round(float(row.defocus) * 1.e6, 2) if row.defocus is not None else row.defocus,
-    dose=row.dose,
-    mag=row.mag,
-    pixelSize=round(float(row.pixelSize) * row.binning_x * 1.e10, 3)
-        if row.pixelSize is not None and row.binning_x is not None else None,    parent_id=row.parent_id,
-    session_id=row.session_id,
-    children_count=row.children_count,
-    resolution=resolutions.get(row.oid),
-)
-            images_as_dict.append(image.dict())
-
-        # total_count = images_as_dict[0]["total_count"] if images_as_dict else 0
-        # return {"total_count": total_count, "result": images_as_dict}
-        # RLS: Use merged params for count query too
-        count_params = {"parentId": parent_id_binary, "sessionId": session_id_binary,
-                        "allLevels": int(all_levels), **filter_params}
-        count_result = db_session.execute(count_query, count_params)
-        total_count = count_result.scalar()
-        next_page = page + 1 if total_count > page * pageSize else None
-
-        return {
-            "total_count": total_count,
-            "page": page,
-            "pageSize": pageSize,
-            "next_page": next_page,
-            "result": images_as_dict
-        }
-
+        return list_images(
+            db_session, msession.oid.bytes, access_clause, access_params,
+            parent_id=parentId.bytes if parentId else None, all_levels=all_levels,
+            image_filter=image_filter, include_ancestors=include_ancestors, search=search,
+            sort=sort, descending=order == "desc", page=page, page_size=pageSize)
+    except FilterError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         logger.exception("images_query_failed")
         raise DatabaseError("images query failed") from e
+
+
+@webapp_router.get('/images-filter-summary')
+def get_images_filter_summary_route(
+        session_name: str = Query(...),
+        filter: Optional[str] = Query(None, max_length=20000),
+        db_session: Session = Depends(get_db),
+        user_id: UUID = Depends(get_current_user_id),
+):
+    """For the filter dialog: how many images match, and the values each number field has."""
+    msession = _session_for(db_session, user_id, session_name)
+    image_filter = _filter_from(filter)
+    access_clause, access_params = get_session_filter_clause(user_id)
+    try:
+        return filter_summary(db_session, msession.oid.bytes, access_clause, access_params, image_filter)
+    except FilterError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+
+@webapp_router.get('/image-path')
+def get_image_path_route(
+        image_id: UUID = Query(...),
+        db_session: Session = Depends(get_db),
+        user_id: UUID = Depends(get_current_user_id),
+):
+    """An image and the images above it, top level first: to open it in the columns."""
+    db_image = db_session.query(Image).filter(Image.oid == image_id).first()
+    if db_image is None:
+        raise HTTPException(status_code=404, detail="Image not found")
+    if not check_session_access(user_id, db_image.session_id, action="read"):
+        raise HTTPException(status_code=403, detail="Access denied to this image")
+    return image_path(db_session, image_id.bytes)
 
 
 @webapp_router.get('/images/{image_name}')

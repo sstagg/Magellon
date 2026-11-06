@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Box,
     CircularProgress,
@@ -13,49 +13,46 @@ import {
     Typography,
 } from '@mui/material';
 import type ImageInfoDto from '../../../entities/image/types.ts';
-import { useAllSessionImages } from '../api/usePagedImagesHook.ts';
-import { makeImageMatcher } from '../lib/imageFilter.ts';
-import { openImagePath } from '../lib/imagePath.ts';
+import { useImagesPage } from '../api/usePagedImagesHook.ts';
+import type { ImageSort } from '../api/imagesApiReactQuery.tsx';
+import { countActiveFilters } from '../lib/imageFilter.ts';
+import { openImageWithAncestors } from '../lib/imagePath.ts';
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
 
-type SortField = 'name' | 'mag' | 'defocus' | 'resolution' | 'pixelSize' | 'children_count';
-
-const COLUMNS: Array<{ field: SortField; label: string; show: (image: ImageInfoDto) => string }> = [
-    { field: 'name', label: 'Name', show: (image) => image.name ?? '' },
-    { field: 'mag', label: 'Mag', show: (image) => (image.mag != null ? String(image.mag) : '—') },
-    { field: 'defocus', label: 'Defocus (μm)', show: (image) => image.defocus?.toFixed(2) ?? '—' },
-    { field: 'resolution', label: 'Resolution (Å)', show: (image) => image.resolution?.toFixed(2) ?? '—' },
-    { field: 'pixelSize', label: 'Pixel (Å)', show: (image) => image.pixelSize?.toFixed(3) ?? '—' },
-    { field: 'children_count', label: 'Children', show: (image) => String(image.children_count ?? 0) },
+const COLUMNS: Array<{ sort: Exclude<ImageSort, 'related'>; label: string; show: (image: ImageInfoDto) => string }> = [
+    { sort: 'name', label: 'Name', show: (image) => image.name ?? '' },
+    { sort: 'mag', label: 'Mag', show: (image) => (image.mag != null ? String(image.mag) : '—') },
+    { sort: 'defocus', label: 'Defocus (μm)', show: (image) => image.defocus?.toFixed(2) ?? '—' },
+    { sort: 'resolution', label: 'Resolution (Å)', show: (image) => image.resolution?.toFixed(2) ?? '—' },
+    { sort: 'pixelSize', label: 'Pixel (Å)', show: (image) => image.pixelSize?.toFixed(3) ?? '—' },
+    { sort: 'children', label: 'Children', show: (image) => String(image.children_count ?? 0) },
 ];
 
-/** Empty values last in either direction. */
-const compare = (a: ImageInfoDto, b: ImageInfoDto, field: SortField, descending: boolean): number => {
-    const x = a[field];
-    const y = b[field];
-    if (x == null || y == null) return Number(x == null) - Number(y == null);
-    const order = x < y ? -1 : x > y ? 1 : 0;
-    return descending ? -order : order;
-};
-
-/** Every image of a session in a table; related images come first until a column is sorted. */
+/**
+ * Every image of a session in a table. The server filters, sorts and pages:
+ * related images first until a column is sorted, empty values last.
+ */
 export const ImageTable: React.FC<{
     sessionName: string;
     onImageClick: (image: ImageInfoDto, column: number) => void;
 }> = ({ sessionName, onImageClick }) => {
     const { currentImage, imageColumns, imageFilter: filter } = useImageViewerStore();
-    const { images, isLoading, isLoadingMore } = useAllSessionImages(sessionName);
-    const [sort, setSort] = useState<{ field: SortField; descending: boolean } | null>(null);
+    const [sort, setSort] = useState<{ field: Exclude<ImageSort, 'related'>; descending: boolean } | null>(null);
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(50);
 
-    const rows = useMemo(() => {
-        const matches = makeImageMatcher(filter);
-        const filtered = matches ? images.filter(matches) : [...images];
-        return sort ? filtered.sort((a, b) => compare(a, b, sort.field, sort.descending)) : filtered;
-    }, [images, filter, sort]);
+    useEffect(() => setPage(0), [filter]);
 
-    const toggleSort = (field: SortField) => {
+    const { data, isLoading, isFetching } = useImagesPage(sessionName, page + 1, rowsPerPage, {
+        allLevels: true,
+        filter,
+        sort: sort?.field ?? 'related',
+        order: sort?.descending ? 'desc' : 'asc',
+    });
+    const rows = data?.result ?? [];
+    const total = data?.total_count ?? 0;
+
+    const toggleSort = (field: Exclude<ImageSort, 'related'>) => {
         setSort((current) => ({ field, descending: current?.field === field && !current.descending }));
         setPage(0);
     };
@@ -72,14 +69,14 @@ export const ImageTable: React.FC<{
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }} data-testid="image-table">
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1, flexShrink: 0 }}>
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                    {rows.length} of {images.length} images{isLoadingMore && ' (loading more...)'}
+                    {total} images{countActiveFilters(filter) > 0 && ' matching the filter'}{isFetching && ' (loading...)'}
                 </Typography>
             </Box>
             <TableContainer sx={{ flex: 1, minHeight: 0 }}>
                 <Table stickyHeader size="small">
                     <TableHead>
                         <TableRow>
-                            {COLUMNS.map(({ field, label }) => (
+                            {COLUMNS.map(({ sort: field, label }) => (
                                 <TableCell key={field} sortDirection={sort?.field === field ? (sort.descending ? 'desc' : 'asc') : false} sx={{ whiteSpace: 'nowrap' }}>
                                     <TableSortLabel
                                         active={sort?.field === field}
@@ -93,15 +90,15 @@ export const ImageTable: React.FC<{
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {rows.slice(page * rowsPerPage, (page + 1) * rowsPerPage).map((image) => (
+                        {rows.map((image) => (
                             <TableRow
                                 key={image.oid}
                                 hover
                                 selected={currentImage?.oid === image.oid}
-                                onClick={() => openImagePath(image, images, imageColumns.length, onImageClick)}
+                                onClick={() => openImageWithAncestors(image, imageColumns.length, onImageClick)}
                                 sx={{ cursor: 'pointer' }}
                             >
-                                {COLUMNS.map(({ field, show }) => (
+                                {COLUMNS.map(({ sort: field, show }) => (
                                     <TableCell key={field} sx={{ whiteSpace: 'nowrap' }}>{show(image)}</TableCell>
                                 ))}
                             </TableRow>
@@ -109,7 +106,7 @@ export const ImageTable: React.FC<{
                         {rows.length === 0 && (
                             <TableRow>
                                 <TableCell colSpan={COLUMNS.length} align="center" sx={{ color: 'text.secondary', py: 4 }}>
-                                    {images.length === 0 ? 'No images available' : 'No images match the current filters'}
+                                    {countActiveFilters(filter) > 0 ? 'No images match the current filters' : 'No images available'}
                                 </TableCell>
                             </TableRow>
                         )}
@@ -118,8 +115,8 @@ export const ImageTable: React.FC<{
             </TableContainer>
             <TablePagination
                 component="div"
-                count={rows.length}
-                page={Math.min(page, Math.max(0, Math.ceil(rows.length / rowsPerPage) - 1))}
+                count={total}
+                page={total === 0 ? 0 : Math.min(page, Math.ceil(total / rowsPerPage) - 1)}
                 onPageChange={(_, next) => setPage(next)}
                 rowsPerPage={rowsPerPage}
                 rowsPerPageOptions={[25, 50, 100]}
@@ -127,7 +124,12 @@ export const ImageTable: React.FC<{
                     setRowsPerPage(Number(event.target.value));
                     setPage(0);
                 }}
-                sx={{ flexShrink: 0, pr: 7 }}
+                // Left-aligned and wrapping: the panel can be narrow, and the atlas button sits bottom right.
+                sx={{
+                    flexShrink: 0,
+                    '& .MuiTablePagination-toolbar': { flexWrap: 'wrap', justifyContent: 'flex-start', pl: 2, pr: 9 },
+                    '& .MuiTablePagination-spacer': { display: 'none' },
+                }}
             />
         </Box>
     );

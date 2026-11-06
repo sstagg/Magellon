@@ -1,29 +1,28 @@
-import {useEffect, useMemo} from "react";
-import {useInfiniteQuery} from "@tanstack/react-query";
-import {fetchImagesPage} from "./imagesApiReactQuery.tsx";
-import type {PagedImageResponse} from "../../../entities/image/types.ts";
-import type ImageInfoDto from "../../../entities/image/types.ts";
-
+import { useEffect, useState } from "react";
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { fetchFilterSummary, fetchImagesPage, filterParam, type ImageQuery } from "./imagesApiReactQuery.tsx";
+import type { PagedImageResponse } from "../../../entities/image/types.ts";
+import type { ImageFilter } from "../lib/imageFilter.ts";
 
 interface PagedImagesOptions {
     sessionName: string;
     parentId: string | null;
     pageSize: number;
     level: number;
-    enabled?: boolean; // Made optional with default value
+    enabled?: boolean;
+    query?: ImageQuery;
 }
 
-export function useImageListQuery({ sessionName, parentId, pageSize, level, enabled = true }: PagedImagesOptions) {
-    // Auto-enable when we have the required data
-    const shouldEnable = enabled && (
-        (// First level needs session
-        ((level === 0 && sessionName !== '') || (level > 0 && parentId !== null)))       // Other levels need parent
-    );
+/** The query key part for an ImageQuery: the filter as sent, so unfinished edits don't refetch. */
+const queryKeyOf = (query: ImageQuery = {}) => ({ ...query, filter: filterParam(query.filter) ?? null });
+
+/** One level of a session's images (a column, a tree node), loaded a page at a time. */
+export function useImageListQuery({ sessionName, parentId, pageSize, level, enabled = true, query }: PagedImagesOptions) {
+    const shouldEnable = enabled && ((level === 0 && sessionName !== '') || (level > 0 && parentId !== null));
 
     return useInfiniteQuery<PagedImageResponse>({
-        queryKey: ['images', sessionName, parentId, pageSize],
-        queryFn: ({ pageParam }) =>
-            fetchImagesPage(sessionName, parentId, pageParam as number, pageSize),
+        queryKey: ['images', sessionName, parentId, pageSize, queryKeyOf(query)],
+        queryFn: ({ pageParam }) => fetchImagesPage(sessionName, parentId, pageParam as number, pageSize, query),
         initialPageParam: 1,
         getNextPageParam: (lastPage) => lastPage.next_page ?? undefined,
         retry: 3,
@@ -33,25 +32,34 @@ export function useImageListQuery({ sessionName, parentId, pageSize, level, enab
     });
 }
 
-const ALL_LEVELS_PAGE_SIZE = 1000;
-
-/** Every image of a session, at any level, for the Grid, Tree and Table layouts. */
-export function useAllSessionImages(sessionName: string, enabled = true) {
-    const { data, isLoading, isError, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteQuery<PagedImageResponse>({
-        queryKey: ['images', sessionName, 'all-levels'],
-        queryFn: ({ pageParam }) =>
-            fetchImagesPage(sessionName, null, pageParam as number, ALL_LEVELS_PAGE_SIZE, true),
-        initialPageParam: 1,
-        getNextPageParam: (lastPage) => lastPage.next_page ?? undefined,
-        enabled: enabled && sessionName !== '',
+/** One page of a session's images (grid, table): filtered, sorted and paged by the server. */
+export function useImagesPage(sessionName: string, page: number, pageSize: number, query: ImageQuery) {
+    return useQuery<PagedImageResponse>({
+        queryKey: ['images', sessionName, 'page', page, pageSize, queryKeyOf(query)],
+        queryFn: () => fetchImagesPage(sessionName, null, page, pageSize, query),
+        enabled: sessionName !== '',
+        placeholderData: keepPreviousData,
         refetchOnWindowFocus: false,
     });
+}
 
+export function useDebouncedValue<T>(value: T, delayMs = 300): T {
+    const [debounced, setDebounced] = useState(value);
     useEffect(() => {
-        if (hasNextPage && !isFetchingNextPage && !isError) fetchNextPage();
-    }, [hasNextPage, isFetchingNextPage, isError, fetchNextPage]);
+        const timer = setTimeout(() => setDebounced(value), delayMs);
+        return () => clearTimeout(timer);
+    }, [value, delayMs]);
+    return debounced;
+}
 
-    const images = useMemo<ImageInfoDto[]>(() => data?.pages.flatMap((page) => page.result ?? []) ?? [], [data]);
-
-    return { images, isLoading, isError, isLoadingMore: !!hasNextPage };
+/** For the filter dialog: how many images match, and each number field's values. */
+export function useFilterSummary(sessionName: string, filter: ImageFilter | null, enabled: boolean) {
+    const sent = useDebouncedValue(filterParam(filter) ?? null);
+    return useQuery({
+        queryKey: ['images', sessionName, 'filter-summary', sent],
+        queryFn: () => fetchFilterSummary(sessionName, sent),
+        enabled: enabled && sessionName !== '',
+        placeholderData: keepPreviousData,
+        refetchOnWindowFocus: false,
+    });
 }

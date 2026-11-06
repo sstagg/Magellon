@@ -19,9 +19,10 @@ import {
     Typography,
 } from '@mui/material';
 import { Add, Close, DeleteOutlined, FilterList } from '@mui/icons-material';
-import type ImageInfoDto from '../../../entities/image/types.ts';
+import { useFilterSummary } from '../api/usePagedImagesHook.ts';
+import type { FilterSummary } from '../api/imagesApiReactQuery.tsx';
 import {
-    FILTER_FIELDS, OPERATORS, describeFilter, makeImageMatcher, newGroup, newRule, operatorsFor,
+    FILTER_FIELDS, OPERATORS, activeFilter, describeFilter, newGroup, newRule, operatorsFor,
     type FilterField, type FilterGroup, type FilterRule, type ImageFilter,
 } from '../lib/imageFilter.ts';
 
@@ -32,26 +33,21 @@ interface ImageFilterDialogProps {
     onClose: () => void;
     onApplyFilter: (filter: ImageFilter) => void;
     currentFilter: ImageFilter;
-    images: ImageInfoDto[] | null;
+    sessionName: string;
 }
 
 type Hints = Partial<Record<FilterField, string>>;
 
-/** What the session's values look like, under each value box. */
-const valueHints = (images: ImageInfoDto[]): Hints => {
+/** What the session's values look like, under each value box (from the server's summary). */
+const valueHints = (fields: FilterSummary['fields'] | undefined): Hints => {
     const hints: Hints = {};
+    if (!fields) return hints;
     (Object.keys(FILTER_FIELDS) as FilterField[]).forEach((field) => {
-        const { numeric, unit, value } = FILTER_FIELDS[field];
-        if (!numeric) return;
-        const values = images.map(value).filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
-        if (values.length === 0) {
-            hints[field] = 'No image in this session has it';
-            return;
-        }
-        const distinct = Array.from(new Set(values)).sort((a, b) => a - b);
-        hints[field] = distinct.length <= 6
-            ? `Values: ${distinct.join(', ')}`
-            : `${Math.min(...values)} to ${Math.max(...values)} ${unit} (${values.length} images)`;
+        const info = fields[field];
+        if (!info || !FILTER_FIELDS[field].numeric) return;
+        if (!info.count) hints[field] = 'No image in this session has it';
+        else if (info.values) hints[field] = `Values: ${info.values.join(', ')}`;
+        else hints[field] = `${info.min} to ${info.max} ${FILTER_FIELDS[field].unit} (${info.count} images)`;
     });
     return hints;
 };
@@ -164,18 +160,18 @@ const GroupEditor: React.FC<{
 };
 
 /** One filter for all the session's images, built from conditions joined by AND, OR and NOT. */
-export const ImageFilterDialog: React.FC<ImageFilterDialogProps> = ({ open, onClose, onApplyFilter, currentFilter, images }) => {
+export const ImageFilterDialog: React.FC<ImageFilterDialogProps> = ({ open, onClose, onApplyFilter, currentFilter, sessionName }) => {
     const [draft, setDraft] = useState<FilterGroup>(() => newGroup());
-    const list = useMemo(() => images ?? [], [images]);
-    const hints = useMemo(() => valueHints(list), [list]);
 
     useEffect(() => {
         if (open) setDraft(currentFilter.rules.length > 0 ? currentFilter : newGroup());
     }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const matcher = useMemo(() => makeImageMatcher(draft), [draft]);
-    const matching = matcher ? list.filter(matcher).length : list.length;
-    const summary = describeFilter(draft);
+    // The server counts the matches, checked as you pause typing.
+    const { data: summary, isFetching, isError } = useFilterSummary(sessionName, draft, open);
+    const hints = useMemo(() => valueHints(summary?.fields), [summary]);
+    const hasConditions = activeFilter(draft) !== null;
+    const summaryText = describeFilter(draft);
 
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
@@ -189,11 +185,13 @@ export const ImageFilterDialog: React.FC<ImageFilterDialogProps> = ({ open, onCl
             <Divider />
             <DialogContent>
                 <GroupEditor group={draft} hints={hints} depth={0} onChange={setDraft} />
-                <Alert severity={matcher && matching === 0 ? 'warning' : 'info'} icon={false} sx={{ mt: 2 }} data-testid="filter-preview">
+                <Alert severity={isError ? 'error' : hasConditions && summary?.matching === 0 ? 'warning' : 'info'} icon={false} sx={{ mt: 2 }} data-testid="filter-preview">
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {matching} of {list.length} images match
+                        {isError ? 'Could not count the matching images'
+                            : summary ? `${summary.matching} of ${summary.total} images match` : 'Counting...'}
+                        {isFetching && summary && ' (updating...)'}
                     </Typography>
-                    {summary && <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>{summary}</Typography>}
+                    {summaryText && <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>{summaryText}</Typography>}
                     <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
                         The columns and tree also keep the grids, squares and holes above a matching image.
                     </Typography>

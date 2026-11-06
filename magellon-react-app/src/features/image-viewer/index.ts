@@ -17,7 +17,6 @@ export { useAtlasData } from './lib/useAtlasData.ts';
 export { useImageDataFetching } from './lib/useImageDataFetching.ts';
 export { useImageNavigation } from './lib/useImageNavigation.ts';
 export { usePanelLayout } from './lib/usePanelLayout.ts';
-export { useColumnFilter } from './lib/useColumnFilter.ts';
 export { ImageNavigationProvider, useImageNavigationContext } from './lib/ImageNavigationContext.tsx';
 
 // Error boundary

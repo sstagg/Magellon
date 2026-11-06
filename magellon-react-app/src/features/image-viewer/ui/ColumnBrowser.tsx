@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
     Box,
     Paper,
@@ -17,9 +17,6 @@ import ColumnPreferences, {
     defaultColumnSettings
 } from './ColumnPreferences.tsx';
 import { useVisibleColumns, useColumnStatistics } from '../model/useVisibleColumns.ts';
-import { useImageViewerStore } from '../model/imageViewerStore.ts';
-import { useAllSessionImages } from '../api/usePagedImagesHook.ts';
-import { makeImageMatcher, matchesWithAncestors } from '../lib/imageFilter.ts';
 
 // Mirrors the app theme's drawer background (app/providers/theme/shared.ts).
 // Duplicated rather than imported to keep the FSD boundary clean (features
@@ -117,9 +114,7 @@ const ColumnLayout: React.FC<{
     settings: ColumnSettings;
     sessionName: string;
     onImageClick: (imageInfo: ImageInfoDto, column: number) => void;
-    visibleIds: Set<string> | null;
-    filterPending: boolean;
-}> = ({ columns, allColumns, settings, sessionName, onImageClick, visibleIds, filterPending }) => {
+}> = ({ columns, allColumns, settings, sessionName, onImageClick }) => {
     const isHorizontal = settings.columnDirection === 'horizontal';
 
     // Render empty state
@@ -171,8 +166,6 @@ const ColumnLayout: React.FC<{
                             onImageClick={onImageClick}
                             showControls={settings.showColumnControls}
                             collapsible={originalIndex > 0}
-                            visibleIds={visibleIds}
-                            filterPending={filterPending}
                             sx={{
                                 flexShrink: 0,
                                 ...(isHorizontal ? {
@@ -256,17 +249,6 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
 
     const [settingsCollapsed, setSettingsCollapsed] = useState(initialSettingsCollapsed);
 
-    // The session's filter: matching images and the grids, squares and holes above them.
-    const imageFilter = useImageViewerStore((state) => state.imageFilter);
-    const matcher = useMemo(() => makeImageMatcher(imageFilter), [imageFilter]);
-    const { images: sessionImages, isLoading: filterLoading, isLoadingMore: filterLoadingMore } =
-        useAllSessionImages(sessionName, matcher !== null);
-    const filterPending = matcher !== null && (filterLoading || filterLoadingMore);
-    const visibleIds = useMemo(
-        () => (matcher ? (filterPending ? new Set<string>() : matchesWithAncestors(sessionImages, matcher)) : null),
-        [matcher, filterPending, sessionImages]
-    );
-
     // Use custom hooks
     const visibleColumns = useVisibleColumns(imageColumns, columnSettings.autoHideEmptyColumns);
     const statistics = useColumnStatistics(imageColumns, visibleColumns);
@@ -311,8 +293,6 @@ export const ColumnBrowser: React.FC<StackedViewProps> = ({
                     settings={columnSettings}
                     sessionName={sessionName}
                     onImageClick={onImageClick}
-                    visibleIds={visibleIds}
-                    filterPending={filterPending}
                 />
             </Box>
         </Box>

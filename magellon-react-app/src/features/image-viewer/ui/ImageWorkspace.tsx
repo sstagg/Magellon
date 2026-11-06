@@ -36,7 +36,6 @@ import ImageTable from "./ImageTable.tsx";
 import { AtlasSection } from './AtlasSection.tsx';
 import { DeleteSessionButton } from './DeleteSessionButton.tsx';
 import ImageFilterDialog from './ImageFilterDialog.tsx';
-import { useAllSessionImages } from '../api/usePagedImagesHook.ts';
 import { EMPTY_FILTER, countActiveFilters, describeFilter } from '../lib/imageFilter.ts';
 
 interface ImageNavigatorProps {
@@ -78,7 +77,6 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
     const [filterOpen, setFilterOpen] = useState(false);
     const filterCount = countActiveFilters(imageFilter);
     const filterText = useMemo(() => describeFilter(imageFilter), [imageFilter]);
-    const { images: sessionImages } = useAllSessionImages(sessionName, filterOpen || filterCount > 0);
 
     // The selected session was deleted elsewhere (another tab or user, or its
     // import was stopped): once the refreshed list no longer has it, let it go.
@@ -248,7 +246,7 @@ export const ImageWorkspace: React.FC<ImageNavigatorProps> = ({
                 onClose={() => setFilterOpen(false)}
                 onApplyFilter={setImageFilter}
                 currentFilter={imageFilter}
-                images={sessionImages}
+                sessionName={sessionName}
             />
 
             {/* ─── Atlas section ─── */}

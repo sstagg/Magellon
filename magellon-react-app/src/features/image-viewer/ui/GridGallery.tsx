@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Grid, Box, Typography, CircularProgress, Pagination, Button } from '@mui/material';
 import type ImageInfoDto from '../../../entities/image/types.ts';
 import { ImageThumbnail } from './ImageThumbnail.tsx';
 import { useImageViewerStore } from '../model/imageViewerStore';
 import ImageGridControls from './ImageGridControls';
-import { useAllSessionImages } from '../api/usePagedImagesHook';
-import { EMPTY_FILTER, countActiveFilters, makeImageMatcher } from '../lib/imageFilter';
-import { openImagePath } from '../lib/imagePath';
+import { useImagesPage } from '../api/usePagedImagesHook';
+import { EMPTY_FILTER, countActiveFilters } from '../lib/imageFilter';
+import { openImageWithAncestors } from '../lib/imagePath';
 
 interface FlatImageViewerProps {
   sessionName: string;
@@ -28,25 +28,13 @@ export const GridGallery: React.FC<FlatImageViewerProps> = ({
   const [page, setPage] = useState(1);
   const [zoom, setZoom] = useState(50); // Default zoom level
   const { currentImage, imageColumns, imageFilter: filter, setImageFilter } = useImageViewerStore();
-  const { images: allImages, isLoading, isLoadingMore } = useAllSessionImages(sessionName);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const filteredImages = useMemo(
-    () => {
-      const matches = makeImageMatcher(filter);
-      return matches ? allImages.filter(matches) : allImages;
-    },
-    [allImages, filter]
-  );
-
-  // Calculate total pages
-  const totalPages = Math.ceil(filteredImages.length / itemsPerPage);
-
-  // Get current page's images
-  const currentPageImages = filteredImages.slice(
-      (page - 1) * itemsPerPage,
-      page * itemsPerPage
-  );
+  // The server filters, orders and pages the session's images: one page comes back.
+  const { data, isLoading, isFetching } = useImagesPage(sessionName, page, itemsPerPage, { allLevels: true, filter });
+  const currentPageImages = data?.result ?? [];
+  const matchingCount = data?.total_count ?? 0;
+  const totalPages = Math.ceil(matchingCount / itemsPerPage);
 
   // Reset to page 1 when filter changes
   useEffect(() => {
@@ -55,7 +43,7 @@ export const GridGallery: React.FC<FlatImageViewerProps> = ({
 
   // Handle image click
   const handleImageClick = (image: ImageInfoDto) => {
-    openImagePath(image, allImages, imageColumns.length, onImageClick);
+    openImageWithAncestors(image, imageColumns.length, onImageClick);
   };
 
   // Handle page change
@@ -99,7 +87,7 @@ export const GridGallery: React.FC<FlatImageViewerProps> = ({
     );
   }
 
-  if (allImages.length === 0) {
+  if (matchingCount === 0 && activeFilterCount === 0) {
     return (
       <Box sx={{ p: 2 }}>
         <Typography variant="h6" gutterBottom>{title}</Typography>
@@ -119,9 +107,9 @@ export const GridGallery: React.FC<FlatImageViewerProps> = ({
         <Typography variant="body2" sx={{
           color: "text.secondary"
         }}>
-          Showing {currentPageImages.length} of {filteredImages.length} images
-          {filteredImages.length !== allImages.length && ` (filtered from ${allImages.length})`}
-          {isLoadingMore && ' (loading more...)'}
+          Showing {currentPageImages.length} of {matchingCount} images
+          {activeFilterCount > 0 && ' matching the filter'}
+          {isFetching && ' (loading...)'}
         </Typography>
 
         {activeFilterCount > 0 && (
@@ -138,7 +126,7 @@ export const GridGallery: React.FC<FlatImageViewerProps> = ({
           zoom={zoom}
           onZoomChange={setZoom}
           filterCount={activeFilterCount}
-          totalImages={filteredImages.length}
+          totalImages={matchingCount}
       />
       {currentPageImages.length === 0 ? (
           <Box sx={{ p: 4, textAlign: 'center' }}>

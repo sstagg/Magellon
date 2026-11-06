@@ -1,9 +1,10 @@
-import type ImageInfoDto from '../../../entities/image/types.ts';
-
 /**
  * One filter over all of a session's images: conditions on a field
  * (resolution < 4, magnification ≠ 59000, name contains "ex"), combined in
  * groups with AND or OR, and a group can be negated with NOT.
+ *
+ * Only the filter's shape lives here: the server applies it
+ * (CoreService/services/image_filter.py), with the same fields and operators.
  */
 export type FilterField = 'name' | 'mag' | 'defocus' | 'resolution' | 'pixelSize' | 'children';
 export type FilterOperator = 'eq' | 'ne' | 'lt' | 'le' | 'gt' | 'ge' | 'contains' | 'notContains' | 'startsWith' | 'empty' | 'notEmpty';
@@ -26,18 +27,13 @@ export interface FilterGroup {
 
 export type ImageFilter = FilterGroup;
 
-export const FILTER_FIELDS: Record<FilterField, {
-    label: string;
-    unit: string;
-    numeric: boolean;
-    value: (image: ImageInfoDto) => number | string | null | undefined;
-}> = {
-    resolution: { label: 'CTF resolution', unit: 'Å', numeric: true, value: (image) => image.resolution },
-    mag: { label: 'Magnification', unit: '×', numeric: true, value: (image) => image.mag },
-    defocus: { label: 'Defocus', unit: 'μm', numeric: true, value: (image) => image.defocus },
-    pixelSize: { label: 'Pixel size', unit: 'Å/pix', numeric: true, value: (image) => image.pixelSize },
-    children: { label: 'Children', unit: '', numeric: true, value: (image) => image.children_count ?? 0 },
-    name: { label: 'Name', unit: '', numeric: false, value: (image) => image.name },
+export const FILTER_FIELDS: Record<FilterField, { label: string; unit: string; numeric: boolean }> = {
+    resolution: { label: 'CTF resolution', unit: 'Å', numeric: true },
+    mag: { label: 'Magnification', unit: '×', numeric: true },
+    defocus: { label: 'Defocus', unit: 'μm', numeric: true },
+    pixelSize: { label: 'Pixel size', unit: 'Å/pix', numeric: true },
+    children: { label: 'Children', unit: '', numeric: true },
+    name: { label: 'Name', unit: '', numeric: false },
 };
 
 /** applies: which fields it works on (numeric, text or both). */
@@ -88,55 +84,6 @@ export const activeFilter = (group: FilterGroup): FilterGroup | null => {
     return rules.length > 0 ? { ...group, rules } : null;
 };
 
-const matchesRule = (image: ImageInfoDto, rule: FilterRule): boolean => {
-    const field = FILTER_FIELDS[rule.field];
-    const raw = field.value(image);
-    const missing = raw == null || raw === '';
-    if (rule.operator === 'empty') return missing;
-    if (rule.operator === 'notEmpty') return !missing;
-    // An image without the value isn't equal to anything, and matches nothing else.
-    if (missing) return rule.operator === 'ne' || rule.operator === 'notContains';
-    if (field.numeric) {
-        const a = Number(raw);
-        const b = Number(rule.value);
-        switch (rule.operator) {
-            case 'eq': return a === b;
-            case 'ne': return a !== b;
-            case 'lt': return a < b;
-            case 'le': return a <= b;
-            case 'gt': return a > b;
-            case 'ge': return a >= b;
-            default: return false;
-        }
-    }
-    const a = String(raw).toLowerCase();
-    const b = rule.value.trim().toLowerCase();
-    switch (rule.operator) {
-        case 'eq': return a === b;
-        case 'ne': return a !== b;
-        case 'contains': return a.includes(b);
-        case 'notContains': return !a.includes(b);
-        case 'startsWith': return a.startsWith(b);
-        default: return false;
-    }
-};
-
-const matchesGroup = (image: ImageInfoDto, group: FilterGroup): boolean => {
-    const test = (node: FilterRule | FilterGroup) =>
-        node.kind === 'rule' ? matchesRule(image, node) : matchesGroup(image, node);
-    const result = group.combinator === 'and' ? group.rules.every(test) : group.rules.some(test);
-    return group.not ? !result : result;
-};
-
-/** A test for one image, or null when the filter has no finished condition. */
-export const makeImageMatcher = (filter: ImageFilter): ((image: ImageInfoDto) => boolean) | null => {
-    const active = activeFilter(filter);
-    return active ? (image) => matchesGroup(image, active) : null;
-};
-
-export const matchesImageFilter = (image: ImageInfoDto, filter: ImageFilter): boolean =>
-    makeImageMatcher(filter)?.(image) ?? true;
-
 export const countActiveFilters = (filter: ImageFilter): number => {
     const count = (group: FilterGroup): number =>
         group.rules.reduce((total, node) => total + (node.kind === 'rule' ? 1 : count(node)), 0);
@@ -164,20 +111,3 @@ export const describeFilter = (filter: ImageFilter): string => {
     return active ? group(active, false) : '';
 };
 
-/**
- * The images that match and every image above them, so in the column and tree
- * layouts a matching exposure can still be reached through its grid, square and hole.
- */
-export const matchesWithAncestors = (images: ImageInfoDto[], matches: (image: ImageInfoDto) => boolean): Set<string> => {
-    const byId = new Map(images.map((image) => [image.oid, image]));
-    const shown = new Set<string>();
-    images.forEach((image) => {
-        if (!matches(image)) return;
-        let current: ImageInfoDto | undefined = image;
-        while (current && !shown.has(current.oid)) {
-            shown.add(current.oid);
-            current = current.parent_id ? byId.get(current.parent_id) : undefined;
-        }
-    });
-    return shown;
-};

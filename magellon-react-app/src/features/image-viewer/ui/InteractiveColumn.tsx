@@ -37,9 +37,8 @@ import type ImageInfoDto from "../../../entities/image/types.ts";
 import { ImageColumn, withSelected } from "./ImageColumn.tsx";
 import { ImageThumbnail } from "./ImageThumbnail.tsx";
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
-import { useImageListQuery } from "../api/usePagedImagesHook.ts";
-import { useColumnFilter, type ColumnFilter } from '../lib/useColumnFilter.ts';
-import { EMPTY_FILTER } from '../lib/imageFilter.ts';
+import { useDebouncedValue, useImageListQuery } from "../api/usePagedImagesHook.ts";
+import { countActiveFilters, EMPTY_FILTER } from '../lib/imageFilter.ts';
 import { DEFAULT_PAGE_SIZE, TILE_WIDTH, COLUMN_HEIGHT_THRESHOLD } from '../constants';
 
 type DisplayMode = 'stack' | 'grid' | 'list';
@@ -57,10 +56,11 @@ interface SlickImageColumnProps {
     collapsible?: boolean;
     initialCollapsed?: boolean;
     sx?: object;
-    /** The images the session's filter leaves (with their ancestors); null when there is no filter. */
-    visibleIds?: Set<string> | null;
-    /** The filter is set but the session's images are still loading. */
-    filterPending?: boolean;
+}
+
+/** The column's own name search. */
+interface ColumnFilter {
+    search?: string;
 }
 
 export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
@@ -75,9 +75,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                                                                        initialDisplayMode = 'stack',
                                                                        collapsible = false,
                                                                        initialCollapsed = false,
-                                                                       sx = {},
-                                                                       visibleIds = null,
-                                                                       filterPending = false
+                                                                       sx = {}
                                                                    }) => {
     const theme = useTheme();
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -94,7 +92,13 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
     const [showSearch, setShowSearch] = useState(false);
     const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
-    const { imageColumns, setImageFilter } = useImageViewerStore();
+    const { imageColumns, imageFilter, setImageFilter } = useImageViewerStore();
+
+    // Search, order and the session's filter are all applied by the server.
+    const [filter, setFilter] = useState<ColumnFilter>({});
+    const [order, setOrder] = useState<'asc' | 'desc'>('asc');
+    const search = useDebouncedValue(filter.search?.trim() ?? '');
+    const filtering = countActiveFilters(imageFilter) > 0;
     // What is selected in this column, also from outside it (an atlas tile).
     const columnSelection = imageColumns[level]?.selectedImage ?? null;
 
@@ -108,10 +112,10 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
 
         if (newParentId !== parentId) {
             setParentId(newParentId);
-            resetFilter();
+            setFilter({});
             setSelectedImageId(null);
         }
-    }, [parentImage, level, parentId]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [parentImage, level, parentId]);
 
     const {
         data,
@@ -127,28 +131,27 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         parentId,
         pageSize: DEFAULT_PAGE_SIZE,
         level,
-        enabled: shouldLoad
+        enabled: shouldLoad,
+        // With a filter, the column keeps the images above a match so it can be reached.
+        query: { filter: imageFilter, includeAncestors: true, search, order },
     });
 
     const allImages = useMemo(
-        () => withSelected(data?.pages?.flatMap(page => page.result) || [], columnSelection),
-        [data, columnSelection]
+        () => {
+            const loaded = data?.pages?.flatMap(page => page.result ?? []) || [];
+            return filtering || search ? loaded : withSelected(loaded, columnSelection);
+        },
+        [data, columnSelection, filtering, search]
     );
 
-    const { filter, setFilter, resetFilter, sortConfig, setSortConfig, filteredImages } = useColumnFilter(allImages, visibleIds);
+    const filteredImages = allImages;
+    const total = data?.pages?.[0]?.total_count ?? allImages.length;
 
     useEffect(() => {
         setSelectedImageId(columnSelection?.oid || null);
     }, [columnSelection]);
 
     const activeFilterCount = filter.search ? 1 : 0;
-
-    // Filtering or reversing the order only means something over the whole column.
-    useEffect(() => {
-        if ((visibleIds || filter.search || sortConfig.direction === 'desc') && hasNextPage && !isFetchingNextPage && !isError) {
-            fetchNextPage();
-        }
-    }, [visibleIds, filter.search, sortConfig.direction, hasNextPage, isFetchingNextPage, isError, fetchNextPage]);
 
     const handleImageClick = useCallback((image: ImageInfoDto) => {
         setSelectedImageId(image.oid || null);
@@ -176,7 +179,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
         if (scrollRef.current) {
             scrollRef.current.scrollTop = 0;
         }
-    }, [filter, sortConfig]);
+    }, [search, order, imageFilter]);
 
     const getContentHeight = useCallback(() => {
         if (!isHorizontalMode) return '100%';
@@ -186,11 +189,7 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
     }, [isHorizontalMode, height]);
 
     const handleSortToggle = () => {
-        if (sortConfig.direction === 'asc') {
-            setSortConfig({ ...sortConfig, direction: 'desc' });
-        } else {
-            setSortConfig({ ...sortConfig, direction: 'asc' });
-        }
+        setOrder(order === 'asc' ? 'desc' : 'asc');
     };
 
     const renderSlickHeader = () => (
@@ -270,9 +269,9 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                     >
                         {caption}
                     </Typography>
-                    {filteredImages.length > 0 && (
+                    {total > 0 && (
                         <Chip
-                            label={filteredImages.length}
+                            label={total}
                             size="small"
                             variant="outlined"
                             sx={{
@@ -293,9 +292,9 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
                             color: theme.palette.text.secondary,
                             '&:hover': { color: theme.palette.text.primary },
                         }}
-                        title={sortConfig.direction === 'asc' ? 'Sort Z-A' : 'Sort A-Z'}
+                        title={order === 'asc' ? 'Sort Z-A' : 'Sort A-Z'}
                     >
-                        {sortConfig.direction === 'desc'
+                        {order === 'desc'
                             ? <ArrowUpAZ size={14} />
                             : <ArrowDownAZ size={14} />
                         }
@@ -319,11 +318,11 @@ export const InteractiveColumn: React.FC<SlickImageColumnProps> = ({
     const renderImages = () => {
         if (isCollapsed) return null;
 
-        if (allImages.length > 0 && filteredImages.length === 0) {
+        if (allImages.length === 0 && (filtering || search)) {
             return (
                 <Box sx={{ p: 2, textAlign: 'center' }} data-testid="column-no-match">
                     <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1 }}>
-                        {filterPending || hasNextPage ? 'Loading...' : `None of these ${allImages.length} images match the filter`}
+                        No images here match{search ? ` "${search}"` : ''}{filtering ? ' the filter' : ''}
                     </Typography>
                     <Button size="small" onClick={handleClearFilters}>Clear Filters</Button>
                 </Box>
