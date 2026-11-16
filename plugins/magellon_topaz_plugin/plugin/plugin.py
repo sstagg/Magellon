@@ -97,24 +97,37 @@ def _session_home() -> str:
     return os.path.join(gpfs, "home")
 
 
+def _scratch_dir(kind: str, base: str) -> str:
+    """A folder of its own for a call without a session (the backend's direct
+    /execute calls: Save current image, batch picking).
+
+    Never beside the input image: that is usually the lab's read-only research
+    storage. The jobs scratch area is writable, mounted at the same path in the
+    backend (which reads the file back), and cleaned every night."""
+    import uuid
+    jobs = os.environ.get("MAGELLON_JOBS_DIR") or ("/jobs" if os.path.isdir("/jobs") else None)
+    if not jobs:
+        import tempfile
+        jobs = tempfile.gettempdir()
+    return os.path.join(jobs, kind, f"{base}-{uuid.uuid4().hex[:8]}")
+
+
 def _picks_json_path(input_file: str, session: Optional[str]) -> str:
-    image_dir = os.path.dirname(os.path.abspath(input_file))
     base = os.path.splitext(os.path.basename(input_file))[0]
     if session:
         parent = os.path.join(_session_home(), session, "topaz_picks", base)
     else:
-        parent = os.path.join(image_dir, "topaz_picks", base)
+        parent = _scratch_dir("topaz_picks", base)
     return os.path.join(parent, "picks.json")
 
 
 def _denoised_mrc_path(input_file: str, override: Optional[str], session: Optional[str]) -> str:
     if override:
         return override
-    image_dir = os.path.dirname(os.path.abspath(input_file))
     base = os.path.splitext(os.path.basename(input_file))[0]
     if session:
         return os.path.join(_session_home(), session, "topaz_denoised", f"{base}.mrc")
-    return os.path.join(image_dir, f"{base}_denoised.mrc")
+    return os.path.join(_scratch_dir("topaz_denoised", base), f"{base}.mrc")
 
 
 # ---------------------------------------------------------------------------

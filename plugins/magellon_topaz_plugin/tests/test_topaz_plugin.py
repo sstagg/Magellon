@@ -442,3 +442,28 @@ def test_pick_plugin_advertises_preview_and_delegates(monkeypatch):
     )
     assert pv.num_particles == 5
     assert pick.discard_preview(pv.preview_id) is True
+
+
+# ---------------------------------------------------------------------------
+# Where picks are written
+# ---------------------------------------------------------------------------
+
+
+def test_without_a_session_picks_go_to_scratch_not_beside_the_image(monkeypatch, tmp_path):
+    from plugin import plugin as topaz
+
+    monkeypatch.setenv("MAGELLON_JOBS_DIR", str(tmp_path / "jobs"))
+    image = "/gpfs/research/readonly/session/original/img.mrc"
+    picks = topaz._picks_json_path(image, None)
+    denoised = topaz._denoised_mrc_path(image, None, None)
+    assert picks.startswith(str(tmp_path / "jobs" / "topaz_picks")) and picks.endswith("picks.json")
+    assert denoised.startswith(str(tmp_path / "jobs" / "topaz_denoised"))
+    assert "/gpfs/research" not in picks + denoised
+    assert topaz._picks_json_path(image, None) != picks  # each call gets its own folder
+
+
+def test_with_a_session_picks_go_to_the_session(monkeypatch, tmp_path):
+    from plugin import plugin as topaz
+
+    monkeypatch.setenv("MAGELLON_HOME_DIR", str(tmp_path / "home"))
+    assert topaz._picks_json_path("/x/img.mrc", "s1") == str(tmp_path / "home" / "s1" / "topaz_picks" / "img" / "picks.json")

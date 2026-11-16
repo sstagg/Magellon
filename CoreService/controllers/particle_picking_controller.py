@@ -1200,8 +1200,11 @@ async def template_pick_batch(
             "num_images": len(req.images),
             "ipp_name": req.ipp_name,
             "picker_params": req.picker_params,
+            "image_ids": [e.oid for e in req.images],
         },
-        image_ids=[e.oid for e in req.images],
+        # No per-image task rows: the batch runs the images itself and keeps
+        # each one's outcome in the result. Task rows would wait for reports
+        # that never come, leaving the job "running" (and later "never started").
         user_id=str(user_id),
     )
     job_id = envelope["job_id"]
@@ -1523,9 +1526,14 @@ async def _run_batch_job(
         result = BatchPickResult(
             total=total, succeeded=succeeded, failed=failed, items=items,
         )
-        completed = job_manager.complete_job(
-            job_id, result=result.model_dump(), num_items=succeeded,
-        )
+        if total and succeeded == 0:
+            reasons = sorted({item.error for item in items if item.error})
+            completed = job_manager.fail_job(
+                job_id, error=f"All {total} images failed: " + "; ".join(reasons)[:500])
+        else:
+            completed = job_manager.complete_job(
+                job_id, result=result.model_dump(), num_items=succeeded,
+            )
         await emit_job_update(sid, completed)
         await emit_log(
             'info', 'batch-picking',
