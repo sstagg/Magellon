@@ -1,0 +1,4 @@
+# Built outputs and review samples: large, and rebuilt from the scripts here.
+*.mp4
+*.srt
+voice-samples/
