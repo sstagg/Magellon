@@ -249,10 +249,25 @@ def isFilePresent(directory,suffix):
     files = glob.glob(os.path.join(directory, f"*{suffix}"))
     return os.path.abspath(files[0]) if files else None
 
+def get_dw_files(directory_path):
+    """The dose-weighted sums MotionCor wrote: (``_DW.mrc``, ``_DWS.mrc``).
+
+    MotionCor writes both whenever -FmDose is set: ``_DW`` sums every frame,
+    ``_DWS`` only the frames inside -SumRange (default 3-25 e/A^2). They are
+    looked up by exact suffix, because a ``*_DW*.mrc`` glob matches both and
+    returns them in file-system order, which picked one or the other at random.
+    Either entry is None when that file is missing.
+    """
+    def find(suffix):
+        files = sorted(glob.glob(os.path.join(directory_path, f"*{suffix}")))
+        return os.path.abspath(files[0]) if files else None
+    return find("_DW.mrc"), find("_DWS.mrc")
+
+
 def get_dw_file(directory_path):
-    """Get any DW variant file (.mrc) - accepts both _DW.mrc and _DWS.mrc"""
-    files = glob.glob(os.path.join(directory_path, "*_DW*.mrc"))
-    return os.path.abspath(files[0]) if files else None
+    """The main dose-weighted sum: ``_DW.mrc``, or ``_DWS.mrc`` when it is the only one."""
+    dw, dws = get_dw_files(directory_path)
+    return dw or dws
 
 def getRequirements(filePath):
     try:

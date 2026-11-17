@@ -5,7 +5,7 @@ import subprocess
 import json
 import concurrent.futures
 from core.helper import push_info_to_debug_queue
-from utils import get_dw_file, save_gain_file,convertToMRC,is_mrc_file,getImageSize,validateInput,build_motioncor3_command,getFrameAlignment,getPatchFrameAlignment,createframealignImage,isFilePresent,createframealignCenterImage,getFilecontentsfromThread
+from utils import get_dw_file, get_dw_files, save_gain_file,convertToMRC,is_mrc_file,getImageSize,validateInput,build_motioncor3_command,getFrameAlignment,getPatchFrameAlignment,createframealignImage,isFilePresent,createframealignCenterImage,getFilecontentsfromThread
 from datetime import datetime
 from core.settings import AppSettingsSingleton
 from magellon_sdk.models import MotionCorInput, OutputFile, TaskMessage, TaskResultMessage, DebugInfo, ImageMetaData
@@ -169,11 +169,15 @@ async def do_motioncor(params: TaskMessage)->TaskResultMessage:
         output_data={}
         print(directory_path)
         
-        # Search for _DW.mrc first, if not found try _DWS.mrc
-        dw_file = get_dw_file(directory_path)
-        
+        # MotionCor writes both _DW.mrc (all frames) and _DWS.mrc (frames in
+        # -SumRange). Keep both; _DW is the main result the images are made from.
+        dw_path, dws_path = get_dw_files(directory_path)
+        dw_file = dw_path or dws_path
+
         if dw_file:
             output_files.append(OutputFile(name="outputDWMrc", path=dw_file, required=True))
+            if dw_path and dws_path:
+                output_files.append(OutputFile(name="outputDWSMrc", path=dws_path, required=False))
         else:
             raise Exception(f"MotionCor failed: {mc_errors}" if mc_errors
                             else "output_DW or output_DWS output file not found")
