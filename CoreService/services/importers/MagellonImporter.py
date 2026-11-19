@@ -352,8 +352,8 @@ class MagellonImporter(BaseImporter):
         try:
             settings = {
                 'FmDose': 1.0,
-                'PatchesX': 7,
-                'PatchesY': 7,
+                'PatchesX': 5,
+                'PatchesY': 5,
                 'Group': 4
             }
             source_gains_dir = os.path.join(self.params.source_dir, 'home', GAINS_SUB_URL)

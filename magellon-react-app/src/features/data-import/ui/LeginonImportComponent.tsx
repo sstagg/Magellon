@@ -30,6 +30,7 @@ interface ILeginonImportForm {
     copy_images: boolean;
     copy_frames: boolean;
     retries: number;
+    total_dose: string;
 }
 const defaultValues: ILeginonImportForm = {
     magellon_project_name: "Leginon",
@@ -42,6 +43,7 @@ const defaultValues: ILeginonImportForm = {
     copy_images: false,
     copy_frames: false,
     retries: 0,
+    total_dose: "",
 };
 
 // Host directory the backend mounts at /gpfs (e.g. /gpfs/research/stagg).
@@ -214,6 +216,9 @@ export const LeginonImportComponent = () => {
             formData.append('copy_images', String(data.copy_images));
             formData.append('copy_frames', String(data.copy_frames));
             formData.append('retries', String(data.retries));
+            if (String(data.total_dose).trim()) {
+                formData.append('total_dose', String(data.total_dose).trim());
+            }
 
             if (defectsFile) formData.append('defects_file', defectsFile);
             if (gainsFile) formData.append('gains_file', gainsFile);
@@ -360,6 +365,24 @@ export const LeginonImportComponent = () => {
                         registration={register('gain_path', {
                             validate: (value) => !!gainsFile || !!toRelativePath(value)
                                 || 'Give the gain file, or upload it below',
+                        })} />
+                </Grid>
+
+                <Grid size={12}>
+                    <TextField
+                        fullWidth
+                        label="Total dose (e⁻/Å²), optional"
+                        variant="filled"
+                        margin="dense"
+                        type="number"
+                        placeholder="e.g. 60"
+                        error={!!errors.total_dose}
+                        helperText={errors.total_dose?.message
+                            || 'The dose of each whole exposure. Magellon divides it by the number of frames for MotionCor. '
+                            + 'Leave empty to use the dose in Leginon; with no dose there, the movies are not dose-weighted.'}
+                        {...register('total_dose', {
+                            validate: (value) => !String(value).trim() || Number(value) > 0
+                                || 'Enter a dose above 0, or leave it empty',
                         })} />
                 </Grid>
 

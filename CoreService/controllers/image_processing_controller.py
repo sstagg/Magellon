@@ -847,6 +847,7 @@ def process_image_job(
     copy_images: bool = Form(False),
     copy_frames: bool = Form(False),
     retries: int = Form(0),
+    total_dose: Optional[float] = Form(None),
 
     leginon_mysql_host: Optional[str] = Form(None),
     leginon_mysql_port: Optional[int] = Form(None),
@@ -923,6 +924,7 @@ def process_image_job(
         copy_images=copy_images,
         copy_frames=copy_frames,
         retries=retries,
+        total_dose=total_dose if total_dose and total_dose > 0 else None,
         leginon_mysql_host=leginon_mysql_host or leginon_db.HOST,
         leginon_mysql_port=leginon_mysql_port or leginon_db.PORT,
         leginon_mysql_db=leginon_mysql_db or leginon_db.DATABASE,

@@ -776,8 +776,8 @@ class BaseImporter(ABC):
             # Setup motioncor settings
             settings = {
                 'FmDose': 1.0,
-                'PatchesX': 7,
-                'PatchesY': 7,
+                'PatchesX': 5,
+                'PatchesY': 5,
                 'Group': 4
             }
 

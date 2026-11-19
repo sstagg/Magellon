@@ -169,12 +169,16 @@ async def do_motioncor(params: TaskMessage)->TaskResultMessage:
         output_data={}
         print(directory_path)
         
-        # MotionCor writes both _DW.mrc (all frames) and _DWS.mrc (frames in
-        # -SumRange). Keep both; _DW is the main result the images are made from.
+        # With a dose per frame, MotionCor writes both _DW.mrc (all frames) and
+        # _DWS.mrc (frames in -SumRange). Keep both; _DW is the main result the
+        # images are made from. Without a dose there is no dose weighting, and
+        # the plain aligned sum (OutMrc) is the result.
         dw_path, dws_path = get_dw_files(directory_path)
         dw_file = dw_path or dws_path
-
-        if dw_file:
+        if not dw_file and not the_task_data.FmDose and os.path.isfile(the_task_data.OutMrc):
+            dw_file = the_task_data.OutMrc
+            output_files.append(OutputFile(name="outputMrc", path=dw_file, required=True))
+        elif dw_file:
             output_files.append(OutputFile(name="outputDWMrc", path=dw_file, required=True))
             if dw_path and dws_path:
                 output_files.append(OutputFile(name="outputDWSMrc", path=dws_path, required=False))

@@ -55,8 +55,8 @@ DEFAULT_GAIN       = "C:/magellon/gpfs/24dec03a/home/gains/20241202_53597_gain_m
 GPFS_HOST_PATH     = "C:/magellon/gpfs"
 
 MOTIONCOR_SETTINGS = {
-    "PatchesX": 7,
-    "PatchesY": 7,
+    "PatchesX": 5,
+    "PatchesY": 5,
     "FmDose":   1.0,
     "Group":    4,
 }

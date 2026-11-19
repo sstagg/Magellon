@@ -208,6 +208,9 @@ class LeginonFrameTransferJobBase(ImportJobBase):
     images_directory: Optional[str] = None
     frames_directory: Optional[str] = None
     gain_path: Optional[str] = None
+    # Total dose of each exposure (e/A^2), typed by the user. Used instead of
+    # Leginon's dose; with neither, MotionCor does no dose weighting.
+    total_dose: Optional[float] = None
 
 class EpuImportJobBase(ImportJobBase):
     epu_dir_path: Optional[str] = None
@@ -290,6 +293,9 @@ class LeginonFrameTransferTaskDto(ImportTaskDto):
     job_dto: LeginonFrameTransferJobDto
     flip_gain: Optional[int] = None
     rot_gain: Optional[int] = None
+    # From Leginon, for MotionCor's dose per frame (total_dose / frame_count).
+    total_dose: Optional[float] = None  # e/A^2 over the whole exposure
+    frame_count: Optional[int] = None
 
 
 

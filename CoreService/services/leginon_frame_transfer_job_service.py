@@ -5,7 +5,7 @@ from datetime import datetime
 import os
 import json
 import uuid
-from typing import Dict
+from typing import Dict, Optional
 import concurrent.futures
 import logging
 
@@ -178,6 +178,18 @@ def remove_v_b_substrings(input_string):
     return re.sub(pattern, '', input_string)
 
 
+def frame_dose(total_dose, frame_count):
+    """MotionCor's -FmDose: the exposure's total dose (e/A^2) over its number
+    of frames, or None when either is missing or not positive."""
+    try:
+        total_dose, frame_count = float(total_dose), int(frame_count)
+    except (TypeError, ValueError):
+        return None
+    if total_dose <= 0 or frame_count <= 0:
+        return None
+    return round(total_dose / frame_count, 4)
+
+
 class LeginonFrameTransferJobService:
 
     def __init__(self):
@@ -198,6 +210,8 @@ class LeginonFrameTransferJobService:
         self._step_sent_at = 0.0
         # Kinds of problem already shown in the Logs panel for this import.
         self._logged_problems: set = set()
+        # A missing dose or frame count is logged once per import.
+        self._warned_dose = False
 
     def setup(self, input_json: str):
         input_data = json.loads(input_json)
@@ -405,6 +419,7 @@ class LeginonFrameTransferJobService:
                 cem.`exposure time` AS camera_exposure_time,
                 cem.`save frames` AS save_frames,
                 cem.`frames name` AS frame_names,
+                cem.nframes AS nframes,
                 cem.`SUBD|binning|x` AS bining_x,
                 cem.`SUBD|binning|y` AS bining_y,
                 pd.dose AS preset_dose,
@@ -582,6 +597,8 @@ class LeginonFrameTransferJobService:
                 ),
                 flip_gain=self._get_default('flip_gain', 0),
                 rot_gain=self._get_default('rot_gain', 0),
+                total_dose=image.get("calculated_dose"),
+                frame_count=image.get("nframes"),
             )
             logger.info(f"Created task_dto for {filename}: spherical_aberration={task_dto.spherical_aberration}")
             self.params.task_list.append(task_dto)
@@ -806,15 +823,32 @@ class LeginonFrameTransferJobService:
             logger.error(f"Error in compute_ctf_task: {str(e)}", exc_info=True)
             return {"error": str(e)}
 
+    def _frame_dose(self, task_dto) -> Optional[float]:
+        """The movie's dose per frame: the total dose the user typed, else
+        Leginon's, over the movie's frames. None means no dose weighting:
+        MotionCor then writes only the plain aligned sum."""
+        typed = getattr(self.params, "total_dose", None)
+        total = typed if typed else getattr(task_dto, "total_dose", None)
+        dose = frame_dose(total, getattr(task_dto, "frame_count", None))
+        if dose is None and not self._warned_dose:
+            self._warned_dose = True
+            logger.warning("No dose for %s in Leginon (dose=%s, frames=%s) and none typed: "
+                           "MotionCor runs without dose weighting",
+                           task_dto.file_name, total, getattr(task_dto, "frame_count", None))
+        return dose
+
     def compute_motioncor_task(self, abs_file_path: str, task_dto: ImportTaskDto):
         try:
             if task_dto.frame_name:
+                dose = self._frame_dose(task_dto)
                 settings = {
-                    'FmDose': 1.0,
-                    'PatchesX': 7,
-                    'PatchesY': 7,
+                    'FmDose': dose,
+                    'PatchesX': 5,
+                    'PatchesY': 5,
                     'Group': 4
                 }
+                if task_dto.acceleration_voltage:
+                    settings['kV'] = int(round(task_dto.acceleration_voltage))
 
                 # Use gains/defects paths prepared in `create_job` (saved to GPFS)
                 gain_path = getattr(self, 'gains_path', None)
