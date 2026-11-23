@@ -45,6 +45,7 @@ import { useFetchImageCtfInfo } from "../../../features/ctf-analysis/api/CtfRest
 import MetadataExplorer from "./MetadataExplorer.tsx";
 import { useFetchImageMetaData, useFetchRunCommand } from "../api/ImageMetaDataRestService.ts";
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
+import { pickDrafts } from '../model/pickDrafts.ts';
 import {ParticlePickingTab} from "./ParticlePickingTab.tsx";
 import { useAuthenticatedImage } from '../../../shared/lib/useAuthenticatedImage.ts';
 import { ImageInfoHeader } from "./ImageInfoHeader.tsx";
@@ -166,6 +167,17 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
         setSelectedParticlePicking(null);
     }, [selectedImage?.oid, setSelectedParticlePicking]);
 
+    // Back on an image with unsaved picks: select their record again, so
+    // the picks are restored (useParticleOperations reads the draft).
+    useEffect(() => {
+        const draft = pickDrafts.get(selectedImage?.oid);
+        if (!draft?.recordOid || !Array.isArray(ImageParticlePickings)) return;
+        if (useImageViewerStore.getState().selectedParticlePicking) return;
+        const record = ImageParticlePickings.find(
+            (r) => r.oid === draft.recordOid && r.image_id === selectedImage?.oid);
+        if (record) setSelectedParticlePicking(record);
+    }, [ImageParticlePickings, selectedImage?.oid, setSelectedParticlePicking]);
+
     // Enhanced tab configuration with dynamic badges
     const tabConfig = useMemo(() => [
         {
@@ -222,19 +234,27 @@ export const ImageInspector: React.FC<SoloImageViewerProps> = ({ selectedImage }
         }
     }, [setActiveTab, handleParticlePickingLoad, handleCtfInfoLoad]);
 
-    const handleSave = useCallback(async () => {
-        if (!selectedParticlePicking) return;
+    const handleSave = useCallback(async (): Promise<boolean> => {
+        // Read the record from the store, not this render: a caller holding
+        // an older handleSave (e.g. Accept in the settings panel) must still
+        // save the latest picks.
+        const record = useImageViewerStore.getState().selectedParticlePicking;
+        if (!record) return false;
 
         try {
             await updatePPMutation.mutateAsync({
-                oid: selectedParticlePicking.oid,
-                image_id: selectedParticlePicking.image_id,
-                data: selectedParticlePicking?.temp
+                oid: record.oid,
+                image_id: record.image_id,
+                data: record.temp ?? JSON.stringify(record.data_json ?? []),
             });
+            pickDrafts.delete(record.image_id);
+            refetchImageParticlePickings();
+            return true;
         } catch (error) {
             console.error('Failed to save particle picking:', error);
+            return false;
         }
-    }, [selectedParticlePicking, updatePPMutation]);
+    }, [updatePPMutation, refetchImageParticlePickings]);
 
     // Dialog handlers
     const handleOpen = () => {

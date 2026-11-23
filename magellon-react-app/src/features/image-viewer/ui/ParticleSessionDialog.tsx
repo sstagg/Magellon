@@ -12,6 +12,7 @@ import {
 
 import {useCreateParticlePickingMutation} from "../../../features/particle-picking/api/ParticlePickingRestService.ts";
 import type ImageInfoDto from "../../../entities/image/types.ts";
+import type { ParticlePickingDto } from "../../../entities/particle-picking/types.ts";
 
 
 const SuccessBox: React.FC = () => {
@@ -23,7 +24,13 @@ const SuccessBox: React.FC = () => {
         />
     );
 };
-export const ParticleSessionDialog: React.FC<{ open: boolean; onClose: () => void ;ImageDto:ImageInfoDto}> = ({ open, onClose,ImageDto }) => {
+export const ParticleSessionDialog: React.FC<{
+    open: boolean;
+    onClose: () => void;
+    ImageDto: ImageInfoDto;
+    /** Called with the new record, so the caller can select it right away. */
+    onCreated?: (record: ParticlePickingDto) => void;
+}> = ({ open, onClose, ImageDto, onCreated }) => {
     const [name, setName] = useState('');
     const [loading, setLoading] = useState(false);
     const [showError, setShowError] = useState(false);
@@ -41,12 +48,14 @@ export const ParticleSessionDialog: React.FC<{ open: boolean; onClose: () => voi
         } else {
             try {
                 setLoading(true); // Set loading to true
-                await mutation.mutateAsync({ metaName: name, imageName: ImageDto?.oid });
-                // setShowSuccess(true);
-                // setTimeout(() => {
-                //     setShowSuccess(false);
-                // }, 6000);
-                // onClose();
+                const created = await mutation.mutateAsync({ metaName: name.trim(), imageName: ImageDto?.oid });
+                // Select the new record and close, so picks made next go into
+                // it and Save stores them. (Left open and unselected, picks had
+                // no record to go to and Save stayed disabled.)
+                onCreated?.(created as ParticlePickingDto);
+                setName('');
+                mutation.reset();
+                onClose();
             } catch (error) {
                 console.error('Error:', error);
             } finally {

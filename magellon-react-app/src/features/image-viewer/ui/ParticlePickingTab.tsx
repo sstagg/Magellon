@@ -51,7 +51,8 @@ interface ParticlePickingTabProps {
     isIPPError: boolean;
     onParticlePickingLoad: () => void;
     OnIppSelected: (event: SelectChangeEvent) => void;
-    handleSave: () => void;
+    /** Saves the selected record; resolves to whether it worked. */
+    handleSave: () => Promise<boolean> | void;
     handleOpen: () => void;
     handleClose: () => void;
     handleIppUpdate: (ipp: ParticlePickingDto) => void;
@@ -74,6 +75,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
 
     const {
         selectedParticlePicking,
+        setSelectedParticlePicking,
         isParticlePickingDialogOpen,
         currentSession
     } = useImageViewerStore();
@@ -201,6 +203,7 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
             onParticlePickingLoad();
         },
         onRefreshIppList: onParticlePickingLoad,
+        savedPickings: ImageParticlePickings,
     });
 
     // Scale the default display radius to the coordinate space (reference: 15px at 1024 wide).
@@ -299,10 +302,19 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                     setPreviewParticles(pts);
                     handleParticlesUpdate(pts);
                 }}
-                onAcceptParticles={() => {
+                onAcceptParticles={async () => {
                     setPreviewParticles(null);
                     setLastResultCount(null);
-                    showSnackbar('Particles accepted', 'success');
+                    // Accept keeps the picks: save them into the selected record.
+                    if (!selectedParticlePicking) {
+                        showSnackbar('Choose or create a picking record, then Save (Ctrl+S) to keep these picks.', 'warning');
+                        return;
+                    }
+                    const saved = await handleSave();
+                    showSnackbar(saved === false
+                        ? `Could not save the picks to "${selectedParticlePicking.name}". Try Save (Ctrl+S) again.`
+                        : `Picks saved to "${selectedParticlePicking.name}"`,
+                        saved === false ? 'error' : 'success');
                 }}
                 onDiscardParticles={() => {
                     const kept = particles.filter(p =>
@@ -558,6 +570,20 @@ export const ParticlePickingTab: React.FC<ParticlePickingTabProps> = ({
                 open={isParticlePickingDialogOpen}
                 onClose={handleClose}
                 ImageDto={selectedImage!}
+                onCreated={(record) => {
+                    // Picks already on the image (e.g. made before creating the
+                    // record) go into the new record instead of being cleared.
+                    const carried = particles.length > 0 ? particles : [];
+                    setSelectedParticlePicking({
+                        ...record,
+                        data_json: carried,
+                        temp: JSON.stringify(carried),
+                    } as ParticlePickingDto);
+                    void onParticlePickingLoad();
+                    showSnackbar(carried.length
+                        ? `Created "${record.name}" with ${carried.length} picks. Save (Ctrl+S) to keep them.`
+                        : `Created "${record.name}". Add picks, then Save (Ctrl+S).`, 'success');
+                }}
             />
 
             {/* Snackbar for notifications */}

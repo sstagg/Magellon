@@ -5,6 +5,7 @@ import type ImageInfoDto from '../../../entities/image/types.ts';
 import { settings } from '../../../shared/config/settings.ts';
 import { apiErrorMessage } from '../../../shared/api/apiError.ts';
 import { useImageViewerStore } from '../model/imageViewerStore.ts';
+import { pickDrafts, picksDiffer } from '../model/pickDrafts.ts';
 
 // API path for the particle-picking feature endpoints. Lifted from
 // the legacy ``/plugins/pp/template-pick`` URL in PI-4 — these aren't
@@ -83,6 +84,8 @@ interface UseParticleOperationsParams {
     /** Called periodically during RMQ dispatch polling to refresh the IPP list.
      *  May return the updated list so the poller can detect when the new IPP appeared. */
     onRefreshIppList?: () => Promise<ParticlePickingDto[] | undefined> | void;
+    /** The image's records as saved on the server, to tell unsaved picks apart. */
+    savedPickings?: ParticlePickingDto[] | null;
 }
 
 export function useParticleOperations({
@@ -96,6 +99,7 @@ export function useParticleOperations({
     showSnackbar,
     onIppSaved,
     onRefreshIppList,
+    savedPickings,
 }: UseParticleOperationsParams) {
     const { setSelectedParticlePicking } = useImageViewerStore();
     const [particles, setParticles] = useState<Point[]>([]);
@@ -115,6 +119,22 @@ export function useParticleOperations({
     // particles were just loaded from the IPP (not modified by the user).
     const isLoadingFromIpp = useRef(false);
     const lastImageIdRef = useRef<string | null | undefined>(undefined);
+    // Latest picks / record / saved copies, read when the image changes.
+    const particlesRef = useRef<Point[]>([]);
+    particlesRef.current = particles;
+    const recordRef = useRef<ParticlePickingDto | null>(null);
+    recordRef.current = selectedParticlePicking;
+    const savedPickingsRef = useRef(savedPickings);
+    savedPickingsRef.current = savedPickings;
+
+    /** Whether the picks on screen differ from what the server has. */
+    const hasUnsavedPicks = useCallback((): boolean => {
+        const record = recordRef.current;
+        const current = particlesRef.current;
+        if (!record) return current.length > 0;
+        const saved = savedPickingsRef.current?.find((r) => r.oid === record.oid);
+        return picksDiffer(current, (saved?.data_json as Point[] | undefined) ?? []);
+    }, []);
 
     const [stats, setStats] = useState({
         total: 0,
@@ -177,6 +197,20 @@ export function useParticleOperations({
         }
         if (lastImageIdRef.current === imageId) return;
 
+        // Keep the picks the user hasn't saved (hand edits, or a preview)
+        // for the image they are leaving; they come back with it.
+        const leaving = lastImageIdRef.current;
+        const record = recordRef.current;
+        if (leaving && (!record || record.image_id === leaving) && hasUnsavedPicks()) {
+            pickDrafts.set(leaving, {
+                recordOid: record?.oid ?? null,
+                recordName: record?.name ?? null,
+                particles: particlesRef.current,
+            });
+            showSnackbar('Unsaved picks are kept for that image while this page is open. '
+                + 'Go back and Save (Ctrl+S) to keep them.', 'info');
+        }
+
         lastImageIdRef.current = imageId;
         isLoadingFromIpp.current = true;
         setParticles([]);
@@ -205,6 +239,20 @@ export function useParticleOperations({
             setImageShape(null);
             updateStats([]);
             setSelectedParticlePicking(null);
+            return;
+        }
+
+        const draft = pickDrafts.get(selectedImage?.oid);
+        if (selectedParticlePicking && draft && draft.recordOid === selectedParticlePicking.oid) {
+            // Unsaved picks left on this image: show them, and let the
+            // record sync them so Save stores them.
+            isLoadingFromIpp.current = false;
+            setParticles(draft.particles);
+            setHistory([[...draft.particles]]);
+            setHistoryIndex(0);
+            updateStats(draft.particles);
+            showSnackbar(`Restored ${draft.particles.length} unsaved picks in "${draft.recordName ?? 'this record'}". `
+                + 'Save (Ctrl+S) to keep them.', 'warning');
             return;
         }
 
@@ -245,6 +293,15 @@ export function useParticleOperations({
                 console.error('Error parsing particles:', error);
                 showSnackbar('Error loading particles', 'error');
             }
+        } else if (!selectedParticlePicking && draft && draft.recordOid === null) {
+            // A preview made without a record: show it again.
+            isLoadingFromIpp.current = true;
+            setParticles(draft.particles);
+            setHistory([[...draft.particles]]);
+            setHistoryIndex(0);
+            updateStats(draft.particles);
+            showSnackbar('Restored the unsaved preview for this image. '
+                + 'Choose or create a picking record and Save to keep it.', 'warning');
         } else {
             isLoadingFromIpp.current = true;
             setParticles([]);
@@ -253,6 +310,18 @@ export function useParticleOperations({
             setImageShape(null);
         }
     }, [selectedParticlePicking?.oid, selectedImage?.oid, setSelectedParticlePicking, updateStats]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Closing or reloading the page loses unsaved picks: ask first.
+    useEffect(() => {
+        const warn = (e: BeforeUnloadEvent) => {
+            if (pickDrafts.size() > 0 || hasUnsavedPicks()) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', warn);
+        return () => window.removeEventListener('beforeunload', warn);
+    }, [hasUnsavedPicks]);
 
     // Sync the store's selectedParticlePicking when the user edits particles.
     // Skip when particles were just loaded from the IPP to avoid an
