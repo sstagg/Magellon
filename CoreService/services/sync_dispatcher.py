@@ -324,7 +324,7 @@ def _build_target(
 # Default per-call timeout. Sync paths are designed for sub-second
 # interactive use; allow a generous ceiling for cold-start preview
 # computations. Per-call overrides in dispatch_capability(timeout_seconds=).
-_DEFAULT_TIMEOUT_SECONDS = 60.0
+_DEFAULT_TIMEOUT_SECONDS = 3600.0  # the web proxy's own limit for API calls
 
 # Reviewer D: a fresh httpx.Client per dispatch_capability call did
 # a TCP handshake every time, killing retune's sub-100ms target. Use

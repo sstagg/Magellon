@@ -106,13 +106,12 @@ def _http_from_dispatch_error(exc: Exception) -> HTTPException:
     return HTTPException(status_code=500, detail=str(exc))
 
 
-# Per-verb timeouts. Interactive retune is sub-100ms typical; cap at
-# 5s so a hung plugin surfaces fast. Preview is the cold-start
-# computation (load image, FFT correlation) — needs more headroom.
-# Run/sync is the full job; keep the dispatcher's general default.
-_TIMEOUT_RETUNE_S = 5.0
-_TIMEOUT_PREVIEW_S = 30.0
-_TIMEOUT_RUN_S = 60.0
+# Per-verb timeouts, all at the web proxy's own limit (nginx
+# proxy_read_timeout 3600 for the API), so a slow plugin is never cut
+# off here first: Topaz on the CPU takes minutes for an 8192 x 8192 image.
+_TIMEOUT_RETUNE_S = 3600.0
+_TIMEOUT_PREVIEW_S = 3600.0
+_TIMEOUT_RUN_S = 3600.0
 
 
 async def _dispatch_off_thread(
