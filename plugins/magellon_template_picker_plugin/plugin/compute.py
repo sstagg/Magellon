@@ -135,7 +135,27 @@ def _rescale_template(
 
     from scipy import ndimage  # lazy
 
-    out = ndimage.zoom(np.asarray(template, dtype=np.float32), zoom=scale, order=1)
+    tmpl = np.asarray(template, dtype=np.float32)
+    if scale < 1.0:
+        # Shrinking: average neighbouring pixels first, as the micrograph is
+        # binned, instead of keeping every n-th pixel. Plain zoom subsamples,
+        # so a template finer than the working image turned into noise (a
+        # template cut from the micrograph scored 0.28 on its own particle
+        # instead of 1.0).
+        factor = 1.0 / scale
+        whole = int(round(factor))
+        if whole > 1 and abs(factor - whole) < 1e-3:
+            h, w = (tmpl.shape[0] // whole) * whole, (tmpl.shape[1] // whole) * whole
+            if h == 0 or w == 0:
+                raise ValueError(
+                    "template became too small after pixel-size/bin rescaling; "
+                    "lower bin_factor or use a larger template"
+                )
+            return tmpl[:h, :w].reshape(h // whole, whole, w // whole, whole).mean(axis=(1, 3)).astype(np.float32)
+        # Not a whole factor: smooth away detail finer than the new pixel.
+        tmpl = ndimage.gaussian_filter(tmpl, sigma=0.5 * factor)
+
+    out = ndimage.zoom(tmpl, zoom=scale, order=1)
     if out.ndim != 2 or min(out.shape) < 2:
         raise ValueError(
             "template became too small after pixel-size/bin rescaling; "

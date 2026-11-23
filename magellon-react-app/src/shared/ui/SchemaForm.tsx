@@ -25,8 +25,9 @@
  *   file_path, file_path_list, hidden
  */
 
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import getAxiosClient from '../api/AxiosClient.ts';
+import { settings } from '../config/settings.ts';
 import {
     Box,
     Typography,
@@ -343,6 +344,47 @@ const SelectField: React.FC<{
     );
 };
 
+/** A small picture of an image file on the server (MRC files are rendered
+ *  by the backend), so the user can see e.g. what a template looks like.
+ *  Hovering shows it larger. Falls back to a file icon when it can't load. */
+const FileThumbnail: React.FC<{ path: string }> = ({ path }) => {
+    const [url, setUrl] = useState<string | null>(null);
+    const [failed, setFailed] = useState(false);
+    useEffect(() => {
+        let objectUrl: string | null = null;
+        let cancelled = false;
+        setUrl(null);
+        setFailed(false);
+        // Bare file names (no server path yet) can't be previewed.
+        if (!path.startsWith('/')) { setFailed(true); return; }
+        getAxiosClient(settings.ConfigData.SERVER_API_URL)
+            .get('/web/files/preview', { params: { path }, responseType: 'blob' })
+            .then((res) => {
+                if (cancelled) return;
+                objectUrl = URL.createObjectURL(res.data);
+                setUrl(objectUrl);
+            })
+            .catch(() => { if (!cancelled) setFailed(true); });
+        return () => {
+            cancelled = true;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [path]);
+
+    if (failed) return <FileIcon sx={{ fontSize: 16, color: 'text.secondary' }} />;
+    const box = { width: 40, height: 40, borderRadius: 0.5, bgcolor: 'black', objectFit: 'contain' as const };
+    if (!url) return <Box sx={{ ...box, opacity: 0.3 }} />;
+    return (
+        <Tooltip
+            placement="left"
+            title={<Box component="img" src={url} alt={getFileName(path)}
+                        sx={{ width: 200, height: 200, objectFit: 'contain', display: 'block', bgcolor: 'black' }} />}
+        >
+            <Box component="img" src={url} alt={getFileName(path)} sx={box} />
+        </Tooltip>
+    );
+};
+
 const FilePathListField: React.FC<{
     field: FieldSchema;
     value: string[];
@@ -382,7 +424,7 @@ const FilePathListField: React.FC<{
         setUploading(true);
         setUploadError(null);
         try {
-            const api = getAxiosClient();
+            const api = getAxiosClient(settings.ConfigData.SERVER_API_URL);
             const form = new FormData();
             form.append('path', uploadDir);
             form.append('overwrite', 'true');
@@ -478,8 +520,8 @@ const FilePathListField: React.FC<{
                 <List dense sx={{ py: 0 }}>
                     {paths.map((p, i) => (
                         <ListItem key={i} sx={{ px: 1, py: 0.25, borderRadius: 1, '&:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.04) } }}>
-                            <ListItemIcon sx={{ minWidth: 28 }}>
-                                <FileIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                            <ListItemIcon sx={{ minWidth: 48 }}>
+                                <FileThumbnail path={p} />
                             </ListItemIcon>
                             <Tooltip title={p} placement="left">
                                 <ListItemText primary={getFileName(p)} slotProps={{

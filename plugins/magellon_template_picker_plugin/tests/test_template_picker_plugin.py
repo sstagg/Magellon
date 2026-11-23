@@ -143,6 +143,20 @@ def test_preprocess_bins_image_and_rescales_templates():
     assert working_templates[0].shape == (2, 2)
 
 
+def test_shrunk_template_is_averaged_like_the_image():
+    """A template finer than the working image is averaged, not subsampled,
+    so a template cut from the micrograph matches its binned self."""
+    from plugin.compute import _bin_image, _rescale_template
+
+    rng = np.random.default_rng(0)
+    template = rng.normal(size=(32, 32)).astype(np.float32)
+
+    shrunk = _rescale_template(template, template_apix=1.0, target_apix=4.0)
+
+    assert shrunk.shape == (8, 8)
+    assert np.allclose(shrunk, _bin_image(template, 4))
+
+
 # ---------------------------------------------------------------------------
 # Compute helpers (path resolution)
 # ---------------------------------------------------------------------------

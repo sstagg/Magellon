@@ -36,7 +36,7 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from sqlalchemy.orm import Session
 
 from config import ORIGINAL_IMAGES_SUB_URL, app_settings
@@ -274,6 +274,13 @@ def _preview_payload(req: PreviewRequest, is_topaz: bool) -> Dict[str, Any]:
         return {"image_path": image_path, **extras}
     # template-picker: re-validate against the strict input model so a
     # bad body still 422s even though this endpoint's signature is loose.
+    # Settings of another method (Topaz's model/scale/radius stay in the
+    # form after switching) are dropped first, as batch picking does.
+    known = set(TemplatePickerInput.model_fields)
+    dropped = sorted(set(extras) - known)
+    if dropped:
+        logger.info("preview: ignoring settings the template picker doesn't use: %s", dropped)
+    extras = {k: v for k, v in extras.items() if k in known}
     tp = TemplatePickerInput.model_validate({"image_path": image_path, **extras})
     return _plugin_payload(tp)
 
@@ -1095,6 +1102,15 @@ class RunAndSaveRequest(BaseModel):
     ipp_name: str = Field(default="Auto-pick", description="ImageMetaData.name for the saved record")
     picker_params: TemplatePickerInput
 
+    @field_validator("picker_params", mode="before")
+    @classmethod
+    def _drop_other_methods_settings(cls, value):
+        # Topaz's model/scale/radius stay in the form after switching to the
+        # template picker; drop them as preview and batch picking do.
+        if isinstance(value, dict):
+            return {k: v for k, v in value.items() if k in TemplatePickerInput.model_fields}
+        return value
+
 
 class RunAndSaveResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -1721,7 +1737,7 @@ async def sam2_click_pick(req: Sam2ClickRequest) -> Sam2ClickResult:
                 "/click-pick",
                 body=body,
                 target_backend=_SAM2_BACKEND_ID,
-                timeout_seconds=30.0,
+                timeout_seconds=3600.0,
             ),
         )
     except (BackendNotLive, CapabilityMissing, PluginCallFailed) as exc:

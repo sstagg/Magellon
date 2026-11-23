@@ -136,19 +136,15 @@ class TemplatePickerInput(BaseModel):
     diameter_angstrom: float = Field(
         default=220.0,  # Sandbox README example value — usable test fixture
         gt=0,
+        title="Particle diameter",
         description="Expected particle diameter",
         json_schema_extra={
-            "ui_widget": "slider",
+            "ui_widget": "number",
             "ui_group": "Auto-picking Settings",
             "ui_order": 5,
             "ui_step": 5,
             "ui_unit": "Å",
-            "ui_marks": [
-                {"value": 50, "label": "50"},
-                {"value": 200, "label": "200"},
-                {"value": 500, "label": "500"},
-            ],
-            "ui_help": "Approximate diameter of the target particle. "
+            "ui_help": "Approximate diameter of the target particle, in Ångströms. "
                        "Controls the correlation mask radius.",
         },
     )
